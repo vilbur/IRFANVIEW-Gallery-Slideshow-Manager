@@ -1,0 +1,1 @@
+# IRFANVIEW-Gallery-Slideshow-Manager
