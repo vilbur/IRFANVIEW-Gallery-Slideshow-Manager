@@ -44,7 +44,6 @@ last_command_id := ""
 script_is_exiting := false
 switching_slideshow := false
 automatic_enter_in_progress := false
-irfan_keyword_menu_map := {}
 manager_window_id := ""
 manager_monitor_index := 0
 manager_monitor_signature := ""
@@ -204,7 +203,7 @@ return
 
 $RButton::
     KeyWait, RButton
-    showCurrentParentKeywordMenu()
+    requestCurrentParentKeywordWindow()
 return
 
 $Esc::
@@ -251,13 +250,6 @@ return
 
 trayExit:
     confirmExitBridge()
-return
-
-irfanKeywordMenuHandler:
-    handleCurrentParentKeywordMenuItem(A_ThisMenuItem)
-return
-
-irfanKeywordMenuNoOp:
 return
 
 RemoteGuiClose:
@@ -784,13 +776,12 @@ buildParentRatingStars(rating_value)
 }
 
 /*
-Show the same parent-keyword assignment menu while IrfanView is active.
-Checked words are already assigned to the current slideshow parent.
+Ask the HTML manager to show its keyword window for the active slideshow
+parent. Keyword assignment now has one shared UI.
 */
-showCurrentParentKeywordMenu()
+requestCurrentParentKeywordWindow()
 {
-    global root_folder, current_parent, current_gallery
-    global irfan_keyword_menu_map
+    global root_folder, current_parent, current_gallery, SESSION_INI
 
     loadSettings()
 
@@ -802,445 +793,34 @@ showCurrentParentKeywordMenu()
 
     if (root_folder = "" || !InStr(FileExist(root_folder), "D"))
     {
-        showTrayTip("Keyword menu", "The galleries root folder is unavailable.", 3)
+        showTrayTip("Keywords", "The galleries root folder is unavailable.", 3)
         return false
     }
 
     if (current_parent = "" || !InStr(FileExist(current_parent), "D"))
     {
-        showTrayTip("Keyword menu", "No current slideshow parent is available.", 3)
+        showTrayTip("Keywords", "No current slideshow parent is available.", 3)
         return false
     }
 
-    keyword_ini := root_folder . "\gallery-keywords.ini"
-    IniRead, keyword_text, %keyword_ini%, Keywords, List,
-    keyword_list := parsePipeKeywordList(keyword_text)
-
-    parent_section := encodeParentKeywordSection(current_parent)
-    IniRead, assigned_text, %keyword_ini%, %parent_section%, Keywords,
-    assigned_keywords := parsePipeKeywordList(assigned_text)
-    assigned_map := buildKeywordMap(assigned_keywords)
-
-    Menu, IrfanKeywordMenu, UseErrorLevel
-    Menu, IrfanKeywordMenu, DeleteAll
-    irfan_keyword_menu_map := {}
-
-    parent_rating := getSavedParentRating(current_parent)
-    rating_stars := buildParentRatingStars(parent_rating)
-    rating_item := parent_rating > 0 ? "Rating: " . rating_stars : "Rating: 0★"
-
-    Menu, IrfanKeywordMenu, Add, %rating_item%, irfanKeywordMenuNoOp
-    Menu, IrfanKeywordMenu, Disable, %rating_item%
-    Menu, IrfanKeywordMenu, Add
-
-    if (keyword_list.Length() < 1)
-    {
-        empty_item := "No keywords defined"
-        Menu, IrfanKeywordMenu, Add, %empty_item%, irfanKeywordMenuNoOp
-        Menu, IrfanKeywordMenu, Disable, %empty_item%
-    }
-    else
-    {
-        keyword_groups := groupKeywordsByPatternNative(keyword_list)
-        added_group_count := 0
-
-        for group_index, keyword_group in keyword_groups
-        {
-            if (keyword_group.Length() < 1)
-            {
-                continue
-            }
-
-            if (added_group_count > 0)
-            {
-                Menu, IrfanKeywordMenu, Add
-            }
-
-            for keyword_index, keyword_name in keyword_group
-            {
-                menu_item_name := escapeMenuItemText(keyword_name)
-
-                ; A_ThisMenuItem can contain either form.
-                irfan_keyword_menu_map[menu_item_name] := keyword_name
-                irfan_keyword_menu_map[keyword_name] := keyword_name
-
-                Menu, IrfanKeywordMenu, Add, %menu_item_name%, irfanKeywordMenuHandler
-
-                if (assigned_map.HasKey(toLowerText(keyword_name)))
-                {
-                    Menu, IrfanKeywordMenu, Check, %menu_item_name%
-                }
-            }
-
-            added_group_count++
-        }
-    }
-
-    Menu, IrfanKeywordMenu, Show
-    return true
-}
-
-/*
-Resolve the clicked menu item and toggle its parent assignment.
-*/
-handleCurrentParentKeywordMenuItem(menu_item_name)
-{
-    global irfan_keyword_menu_map
-
-    if (!irfan_keyword_menu_map.HasKey(menu_item_name))
-    {
-        return false
-    }
-
-    keyword_name := irfan_keyword_menu_map[menu_item_name]
-    return toggleKeywordForCurrentParent(keyword_name)
-}
-
-/*
-Toggle one keyword on the current slideshow parent.
-The revision value tells an open HTML UI to refresh its badges and cache.
-*/
-toggleKeywordForCurrentParent(keyword_name)
-{
-    global root_folder, current_parent, SESSION_INI
-
-    keyword_name := Trim(keyword_name)
-
-    if (keyword_name = "" || root_folder = "" || current_parent = "")
-    {
-        return false
-    }
-
-    keyword_ini := root_folder . "\gallery-keywords.ini"
-    parent_section := encodeParentKeywordSection(current_parent)
-
-    IniRead, assigned_text, %keyword_ini%, %parent_section%, Keywords,
-    assigned_keywords := parsePipeKeywordList(assigned_text)
-    keyword_key := toLowerText(keyword_name)
-    updated_keywords := []
-    keyword_was_assigned := false
-
-    for assigned_index, assigned_keyword_name in assigned_keywords
-    {
-        if (toLowerText(assigned_keyword_name) = keyword_key)
-        {
-            keyword_was_assigned := true
-            continue
-        }
-
-        updated_keywords.Push(assigned_keyword_name)
-    }
-
-    if (!keyword_was_assigned)
-    {
-        updated_keywords.Push(keyword_name)
-    }
-
-    if (updated_keywords.Length() < 1)
-    {
-        IniDelete, %keyword_ini%, %parent_section%
-    }
-    else
-    {
-        updated_text := joinPipeKeywordList(updated_keywords)
-        IniWrite, %updated_text%, %keyword_ini%, %parent_section%, Keywords
-    }
+    keyword_window_request := A_NowUTC . "-" . A_TickCount
+    IniWrite, %current_parent%, %SESSION_INI%, Session, KeywordWindowParent
 
     if (ErrorLevel)
     {
-        showTrayTip("Keyword error", "The parent assignment could not be saved.", 3)
+        showTrayTip("Keywords", "The keyword window request could not be saved.", 3)
         return false
     }
 
-    keyword_revision := A_NowUTC . "-" . A_TickCount
-    IniWrite, %keyword_revision%, %SESSION_INI%, Session, KeywordRevision
+    IniWrite, %keyword_window_request%, %SESSION_INI%, Session, KeywordWindowRequest
 
-    SplitPath, current_parent, parent_name
-    action_text := keyword_was_assigned ? "Removed" : "Assigned"
-    showTrayTip(action_text . " keyword", keyword_name . "`n" . parent_name, 1)
-    return true
-}
-
-/*
-Read, de-duplicate, and alphabetically sort a pipe-delimited keyword list.
-*/
-parsePipeKeywordList(keyword_text)
-{
-    parsed_keywords := []
-    seen_keywords := {}
-
-    Loop, Parse, keyword_text, |
+    if (ErrorLevel)
     {
-        keyword_name := Trim(A_LoopField)
-        keyword_key := toLowerText(keyword_name)
-
-        if (keyword_name = "" || seen_keywords.HasKey(keyword_key))
-        {
-            continue
-        }
-
-        seen_keywords[keyword_key] := true
-        parsed_keywords.Push(keyword_name)
-    }
-
-    return parsed_keywords
-}
-
-/*
-Return true when one character has uppercase/lowercase forms.
-*/
-isCasedKeywordCharacterNative(character)
-{
-    if (character = "")
-    {
+        showTrayTip("Keywords", "The keyword window request could not be saved.", 3)
         return false
     }
 
-    StringUpper, upper_character, character
-    StringLower, lower_character, character
-    return upper_character != lower_character
-}
-
-/*
-Return true when text contains at least one cased character.
-*/
-keywordHasCasedCharacterNative(keyword_text)
-{
-    Loop, Parse, keyword_text
-    {
-        if (isCasedKeywordCharacterNative(A_LoopField))
-        {
-            return true
-        }
-    }
-
-    return false
-}
-
-/*
-Return the first cased character in text.
-*/
-firstCasedKeywordCharacterNative(keyword_text)
-{
-    Loop, Parse, keyword_text
-    {
-        if (isCasedKeywordCharacterNative(A_LoopField))
-        {
-            return A_LoopField
-        }
-    }
-
-    return ""
-}
-
-/*
-Classify text as uppercase, capital, lowercase, or other.
-*/
-getKeywordCasePatternNative(keyword_text)
-{
-    if (keywordHasCasedCharacterNative(keyword_text))
-    {
-        StringUpper, upper_text, keyword_text
-        StringLower, lower_text, keyword_text
-
-        if (keyword_text = upper_text)
-        {
-            return "uppercase"
-        }
-
-        if (keyword_text = lower_text)
-        {
-            return "lowercase"
-        }
-    }
-
-    first_letter := firstCasedKeywordCharacterNative(keyword_text)
-
-    if (first_letter != "")
-    {
-        StringUpper, upper_first_letter, first_letter
-
-        if (first_letter = upper_first_letter)
-        {
-            return "capital"
-        }
-    }
-
-    return "other"
-}
-
-/*
-Classify one keyword by special prefix and capitalization.
-*/
-getKeywordFormattingNative(keyword_name, ByRef is_special, ByRef special_character, ByRef case_pattern)
-{
-    first_character := SubStr(keyword_name, 1, 1)
-    is_special := first_character != "" && !isCasedKeywordCharacterNative(first_character) && !RegExMatch(first_character, "^\d$")
-
-    if (is_special)
-    {
-        special_character := first_character
-        case_text := SubStr(keyword_name, 2)
-    }
-    else
-    {
-        special_character := ""
-        case_text := keyword_name
-    }
-
-    case_pattern := getKeywordCasePatternNative(case_text)
-    return true
-}
-
-/*
-Build groups in pattern order while preserving source order inside each group.
-*/
-groupKeywordsByPatternNative(keyword_list)
-{
-    pattern_order := ["uppercase", "capital", "lowercase", "other"]
-    special_groups := {}
-    special_character_order := {}
-    plain_groups := {}
-
-    for pattern_index, pattern_name in pattern_order
-    {
-        special_groups[pattern_name] := {}
-        special_character_order[pattern_name] := []
-        plain_groups[pattern_name] := []
-    }
-
-    for keyword_index, keyword_name in keyword_list
-    {
-        getKeywordFormattingNative(keyword_name, is_special, special_character, case_pattern)
-
-        if (is_special)
-        {
-            pattern_groups := special_groups[case_pattern]
-            character_order := special_character_order[case_pattern]
-
-            if (!pattern_groups.HasKey(special_character))
-            {
-                pattern_groups[special_character] := []
-                character_order.Push(special_character)
-            }
-
-            pattern_groups[special_character].Push(keyword_name)
-        }
-        else
-        {
-            plain_groups[case_pattern].Push(keyword_name)
-        }
-    }
-
-    grouped_keywords := []
-
-    ; Special-prefix UPPERCASE, Capital, lowercase, Other.
-    for pattern_index, pattern_name in pattern_order
-    {
-        pattern_groups := special_groups[pattern_name]
-        character_order := special_character_order[pattern_name]
-
-        for character_index, special_character in character_order
-        {
-            keyword_group := pattern_groups[special_character]
-            sortKeywordArray(keyword_group)
-            grouped_keywords.Push(keyword_group)
-        }
-    }
-
-    ; Plain UPPERCASE, Capital, lowercase, Other.
-    for pattern_index, pattern_name in pattern_order
-    {
-        if (plain_groups[pattern_name].Length() > 0)
-        {
-            keyword_group := plain_groups[pattern_name]
-            sortKeywordArray(keyword_group)
-            grouped_keywords.Push(keyword_group)
-        }
-    }
-
-    return grouped_keywords
-}
-
-/*
-Join one keyword array for gallery-keywords.ini.
-*/
-joinPipeKeywordList(keyword_list)
-{
-    keyword_text := ""
-
-    for keyword_index, keyword_name in keyword_list
-    {
-        if (keyword_text != "")
-        {
-            keyword_text .= "|"
-        }
-
-        keyword_text .= keyword_name
-    }
-
-    return keyword_text
-}
-
-/*
-Build a lowercase lookup map from one keyword array.
-*/
-buildKeywordMap(keyword_list)
-{
-    keyword_map := {}
-
-    for keyword_index, keyword_name in keyword_list
-    {
-        keyword_map[toLowerText(keyword_name)] := true
-    }
-
-    return keyword_map
-}
-
-/*
-Sort an AutoHotkey v1 array alphabetically, case-insensitively.
-*/
-sortKeywordArray(ByRef keyword_list)
-{
-    keyword_count := keyword_list.Length()
-
-    if (keyword_count < 2)
-    {
-        return true
-    }
-
-    Loop, % keyword_count - 1
-    {
-        remaining_pairs := keyword_count - A_Index
-        swapped_items := false
-
-        Loop, %remaining_pairs%
-        {
-            left_index := A_Index
-            right_index := left_index + 1
-            left_keyword := keyword_list[left_index]
-            right_keyword := keyword_list[right_index]
-
-            left_key := toLowerText(left_keyword)
-            right_key := toLowerText(right_keyword)
-            should_swap := left_key > right_key
-            should_swap := should_swap || (left_key = right_key && left_keyword > right_keyword)
-
-            if (should_swap)
-            {
-                keyword_list[left_index] := right_keyword
-                keyword_list[right_index] := left_keyword
-                swapped_items := true
-            }
-        }
-
-        if (!swapped_items)
-        {
-            break
-        }
-    }
-
-    return true
+    return launchHtmlManager()
 }
 
 /*
@@ -1270,14 +850,6 @@ encodeParentKeywordSection(parent_folder)
 }
 
 /*
-Escape ampersands so Windows menus show literal keyword text.
-*/
-escapeMenuItemText(keyword_name)
-{
-    return StrReplace(keyword_name, "&", "&&")
-}
-
-/*
 Open the HTML tile manager beside this bridge script.
 */
 launchHtmlManager()
@@ -1286,7 +858,14 @@ launchHtmlManager()
 
     if (existing_manager_id != "")
     {
+        WinGet, existing_manager_state, MinMax, ahk_id %existing_manager_id%
         WinShow, ahk_id %existing_manager_id%
+
+        if (existing_manager_state = -1)
+        {
+            WinRestore, ahk_id %existing_manager_id%
+        }
+
         WinActivate, ahk_id %existing_manager_id%
         return true
     }

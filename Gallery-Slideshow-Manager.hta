@@ -5107,7 +5107,7 @@ function searchChanged() {
     renderParents();
 }
 
-function showKeywordContext(parent, x, y) {
+function showKeywordContext(parent, x, y, centered) {
     var menu = document.getElementById("contextMenu");
     var parentRating = parseInt(parent.rating, 10) || 0;
     menu.innerHTML =
@@ -5213,6 +5213,15 @@ function showKeywordContext(parent, x, y) {
         - menu.offsetHeight
         - margin;
 
+    if (centered) {
+        x = Math.round(
+            (document.documentElement.clientWidth - menu.offsetWidth) / 2
+        );
+        y = Math.round(
+            (document.documentElement.clientHeight - menu.offsetHeight) / 2
+        );
+    }
+
     menu.style.left =
         Math.max(margin, Math.min(x, maximumLeft))
         + "px";
@@ -5223,6 +5232,40 @@ function showKeywordContext(parent, x, y) {
 
 function hideContextMenu() {
     document.getElementById("contextMenu").style.display = "none";
+}
+
+function showRequestedKeywordWindow(parentPath) {
+    var normalizedParentPath = normalizePath(parentPath);
+    var parent = null;
+    var i;
+
+    if (!normalizedParentPath) {
+        return false;
+    }
+
+    loadKeywords();
+
+    for (i = 0; i < state.parents.length; i++) {
+        if (lower(state.parents[i].path) === lower(normalizedParentPath)) {
+            parent = state.parents[i];
+            parent.keywords = getParentKeywords(parent.path);
+            parent.rating = getParentRating(parent.path);
+            break;
+        }
+    }
+
+    if (!parent) {
+        parent = {
+            path: normalizedParentPath,
+            name: fso.GetFileName(normalizedParentPath),
+            keywords: getParentKeywords(normalizedParentPath),
+            rating: getParentRating(normalizedParentPath)
+        };
+    }
+
+    showKeywordContext(parent, 0, 0, true);
+    setStatus("Keywords: " + parent.name);
+    return true;
 }
 
 function toggleParentKeyword(parent, word, checked) {
@@ -5332,6 +5375,21 @@ function pollSession() {
     var currentParent = normalizePath(getIniValue(data, "Session", "CurrentParent", ""));
     var currentGallery = normalizePath(getIniValue(data, "Session", "CurrentGallery", ""));
     var keywordRevision = getIniValue(data, "Session", "KeywordRevision", "");
+    var keywordWindowRequest = getIniValue(
+        data,
+        "Session",
+        "KeywordWindowRequest",
+        ""
+    );
+    var keywordWindowHandled = getIniValue(
+        data,
+        "Session",
+        "KeywordWindowHandled",
+        ""
+    );
+    var keywordWindowParent = normalizePath(
+        getIniValue(data, "Session", "KeywordWindowParent", "")
+    );
     var ratingRevision = getIniValue(data, "Session", "RatingRevision", "");
     var changed = lower(currentParent) !== lower(state.currentParentPath)
         || lower(currentGallery) !== lower(state.currentGalleryPath);
@@ -5349,6 +5407,15 @@ function pollSession() {
 
     if (ratingsChanged) {
         refreshParentRatings();
+    }
+
+    if (
+        keywordWindowRequest
+        && keywordWindowRequest !== keywordWindowHandled
+        && showRequestedKeywordWindow(keywordWindowParent || currentParent)
+    ) {
+        data.Session.KeywordWindowHandled = keywordWindowRequest;
+        writeIni(sessionPath, data);
     }
 
     if (changed && currentGallery) {

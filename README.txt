@@ -82,6 +82,8 @@ Tile behavior
 
 - Right-click a parent tile to assign keywords.
 
+- Right-click during an active IrfanView slideshow to open that same keyword window for the current parent.
+
 - Keyword filters use OR matching.
 
 - Random slideshow respects search and keyword filters.
