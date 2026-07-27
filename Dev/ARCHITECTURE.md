@@ -107,10 +107,19 @@ Rules:
 
 - preview and execution always use the same stored path;
 - execution never recalculates a destination already previewed;
+- prepared navigation may recover a temporarily unavailable live path only after validating the prepared gallery and requested destination type;
+- empty navigation paths never reach slideshow startup;
 - replacing a slideshow updates state atomically;
 - stale prepared slots are cleared;
 - managed process exit clears session state;
 - errors must not leave IrfanView or VLC disabled.
+
+### Filtered-navigation queue
+
+- The HTA publishes a complete queue through a temporary file before replacing the shared INI.
+- Signature caching may skip a rewrite only while the shared queue exists and is non-empty.
+- A valid queue, including a valid zero-match queue, is authoritative for filters.
+- A missing, empty or corrupt queue allows the bridge to discover candidates directly from the gallery tree so navigation remains operational.
 
 ## Main flows
 
@@ -132,6 +141,7 @@ Start EXE
 ```text
 Select gallery
 → Double-click or Start command
+→ Select random navigation by default, or normal for explicit SLIDESHOW
 → Bridge validates path
 → Stop/replace current managed slideshow
 → Start IrfanView
@@ -175,6 +185,10 @@ returns to the newly running slideshow. Closing Remote before execution cancels
 the timer, clears temporary preview state, restores slideshow-window input and
 returns focus where possible.
 
+Before a next-parent launch, both the live candidate and any prepared fallback
+are validated. The destination must exist, differ from the current gallery and
+belong to a different parent. Failure leaves the running slideshow untouched.
+
 ## Hotkey ownership
 
 The bridge is the only owner of manager slideshow-navigation hotkeys.
@@ -192,6 +206,9 @@ The bridge is the only owner of manager slideshow-navigation hotkeys.
 - **0.57** — Remote design introduced; Windows runtime still requires user confirmation.
 - **0.58** — single/double Tab control model and configurable Remote timeout; Windows runtime still requires user confirmation.
 - **0.59** — gallery-image Remote preview, Ctrl+Tab parent offers and close-on-start; Windows runtime still requires user confirmation.
+- **0.60** — guarded Ctrl+Tab parent switching with validated prepared-slot recovery; Windows runtime still requires user confirmation.
+- **0.61** — Random Gallery default and strict next-parent destination validation; Windows runtime still requires user confirmation.
+- **0.62** — atomic queue publishing and direct-library recovery for corrupt random-navigation queues; Windows runtime still requires user confirmation.
 
 Static validation is not runtime validation.
 

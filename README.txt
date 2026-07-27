@@ -1,4 +1,4 @@
-Gallery Slideshow Manager — HTML version 0.59
+Gallery Slideshow Manager — HTML version 0.62
 
 ================================================
 
@@ -43,7 +43,8 @@ How to start
 
 4. Click a parent tile to display its gallery tiles.
 
-5. Double-click a gallery tile to start it.
+5. Double-click a gallery tile to start it as the first item of a random
+   slideshow.
 
 
 
@@ -84,6 +85,8 @@ Tile behavior
 - Keyword filters use OR matching.
 
 - Random slideshow respects search and keyword filters.
+- Random Gallery is the default slideshow mode. The selected gallery still
+  starts first.
 
 
 
@@ -94,6 +97,8 @@ Native controls
 - Single Tab while IrfanView or VLC is active: next gallery.
 - Double Tab while IrfanView or VLC is active: open Remote.
 - Ctrl+Tab while IrfanView or VLC is active: next parent gallery.
+- An invalid or unavailable next-parent destination never replaces the
+  running slideshow and is reported as a navigation notice.
 - Tab while Remote has focus: offer the next gallery and start its timeout.
 - Ctrl+Tab while Remote has focus: offer the first gallery in the next parent
   and start its timeout.
@@ -741,3 +746,29 @@ Version 0.59
 - Remote closes automatically after its displayed gallery starts successfully.
 - Remote displays the first direct image of the offered gallery, with parent folder.jpg as fallback.
 - Ctrl+TAB inside Remote offers the first eligible gallery in the next parent and restarts the timeout.
+
+
+Version 0.60
+------------
+- Fixed Ctrl+TAB next-parent navigation passing an empty fallback path to the gallery starter.
+- A verified prepared next-parent destination is used when live path resolution is temporarily unavailable.
+- If neither destination is valid, the current slideshow remains open and a navigation notice is shown.
+
+
+Version 0.61
+------------
+- Random Gallery is now the default mode for gallery double-click and direct gallery starts.
+- The selected gallery remains the first slideshow item; following destinations are random.
+- The explicit SLIDESHOW action remains available for normal sequential navigation.
+- Ctrl+TAB now validates both live and prepared candidates before any launch call.
+- Next-parent candidates must exist, differ from the current gallery and belong to a different parent.
+- Starting 0.61 replaces an older resident bridge so the guarded navigation path becomes active.
+
+
+Version 0.62
+------------
+- Fixed Random Gallery navigation failing when the shared eligible-gallery queue was truncated to zero bytes.
+- The manager now writes the navigation queue through a completed temporary file instead of truncating the live file.
+- A missing or empty queue is automatically republished even when its in-memory signature has not changed.
+- If the queue is missing or corrupt, the bridge builds random candidates directly from the gallery tree.
+- A valid queue containing zero filter matches remains authoritative and does not use the fallback.

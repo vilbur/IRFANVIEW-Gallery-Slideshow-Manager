@@ -2,6 +2,46 @@
 
 This records design milestones and trusted baselines, not every code edit.
 
+## 0.62
+
+Random next-item failure fixed at the queue boundary:
+
+- live diagnosis found a zero-byte filtered-navigation INI;
+- the manager now writes that queue through a complete temporary file;
+- signature caching no longer suppresses repair of a missing or empty queue;
+- the bridge falls back to direct library discovery only when the queue is missing or corrupt;
+- a valid zero-match filtered queue remains authoritative;
+- random parent-first selection remains unchanged once candidates are available.
+
+Status: statically validated and exercised against the live zero-byte queue;
+full Windows slideshow runtime still requires user confirmation.
+
+## 0.61
+
+Random Gallery is now the default slideshow mode:
+
+- gallery double-click and direct gallery starts select random navigation;
+- the user-selected gallery remains the first slideshow item;
+- the explicit `SLIDESHOW` action still selects normal sequential navigation;
+- new or mode-less restored sessions default to random;
+- Ctrl+Tab validates live and prepared destinations before launch;
+- parent destinations must exist and belong to a different parent;
+- Remote Ctrl+Tab rejects same-parent candidates.
+
+Status: statically validated; Windows runtime still requires user confirmation.
+
+## 0.60
+
+Next-parent navigation hardened:
+
+- Ctrl+Tab no longer sends an empty path to `startGallery`;
+- a valid prepared next-parent slot is used when live destination resolution is temporarily unavailable;
+- prepared parent recovery must point to an existing gallery in a different parent;
+- if neither live nor prepared destination is valid, the current slideshow remains running and a navigation notice is shown;
+- redundant pre-closing of IrfanView was removed from the prepared-switch dispatcher.
+
+Status: statically validated; Windows runtime still requires user confirmation.
+
 ## 0.59
 
 Remote preview refined:

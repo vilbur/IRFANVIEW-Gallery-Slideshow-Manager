@@ -36,7 +36,9 @@ Run the selected gallery in IrfanView and control it through the bridge.
 ### Start
 
 - The selected gallery always starts first.
-- Double-click starts the selected gallery.
+- Double-click starts the selected gallery in Random Gallery mode.
+- Random Gallery is the default mode for direct gallery starts.
+- The explicit `SLIDESHOW` action starts normal sequential navigation.
 - Remote can execute the gallery currently shown in preview.
 - Normal slideshow mode must not substitute another gallery before start.
 
@@ -64,6 +66,8 @@ Run the selected gallery in IrfanView and control it through the bridge.
 - Ctrl+Tab moves to the next parent gallery.
 - Tab inside Remote offers the next gallery and starts its timeout.
 - Ctrl+Tab inside Remote offers the first eligible gallery in the next parent and starts its timeout.
+- A next-parent candidate must exist and belong to a different parent.
+- Invalid live and prepared parent candidates leave the current slideshow running.
 - While Remote is open, slideshow hotkeys are inactive outside Remote.
 - Remote closes after its displayed gallery starts successfully.
 - Closing Remote restores slideshow input.
@@ -78,6 +82,7 @@ Run galleries in genuinely random order.
 
 - User-selected gallery starts first.
 - Random selection starts only when choosing the following destination.
+- Random is the default navigation mode unless the user explicitly starts the normal `SLIDESHOW` action.
 
 ### Random selection
 
@@ -88,6 +93,8 @@ Run galleries in genuinely random order.
 - Avoid immediately repeating the current gallery when alternatives exist.
 - Use recent-history avoidance where possible.
 - Reset history only when all eligible options have been exhausted.
+- A missing or corrupt manager queue falls back to direct gallery-tree discovery.
+- A valid queue with zero filter matches must not fall back or bypass filters.
 
 ### Mandatory stored-destination workflow
 
@@ -248,10 +255,15 @@ Rules:
 
 - each slot has one purpose;
 - validate path before execution;
+- use a verified prepared destination when live resolution is temporarily unavailable;
+- never pass an empty or nonexistent fallback path to the gallery starter;
+- leave the current slideshow running when navigation has no valid destination;
 - clear stale slots;
 - execute exactly the prepared gallery;
 - do not silently substitute another gallery;
 - random slots preserve stored destination identity.
+- the manager publishes complete filtered queues through a temporary file;
+- a missing or zero-byte queue is republished even when membership is unchanged.
 
 ## Remote preview image
 

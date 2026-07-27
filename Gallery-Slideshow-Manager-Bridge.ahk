@@ -10,7 +10,7 @@ SetWorkingDir, %A_ScriptDir%
 ; AutoHotkey v1.1.36 native bridge for the HTML tile interface.
 ; Handles IrfanView, VLC, global navigation, dynamic lists, and background preparation.
 
-SCRIPT_VERSION := "0.59"
+SCRIPT_VERSION := "0.62"
 APP_NAME := "Gallery-Slideshow-Manager"
 DATA_DIR := A_Temp . "\" . APP_NAME
 SETTINGS_INI := DATA_DIR . "\" . APP_NAME . ".ini"
@@ -65,7 +65,7 @@ temporary_vlc_mute_active := false
 temporary_vlc_mute_window_id := ""
 temporary_vlc_mute_pid := ""
 temporary_vlc_mute_duration_ms := 10000
-random_navigation_active := false
+random_navigation_active := true
 random_unique_active := false
 random_unique_seen := []
 random_unique_parent_seen := []
@@ -2257,6 +2257,14 @@ previewRemoteDirection(direction)
     SplitPath, candidate_gallery,, candidate_parent
     candidate_parent := normalizeFolderPath(candidate_parent)
 
+    if (direction = "parent"
+        && toLowerText(candidate_parent) = toLowerText(base_parent))
+    {
+        showTrayTip("Remote", "No other eligible parent gallery was found.", 2)
+        activateRemoteWindow()
+        return false
+    }
+
     remote_preview_gallery := candidate_gallery
     remote_preview_parent := candidate_parent
     remote_preview_direction := direction
@@ -2685,6 +2693,40 @@ destroyRemoteWindow()
 }
 
 /*
+Return true only when a navigation destination is safe for the requested
+switch. Parent switches must leave the current parent, and every switch must
+leave the current gallery.
+*/
+isNavigationDestinationUsable(gallery_path, switch_type, source_gallery, source_parent)
+{
+    gallery_path := normalizeFolderPath(gallery_path)
+
+    if (gallery_path = "" || !InStr(FileExist(gallery_path), "D"))
+    {
+        return false
+    }
+
+    if (toLowerText(gallery_path) = toLowerText(source_gallery))
+    {
+        return false
+    }
+
+    if (switch_type = "parent" || switch_type = "previousparent")
+    {
+        SplitPath, gallery_path,, destination_parent
+        destination_parent := normalizeFolderPath(destination_parent)
+
+        if (destination_parent = ""
+            || toLowerText(destination_parent) = toLowerText(source_parent))
+        {
+            return false
+        }
+    }
+
+    return true
+}
+
+/*
 Use a prepared slot, falling back to fresh dynamic preparation when needed.
 */
 requestPreparedSwitch(switch_type)
@@ -2722,6 +2764,8 @@ requestPreparedSwitch(switch_type)
         return false
     }
 
+    prepared_gallery := getPreparedSlotGalleryPath(slot_prefix)
+
     if (isRandomNavigationMode())
     {
         fallback_gallery := ensureStoredRandomDestination()
@@ -2739,7 +2783,28 @@ requestPreparedSwitch(switch_type)
         fallback_gallery := getPreviousParentGalleryPath(current_parent)
     }
 
-    saveAndCloseCurrentIrfanView()
+    fallback_gallery := normalizeFolderPath(fallback_gallery)
+    prepared_gallery := normalizeFolderPath(prepared_gallery)
+
+    if (!isNavigationDestinationUsable(fallback_gallery, switch_type, current_gallery, current_parent))
+    {
+        if (!isNavigationDestinationUsable(prepared_gallery, switch_type, current_gallery, current_parent))
+        {
+            if (switch_type = "gallery")
+            {
+                error_label := "No eligible next gallery was found."
+            }
+            else
+            {
+                error_label := "No eligible parent gallery was found."
+            }
+
+            showTrayTip("Gallery navigation", error_label, 2)
+            return false
+        }
+
+        fallback_gallery := prepared_gallery
+    }
 
     if (preparedSlotMatchesGallery(slot_prefix, fallback_gallery))
     {
@@ -3326,6 +3391,34 @@ Choose a random parent different from the current one, then choose
 a random eligible gallery inside it.
 */
 /*
+Build random-navigation groups directly from the gallery tree.
+This is used only when the manager queue is missing or corrupt; a valid queue
+with zero matches remains authoritative and does not fall back.
+*/
+getLibraryParentGalleryGroups()
+{
+    global root_folder
+
+    parent_groups := []
+    parent_folders := getParentFolders(root_folder)
+
+    for parent_index, parent_folder in parent_folders
+    {
+        gallery_folders := getGalleryFolders(parent_folder)
+
+        if (gallery_folders.Length() < 1)
+        {
+            continue
+        }
+
+        parent_group := {parent: parent_folder, galleries: gallery_folders}
+        parent_groups.Push(parent_group)
+    }
+
+    return parent_groups
+}
+
+/*
 Build parent groups from the filtered queue written by the HTML UI.
 The queue already reflects keyword, rating, and search filters.
 */
@@ -3337,6 +3430,8 @@ getFilteredParentGalleryGroups(ByRef queue_is_valid)
 
     if (!queue_is_valid)
     {
+        parent_groups := getLibraryParentGalleryGroups()
+        queue_is_valid := parent_groups.Length() > 0
         return parent_groups
     }
 
@@ -4830,7 +4925,7 @@ clearRunningSessionState()
     current_irfan_pid := ""
     current_vlc_window_id := ""
     current_vlc_pid := ""
-    random_navigation_active := false
+    random_navigation_active := true
     random_unique_active := false
     random_unique_seen := []
     random_unique_parent_seen := []
@@ -5006,7 +5101,7 @@ readSessionState()
     IniRead, current_parent, %SESSION_INI%, Session, CurrentParent,
     IniRead, current_gallery, %SESSION_INI%, Session, CurrentGallery,
     IniRead, current_video, %SESSION_INI%, Session, CurrentVideo,
-    IniRead, navigation_mode, %SESSION_INI%, Session, NavigationMode, normal
+    IniRead, navigation_mode, %SESSION_INI%, Session, NavigationMode, random
     IniRead, unique_value, %SESSION_INI%, Session, RandomUnique, 0
     IniRead, unique_seen_text, %SESSION_INI%, Session, RandomUniqueSeen,
     IniRead, unique_parent_seen_text, %SESSION_INI%, Session, RandomUniqueParentSeen,

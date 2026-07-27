@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta charset="utf-8" />
-<title>Gallery Slideshow Manager 0.59</title>
+<title>Gallery Slideshow Manager 0.62</title>
 <hta:application
     id="galleryApp"
     applicationname="Gallery Slideshow Manager"
@@ -855,7 +855,7 @@ var fso = new ActiveXObject("Scripting.FileSystemObject");
 var shell = new ActiveXObject("WScript.Shell");
 var shellApp = new ActiveXObject("Shell.Application");
 
-var APP_VERSION = "0.59";
+var APP_VERSION = "0.62";
 var APP_NAME = "Gallery-Slideshow-Manager";
 var appDir = getApplicationDirectory();
 var tempDir = shell.ExpandEnvironmentStrings("%TEMP%");
@@ -895,9 +895,9 @@ var state = {
     expandedLetter: "",
     selectedParent: null,
     selectedGallery: null,
-    activeSlideshowType: "",
+    activeSlideshowType: "random",
     filteredQueueSignature: null,
-    navigationOrderMode: "normal",
+    navigationOrderMode: "random",
     randomMembershipSignature: "",
     randomParentOrder: [],
     randomGalleryOrders: {},
@@ -1389,6 +1389,57 @@ function writeText(path, text, allowDeferredWrite) {
 
     if (allowDeferredWrite !== false) {
         scheduleDeferredFileWrite(key, path, output);
+    }
+
+    return false;
+}
+
+function nonEmptyFileExists(path) {
+    try {
+        return fso.FileExists(path)
+            && Number(fso.GetFile(path).Size) > 0;
+    } catch (error) {
+        return false;
+    }
+}
+
+function writeTextAtomically(path, text) {
+    var output = String(text == null ? "" : text);
+    var tempPath =
+        path
+        + ".write-"
+        + String(new Date().getTime())
+        + "-"
+        + String(Math.floor(Math.random() * 100000))
+        + ".tmp";
+    var attempt;
+
+    if (!writeText(tempPath, output, false)) {
+        return false;
+    }
+
+    for (attempt = 0; attempt < 10; attempt++) {
+        try {
+            if (fso.FileExists(path)) {
+                fso.DeleteFile(path, true);
+            }
+
+            fso.MoveFile(tempPath, path);
+            sharedFileTextCache[sharedFileKey(path)] =
+                output;
+            return true;
+        } catch (error) {
+            if (attempt < 9) {
+                waitForSharedFile(15 + (attempt * 10));
+            }
+        }
+    }
+
+    try {
+        if (fso.FileExists(tempPath)) {
+            fso.DeleteFile(tempPath, true);
+        }
+    } catch (cleanupError) {
     }
 
     return false;
@@ -2044,7 +2095,7 @@ function restoreActiveSlideshowType() {
     );
 
     if (!currentGallery) {
-        setActiveSlideshowType("");
+        setActiveSlideshowType("random");
         return false;
     }
 
@@ -2056,7 +2107,7 @@ function restoreActiveSlideshowType() {
             navigationData,
             "Queue",
             "Mode",
-            "normal"
+            "random"
         )
     );
 
@@ -3946,7 +3997,10 @@ function updateFilteredNavigationQueue(visibleParents) {
 
     var signature = signatureParts.join("\n");
 
-    if (signature === state.filteredQueueSignature) {
+    if (
+        signature === state.filteredQueueSignature
+        && nonEmptyFileExists(filteredNavigationPath)
+    ) {
         return true;
     }
 
@@ -3973,10 +4027,9 @@ function updateFilteredNavigationQueue(visibleParents) {
     }
 
     if (
-        !writeText(
+        !writeTextAtomically(
             filteredNavigationPath,
-            serializeIni(data),
-            false
+            serializeIni(data)
         )
     ) {
         setStatus(
@@ -4765,7 +4818,7 @@ function startRandomFromSelectedGallery() {
 
     setActiveSlideshowType("random");
     closeGalleryDialog();
-    startGallery(gallery, true);
+    startGallery(gallery, "preserve");
     setStatus(
         "Random slideshow starts from "
         + gallery.name
@@ -4824,30 +4877,44 @@ function createGalleryCard(gallery) {
     return card;
 }
 
-function startGallery(gallery, preserveNavigationOrder) {
+function startGallery(gallery, slideshowMode) {
     if (!gallery || !gallery.path) {
-        return;
+        return false;
     }
 
-    if (!preserveNavigationOrder) {
+    slideshowMode = slideshowMode || "random";
+
+    if (slideshowMode === "normal") {
         activateNormalNavigation(
             getVisibleParents()
         );
         setActiveSlideshowType("normal");
+    } else if (slideshowMode === "random") {
+        var galleryEntry = findGalleryEntryByPath(
+            gallery.path
+        );
+        var preferredParentPath = galleryEntry
+            ? galleryEntry.parent.path
+            : fso.GetParentFolderName(gallery.path);
+
+        activateRandomNavigation(
+            getVisibleParents(),
+            preferredParentPath,
+            gallery.path
+        );
+        setActiveSlideshowType("random");
     }
 
     ensureBridge();
 
-    var commandAction = "start";
-
-    if (
-        preserveNavigationOrder
-        && state.activeSlideshowType === "random"
-    ) {
-        commandAction = state.uniqueRandom
+    var commandAction =
+        state.activeSlideshowType === "random"
+        ? (
+            state.uniqueRandom
             ? "startrandomunique"
-            : "startrandom";
-    }
+            : "startrandom"
+        )
+        : "start";
 
     sendCommand(commandAction, gallery.path);
     state.currentGalleryPath = gallery.path;
@@ -4855,6 +4922,7 @@ function startGallery(gallery, preserveNavigationOrder) {
         fso.GetParentFolderName(gallery.path);
     focusRunningGalleryThumbnail(gallery.path);
     setStatus("Starting: " + gallery.name);
+    return true;
 }
 
 function firstFilteredParentGallery() {
@@ -4918,7 +4986,7 @@ function startMainSlideshow() {
         closeGalleryDialog();
     }
 
-    startGallery(gallery);
+    startGallery(gallery, "normal");
     return true;
 }
 
@@ -5009,7 +5077,7 @@ function startRandom() {
     }
 
     setActiveSlideshowType("random");
-    startGallery(firstEntry.gallery, true);
+    startGallery(firstEntry.gallery, "preserve");
     setStatus(
         "Random slideshow starts on selected parent: "
         + firstEntry.parent.name
@@ -5549,7 +5617,7 @@ function initialize() {
         <div id="emptyState">No parent galleries match the current filters.</div>
     </div>
 
-    <div id="statusBar">v0.59 | Ready.</div>
+    <div id="statusBar">v0.62 | Ready.</div>
 </div>
 
 <div id="galleryOverlay" onclick="if (window.event.srcElement === this) closeGalleryDialog();">

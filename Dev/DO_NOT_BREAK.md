@@ -23,6 +23,8 @@ Review this before every release.
 ## Slideshow
 
 - [ ] Selected gallery starts first.
+- [ ] Random Gallery is the default for gallery double-click and direct starts.
+- [ ] Explicit SLIDESHOW still selects normal sequential navigation.
 - [ ] Current gallery is tracked.
 - [ ] Current parent is tracked.
 - [ ] Only one managed slideshow session is active.
@@ -51,6 +53,9 @@ Review this before every release.
 - [ ] Filters and exclusions are respected.
 - [ ] UNIQUE is respected.
 - [ ] Preview and execution always refer to the same gallery.
+- [ ] Filtered-navigation queue is never published as a partially written file.
+- [ ] Missing/empty/corrupt queue falls back to direct library discovery.
+- [ ] Valid zero-match queue never bypasses active filters.
 
 ## Remote
 
@@ -58,6 +63,8 @@ Review this before every release.
 - [ ] Single Tab waits for the system double-click interval before execution.
 - [ ] Double Tab cancels the pending single-Tab move and opens Remote.
 - [ ] Ctrl+Tab moves to the next parent gallery.
+- [ ] Ctrl+Tab never passes a missing gallery path to the launcher.
+- [ ] A parent switch never resolves to the current parent.
 - [ ] Remote initially shows current gallery.
 - [ ] Tab inside Remote offers the next gallery.
 - [ ] Ctrl+Tab inside Remote offers the first eligible gallery in the next parent.
@@ -111,6 +118,9 @@ Obsolete controls remain absent:
 
 - [ ] Prepared path is validated.
 - [ ] Prepared path is the path executed.
+- [ ] Ctrl+Tab may recover from a validated prepared next-parent slot.
+- [ ] Empty or nonexistent fallback paths never reach `startGallery`.
+- [ ] Invalid navigation does not close the current slideshow.
 - [ ] Stale slots are removed.
 - [ ] Random prepared slot is never silently replaced.
 - [ ] Session state updates after switch.
