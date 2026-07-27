@@ -60,13 +60,16 @@ Review this before every release.
 - [ ] Ctrl+Tab moves to the next parent gallery.
 - [ ] Remote initially shows current gallery.
 - [ ] Tab inside Remote offers the next gallery.
+- [ ] Ctrl+Tab inside Remote offers the first eligible gallery in the next parent.
+- [ ] Remote shows the first direct image of the displayed gallery when loadable.
+- [ ] Parent `folder.jpg` remains the image fallback.
 - [ ] Timeout defaults to 4000 ms.
 - [ ] Timeout option persists and accepts only 1–60 seconds.
 - [ ] Opening Remote does not start timeout.
-- [ ] Timer starts only after Tab offers a gallery inside Remote.
+- [ ] Timer starts only after Tab or Ctrl+Tab offers a gallery inside Remote.
 - [ ] Timer executes exact displayed gallery.
-- [ ] Remote stays open after execution.
-- [ ] Remote updates to newly running gallery.
+- [ ] Remote closes after successful execution.
+- [ ] Failed execution keeps the same offer visible.
 - [ ] Slideshow hotkeys are inactive outside Remote while open.
 - [ ] Remote hotkeys work only while Remote has focus.
 - [ ] Closing restores IrfanView input.

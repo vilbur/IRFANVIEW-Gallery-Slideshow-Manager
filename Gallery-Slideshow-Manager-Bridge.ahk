@@ -10,7 +10,7 @@ SetWorkingDir, %A_ScriptDir%
 ; AutoHotkey v1.1.36 native bridge for the HTML tile interface.
 ; Handles IrfanView, VLC, global navigation, dynamic lists, and background preparation.
 
-SCRIPT_VERSION := "0.58"
+SCRIPT_VERSION := "0.59"
 APP_NAME := "Gallery-Slideshow-Manager"
 DATA_DIR := A_Temp . "\" . APP_NAME
 SETTINGS_INI := DATA_DIR . "\" . APP_NAME . ".ini"
@@ -184,6 +184,11 @@ return
 #If isRemoteActive()
 $Tab::
     previewRemoteDirection("next")
+    KeyWait, Tab
+return
+
+$^Tab::
+    previewRemoteDirection("parent")
     KeyWait, Tab
 return
 #If
@@ -2184,7 +2189,7 @@ resetRemoteToCurrent()
 }
 
 /*
-Preview the next gallery offered from Remote.
+Preview the next gallery or next parent gallery offered from Remote.
 Every displayed path is stored before its preparation worker starts.
 */
 previewRemoteDirection(direction)
@@ -2195,7 +2200,8 @@ previewRemoteDirection(direction)
     global remote_timeout_ms, REMOTE_PREVIEW_PREFIX
     global stored_random_gallery
 
-    if (!remote_open || (direction != "next" && direction != "previous"))
+    if (!remote_open
+        || (direction != "next" && direction != "previous" && direction != "parent"))
     {
         return false
     }
@@ -2221,6 +2227,10 @@ previewRemoteDirection(direction)
         if (direction = "next")
         {
             candidate_gallery := getNextGalleryPath(base_parent, base_gallery)
+        }
+        else if (direction = "parent")
+        {
+            candidate_gallery := getNextParentGalleryPath(base_parent)
         }
         else
         {
@@ -2261,14 +2271,13 @@ previewRemoteDirection(direction)
 
 /*
 Execute exactly the gallery displayed by Remote.
-Remote stays open and returns to the newly running gallery after success.
+Remote closes as soon as the displayed gallery starts successfully.
 */
 executeRemotePreview(commit_reason := "")
 {
-    global current_gallery, current_parent, current_irfan_pid
+    global current_gallery, current_parent
     global remote_open
     global remote_preview_gallery, remote_preview_parent, remote_preview_direction
-    global remote_return_window_id
     global REMOTE_PREVIEW_PREFIX, switching_slideshow
 
     if (!remote_open
@@ -2297,12 +2306,8 @@ executeRemotePreview(commit_reason := "")
 
     if (launch_result)
     {
-        remote_preview_gallery := current_gallery
-        remote_preview_parent := current_parent
-        remote_preview_direction := ""
-        remote_return_window_id := current_irfan_pid != "" ? WinExist("ahk_pid " . current_irfan_pid) : ""
-        showRemoteWindow(current_parent, current_gallery)
-        isolateRemoteSlideshowInput()
+        closeRemoteWindow(false)
+        activateCurrentIrfanView()
         return true
     }
 
@@ -2492,6 +2497,10 @@ showRemoteWindow(parent_folder, gallery_path)
     {
         state_name := "Next"
     }
+    else if (remote_preview_direction = "parent")
+    {
+        state_name := "Next parent"
+    }
     else if (remote_preview_direction = "previous")
     {
         state_name := "Previous"
@@ -2536,10 +2545,28 @@ showRemoteWindow(parent_folder, gallery_path)
         Gui, Remote:Add, Text, %rating_options%, %rating_stars%
     }
 
+    preview_images := getDirectImagePaths(gallery_path)
+    preview_image := preview_images.Length() > 0 ? preview_images[1] : ""
     folder_image := parent_folder . "\folder.jpg"
     image_loaded := false
 
-    if (FileExist(folder_image))
+    if (preview_image != "" && FileExist(preview_image))
+    {
+        remote_bitmap_handle := loadScaledPreviewBitmap(preview_image, canvas_width, canvas_height, bitmap_width, bitmap_height)
+
+        if (remote_bitmap_handle)
+        {
+            image_x := canvas_left + Floor((canvas_width - bitmap_width) / 2)
+            image_y := canvas_top + Floor((canvas_height - bitmap_height) / 2)
+            picture_options := "x" . image_x . " y" . image_y . " w" . bitmap_width . " h" . bitmap_height . " 0xE hwndremote_picture_id"
+            Gui, Remote:Add, Picture, %picture_options%
+            bitmap_value := "HBITMAP:*" . remote_bitmap_handle
+            GuiControl, Remote:, %remote_picture_id%, %bitmap_value%
+            image_loaded := true
+        }
+    }
+
+    if (!image_loaded && FileExist(folder_image))
     {
         remote_bitmap_handle := loadScaledPreviewBitmap(folder_image, canvas_width, canvas_height, bitmap_width, bitmap_height)
 
@@ -2566,7 +2593,7 @@ showRemoteWindow(parent_folder, gallery_path)
     footer_y := remote_height - footer_height
     footer_options := "x0 y" . footer_y . " w" . remote_width . " h" . footer_height . " Center 0x200"
     timeout_label := formatRemoteTimeoutLabel()
-    footer_text := remote_preview_direction = "" ? "Tab  OFFER NEXT GALLERY" : "Tab  OFFER NEXT GALLERY`nStarts slideshow in " . timeout_label . " · Close Remote to cancel"
+    footer_text := remote_preview_direction = "" ? "Tab  NEXT GALLERY     Ctrl+Tab  NEXT PARENT" : "Tab  NEXT GALLERY     Ctrl+Tab  NEXT PARENT`nStarts slideshow in " . timeout_label . " · Close Remote to cancel"
     Gui, Remote:Add, Text, %footer_options%, %footer_text%
 
     remote_x := remote_work_areaLeft + Floor((work_width - remote_width) / 2)
@@ -2579,7 +2606,7 @@ showRemoteWindow(parent_folder, gallery_path)
 }
 
 /*
-Load folder.jpg as a bitmap fitted inside the Remote canvas without distortion.
+Load a preview image as a bitmap fitted inside the Remote canvas without distortion.
 */
 loadScaledPreviewBitmap(image_path, maximum_width, maximum_height, ByRef bitmap_width, ByRef bitmap_height)
 {

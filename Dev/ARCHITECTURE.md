@@ -165,10 +165,15 @@ Double Tab in managed slideshow
 Single Tab outside Remote → Next gallery after double-press interval
 Ctrl+Tab outside Remote   → Next parent gallery
 Tab inside Remote         → Offer next gallery and start/restart timer
+Ctrl+Tab inside Remote    → Offer first gallery in next parent and restart timer
 Timer                     → Execute exact preview
 ```
 
-After execution, Remote remains open and shows the newly running gallery. Closing Remote cancels the timer, clears temporary preview state, restores slideshow-window input and returns focus where possible.
+Remote previews the first direct image of its displayed gallery, falling back
+to the parent `folder.jpg`. After successful execution, Remote closes and focus
+returns to the newly running slideshow. Closing Remote before execution cancels
+the timer, clears temporary preview state, restores slideshow-window input and
+returns focus where possible.
 
 ## Hotkey ownership
 
@@ -186,6 +191,7 @@ The bridge is the only owner of manager slideshow-navigation hotkeys.
 - **0.53–0.55** — not trusted for Tab implementation.
 - **0.57** — Remote design introduced; Windows runtime still requires user confirmation.
 - **0.58** — single/double Tab control model and configurable Remote timeout; Windows runtime still requires user confirmation.
+- **0.59** — gallery-image Remote preview, Ctrl+Tab parent offers and close-on-start; Windows runtime still requires user confirmation.
 
 Static validation is not runtime validation.
 

@@ -2,6 +2,19 @@
 
 This records design milestones and trusted baselines, not every code edit.
 
+## 0.59
+
+Remote preview refined:
+
+- the first direct image of the displayed gallery is used for Remote preview;
+- parent `folder.jpg` remains a fallback when that image cannot be loaded;
+- Ctrl+Tab inside Remote offers the first eligible gallery in the next parent;
+- both Remote offer controls start or restart the configured timeout;
+- Remote closes automatically after the displayed gallery starts successfully;
+- failed execution retains the displayed offer and keeps Remote open.
+
+Status: statically validated; Windows runtime still requires user confirmation.
+
 ## 0.58
 
 Remote controls revised:
@@ -76,6 +89,9 @@ Random mode never uses alphabetical, sorted or directory order as its effective 
 ### Preview identity
 
 The gallery displayed to the user is the exact gallery executed by timeout.
+
+The image displayed in Remote belongs to that gallery whenever a directly
+loadable gallery image is available.
 
 ### Remote is active control
 

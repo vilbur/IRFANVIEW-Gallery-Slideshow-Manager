@@ -63,8 +63,9 @@ Run the selected gallery in IrfanView and control it through the bridge.
 - Double Tab opens Remote without first moving galleries.
 - Ctrl+Tab moves to the next parent gallery.
 - Tab inside Remote offers the next gallery and starts its timeout.
+- Ctrl+Tab inside Remote offers the first eligible gallery in the next parent and starts its timeout.
 - While Remote is open, slideshow hotkeys are inactive outside Remote.
-- Remote remains open after gallery switching.
+- Remote closes after its displayed gallery starts successfully.
 - Closing Remote restores slideshow input.
 
 ## Random Slideshow
@@ -145,6 +146,7 @@ Single Tab outside Remote  Next gallery
 Double Tab outside Remote  Open Remote
 Ctrl+Tab outside Remote    Next parent gallery
 Tab inside Remote          Offer next gallery and start/restart timeout
+Ctrl+Tab inside Remote     Offer next parent gallery and start/restart timeout
 ```
 
 ### Timeout
@@ -152,7 +154,7 @@ Tab inside Remote          Offer next gallery and start/restart timeout
 - Default timeout: **4000 ms**.
 - The manager exposes a persistent timeout option from 1 through 60 seconds.
 - Opening Remote on the current gallery does not start the timer.
-- Timer starts or restarts after Tab offers a gallery inside Remote.
+- Timer starts or restarts after Tab or Ctrl+Tab offers a gallery inside Remote.
 - Timer executes the exact displayed gallery.
 
 ### Focus and isolation
@@ -166,10 +168,9 @@ Tab inside Remote          Offer next gallery and start/restart timeout
 ### Execution
 
 - Timeout executes the displayed preview.
-- Remote remains open.
 - Current gallery and parent update.
-- Remote shows the newly running gallery.
-- No new timer starts until another preview is selected.
+- Remote closes automatically after a successful start.
+- Failed execution keeps Remote open on the same offered gallery.
 
 ### Close
 
@@ -252,10 +253,11 @@ Rules:
 - do not silently substitute another gallery;
 - random slots preserve stored destination identity.
 
-## Parent preview image
+## Remote preview image
 
-- Use parent `folder.jpg` when present.
-- Show placeholder when absent.
+- Use the alphabetically first direct image of the displayed gallery.
+- Fall back to parent `folder.jpg` when the gallery image cannot be loaded.
+- Show a gallery-name placeholder when neither image can be loaded.
 - Missing image must not block Remote controls.
 - Fit preview to the slideshow monitor.
 

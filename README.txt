@@ -1,4 +1,4 @@
-Gallery Slideshow Manager — HTML version 0.58
+Gallery Slideshow Manager — HTML version 0.59
 
 ================================================
 
@@ -95,6 +95,11 @@ Native controls
 - Double Tab while IrfanView or VLC is active: open Remote.
 - Ctrl+Tab while IrfanView or VLC is active: next parent gallery.
 - Tab while Remote has focus: offer the next gallery and start its timeout.
+- Ctrl+Tab while Remote has focus: offer the first gallery in the next parent
+  and start its timeout.
+- Remote previews the first direct image of the offered gallery, falling back
+  to the parent's folder.jpg when necessary.
+- Remote closes automatically when its offered slideshow starts.
 - Closing Remote before the timeout cancels the offered gallery.
 
 - Escape while IrfanView is active: confirmation before bridge exit.
@@ -729,3 +734,10 @@ Version 0.58
 - TAB inside Remote offers the next gallery and restarts the automatic-start timer.
 - Removed the 0.57 Alt, Ctrl, Shift and Space controls from Remote.
 - Added a persistent Remote timeout option from 1 through 60 seconds; the default remains 4 seconds.
+
+
+Version 0.59
+------------
+- Remote closes automatically after its displayed gallery starts successfully.
+- Remote displays the first direct image of the offered gallery, with parent folder.jpg as fallback.
+- Ctrl+TAB inside Remote offers the first eligible gallery in the next parent and restarts the timeout.
