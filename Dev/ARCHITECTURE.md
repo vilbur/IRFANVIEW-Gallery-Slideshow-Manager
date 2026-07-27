@@ -92,10 +92,11 @@ current_vlc_window_id
 slideshow_mode
 random_mode
 remote_open
-remote_mode
 remote_preview_gallery
 remote_preview_parent
 remote_preview_direction
+remote_timeout_ms
+tab_press_pending
 prepared_next_gallery
 prepared_previous_gallery
 stored_random_gallery
@@ -153,20 +154,18 @@ Gallery starts
 ### Remote
 
 ```text
-Tab in managed slideshow
+Double Tab in managed slideshow
 → Open Remote
 → Show current gallery
-→ Default mode = Gallery
 → Disable slideshow-window input
 → Remote receives controls
 ```
 
 ```text
-Alt   → Toggle Gallery/Parent mode
-Ctrl  → Preview next
-Shift → Preview previous
-Space → Execute exact preview
-Timer → Execute exact preview
+Single Tab outside Remote → Next gallery after double-press interval
+Ctrl+Tab outside Remote   → Next parent gallery
+Tab inside Remote         → Offer next gallery and start/restart timer
+Timer                     → Execute exact preview
 ```
 
 After execution, Remote remains open and shows the newly running gallery. Closing Remote cancels the timer, clears temporary preview state, restores slideshow-window input and returns focus where possible.
@@ -186,6 +185,7 @@ The bridge is the only owner of manager slideshow-navigation hotkeys.
 - **0.52** — latest user-confirmed working Tab behaviour.
 - **0.53–0.55** — not trusted for Tab implementation.
 - **0.57** — Remote design introduced; Windows runtime still requires user confirmation.
+- **0.58** — single/double Tab control model and configurable Remote timeout; Windows runtime still requires user confirmation.
 
 Static validation is not runtime validation.
 

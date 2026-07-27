@@ -2,6 +2,21 @@
 
 This records design milestones and trusted baselines, not every code edit.
 
+## 0.58
+
+Remote controls revised:
+
+- single Tab moves to the next gallery after the system double-click interval;
+- double Tab cancels that pending move and opens Remote;
+- Ctrl+Tab moves directly to the next parent gallery;
+- Tab inside Remote offers the next gallery and starts/restarts the timeout;
+- timeout executes the exact displayed gallery;
+- timeout is persistent and configurable from 1 through 60 seconds;
+- 4000 ms remains the default;
+- 0.57 Alt/Ctrl/Shift/Space Remote controls were retired.
+
+Status: statically validated; Windows runtime still requires user confirmation.
+
 ## 0.57
 
 Remote design introduced:
@@ -60,7 +75,7 @@ Random mode never uses alphabetical, sorted or directory order as its effective 
 
 ### Preview identity
 
-The gallery displayed to the user is the exact gallery executed by Space or timeout.
+The gallery displayed to the user is the exact gallery executed by timeout.
 
 ### Remote is active control
 

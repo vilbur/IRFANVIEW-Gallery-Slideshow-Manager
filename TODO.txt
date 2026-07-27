@@ -1,7 +1,3 @@
-restyle preview window.
-
-tab function on ext gallery.
-
 sort keywords by priority
 
 make keywords include\exclude

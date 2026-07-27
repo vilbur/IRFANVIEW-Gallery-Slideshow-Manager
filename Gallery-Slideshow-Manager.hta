@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta charset="utf-8" />
-<title>Gallery Slideshow Manager 0.56</title>
+<title>Gallery Slideshow Manager 0.58</title>
 <hta:application
     id="galleryApp"
     applicationname="Gallery Slideshow Manager"
@@ -112,6 +112,14 @@ input[type=text]:focus {
 }
 #rootPath {
     width: 100%;
+}
+#remoteTimeoutSeconds {
+    width: 74px;
+    text-align: right;
+}
+#remoteTimeoutHint {
+    color: #8e9aaa;
+    font-size: 11px;
 }
 #keywordName {
     width: 250px;
@@ -847,7 +855,7 @@ var fso = new ActiveXObject("Scripting.FileSystemObject");
 var shell = new ActiveXObject("WScript.Shell");
 var shellApp = new ActiveXObject("Shell.Application");
 
-var APP_VERSION = "0.56";
+var APP_VERSION = "0.58";
 var APP_NAME = "Gallery-Slideshow-Manager";
 var appDir = getApplicationDirectory();
 var tempDir = shell.ExpandEnvironmentStrings("%TEMP%");
@@ -871,6 +879,7 @@ var managerInstanceToken = "";
 var state = {
     root: "",
     autoVlc: true,
+    remoteTimeoutMs: 4000,
     uniqueRandom: false,
     parents: [],
     keywords: [],
@@ -1829,6 +1838,10 @@ function loadSettings() {
     var data = readIni(settingsPath);
     state.root = normalizePath(getIniValue(data, "Galleries", "RootPath", ""));
     state.autoVlc = String(getIniValue(data, "Options", "AutoVlc", "1")) !== "0";
+    state.remoteTimeoutMs = parseInt(
+        getIniValue(data, "Options", "RemoteTimeoutMs", "4000"),
+        10
+    );
     state.uniqueRandom = String(getIniValue(data, "Options", "UniqueRandom", "0")) !== "0";
     state.displayMode = lower(
         getIniValue(data, "Options", "DisplayMode", "section")
@@ -1865,12 +1878,79 @@ function loadSettings() {
         state.displayMode = "section";
     }
 
+    if (isNaN(state.remoteTimeoutMs)
+        || state.remoteTimeoutMs < 1000
+        || state.remoteTimeoutMs > 60000) {
+        state.remoteTimeoutMs = 4000;
+    }
+
     document.getElementById("rootPath").value = state.root;
+    updateRemoteTimeoutOption();
     updateAutoVlcButton();
     updateUniqueRandomButton();
     updateDisplayModeButton();
     updateSlideshowModeButtons();
     loadFilterPresets();
+}
+
+function formatRemoteTimeoutSeconds(timeoutMs) {
+    var seconds = timeoutMs / 1000;
+
+    if (seconds === Math.floor(seconds)) {
+        return String(seconds);
+    }
+
+    return String(Math.round(seconds * 10) / 10);
+}
+
+function formatRemoteTimeoutLabel(timeoutMs) {
+    return formatRemoteTimeoutSeconds(timeoutMs)
+        + (timeoutMs === 1000 ? " second" : " seconds");
+}
+
+function updateRemoteTimeoutOption() {
+    var input = document.getElementById("remoteTimeoutSeconds");
+    var hint = document.getElementById("remoteTimeoutHint");
+
+    if (input) {
+        input.value = formatRemoteTimeoutSeconds(state.remoteTimeoutMs);
+    }
+
+    if (hint) {
+        hint.innerText = "1–60 seconds; default 4.";
+    }
+
+    return true;
+}
+
+function saveRemoteTimeout() {
+    var input = document.getElementById("remoteTimeoutSeconds");
+    var seconds = parseFloat(
+        String(input.value || "").replace(",", ".")
+    );
+
+    if (isNaN(seconds) || seconds < 1 || seconds > 60) {
+        alert("Enter a Remote timeout from 1 through 60 seconds.");
+        updateRemoteTimeoutOption();
+        input.focus();
+        return false;
+    }
+
+    seconds = Math.round(seconds * 10) / 10;
+    state.remoteTimeoutMs = Math.round(seconds * 1000);
+    setIniValue(
+        settingsPath,
+        "Options",
+        "RemoteTimeoutMs",
+        String(state.remoteTimeoutMs)
+    );
+    updateRemoteTimeoutOption();
+    setStatus(
+        "Remote timeout set to "
+        + formatRemoteTimeoutLabel(state.remoteTimeoutMs)
+        + "."
+    );
+    return true;
 }
 
 function saveRoot() {
@@ -5407,6 +5487,14 @@ function initialize() {
             <button onclick="saveRoot()">Save &amp; refresh</button>
         </div>
         <div class="row">
+            <span class="label">Options</span>
+            <span class="label">Remote timeout</span>
+            <input id="remoteTimeoutSeconds" type="text" onkeyup="if(window.event.keyCode===13) saveRemoteTimeout();" />
+            <span class="label">seconds</span>
+            <button onclick="saveRemoteTimeout()">Save timeout</button>
+            <span id="remoteTimeoutHint"></span>
+        </div>
+        <div class="row">
             <span class="label">New keyword</span>
             <input id="keywordName" type="text" />
             <button onclick="addKeyword()">Add keyword</button>
@@ -5461,7 +5549,7 @@ function initialize() {
         <div id="emptyState">No parent galleries match the current filters.</div>
     </div>
 
-    <div id="statusBar">v0.56 | Ready.</div>
+    <div id="statusBar">v0.58 | Ready.</div>
 </div>
 
 <div id="galleryOverlay" onclick="if (window.event.srcElement === this) closeGalleryDialog();">

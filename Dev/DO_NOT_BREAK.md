@@ -43,7 +43,6 @@ Review this before every release.
 - [ ] Alphabetical/folder/index order does not decide result.
 - [ ] Random destination is selected once and stored.
 - [ ] Preview shows the stored destination.
-- [ ] Space executes the stored destination.
 - [ ] Timeout executes the stored destination.
 - [ ] Execution does not recalculate it.
 - [ ] Current gallery is not immediately repeated when alternatives exist.
@@ -55,17 +54,16 @@ Review this before every release.
 
 ## Remote
 
-- [ ] Tab opens/activates Remote.
+- [ ] Single Tab moves to the next gallery.
+- [ ] Single Tab waits for the system double-click interval before execution.
+- [ ] Double Tab cancels the pending single-Tab move and opens Remote.
+- [ ] Ctrl+Tab moves to the next parent gallery.
 - [ ] Remote initially shows current gallery.
-- [ ] Default mode is Gallery.
-- [ ] Alt toggles Gallery/Parent.
-- [ ] Ctrl previews next.
-- [ ] Shift previews previous.
-- [ ] Space executes preview.
-- [ ] Timeout remains 4000 ms.
+- [ ] Tab inside Remote offers the next gallery.
+- [ ] Timeout defaults to 4000 ms.
+- [ ] Timeout option persists and accepts only 1–60 seconds.
 - [ ] Opening Remote does not start timeout.
-- [ ] Timer starts only after preview navigation.
-- [ ] Alt cancels pending timeout and returns to current gallery.
+- [ ] Timer starts only after Tab offers a gallery inside Remote.
 - [ ] Timer executes exact displayed gallery.
 - [ ] Remote stays open after execution.
 - [ ] Remote updates to newly running gallery.
@@ -77,9 +75,11 @@ Review this before every release.
 
 Obsolete controls remain absent:
 
-- [ ] No Ctrl+Tab confirmation.
+- [ ] No Alt Gallery/Parent mode toggle.
+- [ ] No standalone Ctrl next-preview control.
+- [ ] No standalone Shift previous-preview control.
+- [ ] No Space immediate execution.
 - [ ] No Shift+Tab previous-parent shortcut.
-- [ ] No Tab cycling inside Remote.
 - [ ] No Esc preview-cancel shortcut.
 - [ ] No obsolete preview footer text.
 

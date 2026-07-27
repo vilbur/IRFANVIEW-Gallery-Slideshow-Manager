@@ -1,4 +1,4 @@
-Gallery Slideshow Manager — HTML version 0.56
+Gallery Slideshow Manager — HTML version 0.58
 
 ================================================
 
@@ -20,7 +20,8 @@ Gallery-Slideshow-Manager-Bridge.ahk
 
     AutoHotkey v1.1.36 native bridge. It controls IrfanView/VLC and provides
 
-    Tab / Shift+Tab / Ctrl+Tab navigation while IrfanView or VLC is active.
+    single-Tab, double-Tab, Ctrl+Tab and Remote navigation while IrfanView or
+    VLC is active.
 
 
 
@@ -90,10 +91,11 @@ Native controls
 
 ---------------
 
-- Tab while IrfanView or VLC is active: next gallery.
-- Shift+Tab while IrfanView or VLC is active: previous parent gallery.
-
-- Ctrl+Tab while IrfanView or VLC is active: next parent.
+- Single Tab while IrfanView or VLC is active: next gallery.
+- Double Tab while IrfanView or VLC is active: open Remote.
+- Ctrl+Tab while IrfanView or VLC is active: next parent gallery.
+- Tab while Remote has focus: offer the next gallery and start its timeout.
+- Closing Remote before the timeout cancels the offered gallery.
 
 - Escape while IrfanView is active: confirmation before bridge exit.
 
@@ -109,7 +111,8 @@ Settings
 
 Gallery-Slideshow-Manager.ini
 
-    Root path, Auto VLC, IrfanView path, VLC path, and HTML window placement.
+    Root path, Auto VLC, Remote timeout, IrfanView path, VLC path, and HTML
+    window placement.
 
 
 
@@ -704,3 +707,25 @@ Version 0.56
 - TAB, Ctrl+TAB, Shift+TAB, preview handling, preparation slots, and navigation functions remain identical to 0.52.
 - Removed all TAB and random-state changes introduced in versions 0.53 through 0.55.
 - Added only the VLC fullscreen correction: native --fullscreen launch, verified monitor coverage, direct F retry, and F11 fallback.
+
+
+Version 0.57
+------------
+- Replaced the passive parent preview with the active Remote control window.
+- TAB opens or activates Remote on the current gallery in Gallery mode.
+- Alt switches between Gallery and Parent mode; Ctrl and Shift preview the next or previous destination.
+- Space or the unchanged four-second timeout opens exactly the gallery displayed by Remote.
+- Remote remains open after a switch and resets to the newly running gallery.
+- IrfanView and the manager-owned VLC window are input-isolated while Remote is open and restored when it closes.
+- Random navigation stores one exact parent/gallery offer for preparation, preview and execution.
+- Removed the old Ctrl+TAB, Shift+TAB, TAB-cycling and Esc preview controls.
+
+
+Version 0.58
+------------
+- Single TAB moves to the next gallery after the system double-click interval expires.
+- Double TAB cancels the pending single-TAB move and opens Remote on the current gallery.
+- Ctrl+TAB moves directly to the next parent gallery.
+- TAB inside Remote offers the next gallery and restarts the automatic-start timer.
+- Removed the 0.57 Alt, Ctrl, Shift and Space controls from Remote.
+- Added a persistent Remote timeout option from 1 through 60 seconds; the default remains 4 seconds.

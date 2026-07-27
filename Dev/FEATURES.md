@@ -59,7 +59,10 @@ Run the selected gallery in IrfanView and control it through the bridge.
 
 ### Remote interaction
 
-- Tab opens Remote.
+- Single Tab moves to the next gallery after the double-press interval.
+- Double Tab opens Remote without first moving galleries.
+- Ctrl+Tab moves to the next parent gallery.
+- Tab inside Remote offers the next gallery and starts its timeout.
 - While Remote is open, slideshow hotkeys are inactive outside Remote.
 - Remote remains open after gallery switching.
 - Closing Remote restores slideshow input.
@@ -100,7 +103,6 @@ Choose random parent
 Rules:
 
 - preview never recalculates the random destination;
-- Space never recalculates it;
 - timeout never recalculates it;
 - execution uses exactly what Remote displays;
 - redraws do not generate a replacement;
@@ -133,33 +135,24 @@ Remote-control the currently running slideshow while Remote is open.
 ### Open and initial state
 
 - Window title: `Remote`.
-- Tab opens or activates it.
+- Double Tab opens it from the managed slideshow.
 - Initially displays the currently running gallery.
-- Default mode is Gallery.
 
 ### Controls
 
 ```text
-Tab      Open/activate Remote
-Alt      Toggle Gallery / Parent mode
-Ctrl     Preview next
-Shift    Preview previous
-Space    Execute previewed gallery
+Single Tab outside Remote  Next gallery
+Double Tab outside Remote  Open Remote
+Ctrl+Tab outside Remote    Next parent gallery
+Tab inside Remote          Offer next gallery and start/restart timeout
 ```
-
-### Modes
-
-- **Gallery mode:** next/previous gallery destination.
-- **Parent mode:** next/previous parent-gallery destination.
-- In random mode, both modes must follow the stored random-selection rules.
 
 ### Timeout
 
-- Current timeout: **4000 ms**.
-- Do not change it unless explicitly requested.
+- Default timeout: **4000 ms**.
+- The manager exposes a persistent timeout option from 1 through 60 seconds.
 - Opening Remote on the current gallery does not start the timer.
-- Timer starts after Ctrl or Shift selects a preview.
-- Alt mode change returns to current gallery and cancels pending timeout.
+- Timer starts or restarts after Tab offers a gallery inside Remote.
 - Timer executes the exact displayed gallery.
 
 ### Focus and isolation
@@ -172,7 +165,7 @@ Space    Execute previewed gallery
 
 ### Execution
 
-- Space or timeout executes the displayed preview.
+- Timeout executes the displayed preview.
 - Remote remains open.
 - Current gallery and parent update.
 - Remote shows the newly running gallery.
@@ -186,13 +179,15 @@ Space    Execute previewed gallery
 - Restore IrfanView/VLC input.
 - Restore slideshow focus where possible.
 
-### Obsolete preview shortcuts
+### Retired Remote controls
 
 These must remain removed:
 
-- Ctrl+Tab confirmation;
+- Alt Gallery/Parent mode toggle;
+- standalone Ctrl next-preview control;
+- standalone Shift previous-preview control;
+- Space immediate execution;
 - Shift+Tab previous-parent shortcut;
-- Tab cycling inside preview;
 - Esc cancellation shortcut;
 - old shortcut footer text.
 

@@ -10,7 +10,7 @@ SetWorkingDir, %A_ScriptDir%
 ; AutoHotkey v1.1.36 native bridge for the HTML tile interface.
 ; Handles IrfanView, VLC, global navigation, dynamic lists, and background preparation.
 
-SCRIPT_VERSION := "0.56"
+SCRIPT_VERSION := "0.58"
 APP_NAME := "Gallery-Slideshow-Manager"
 DATA_DIR := A_Temp . "\" . APP_NAME
 SETTINGS_INI := DATA_DIR . "\" . APP_NAME . ".ini"
@@ -24,7 +24,7 @@ CURRENT_PREFIX := DATA_DIR . "\" . APP_NAME . "-current"
 NEXT_GALLERY_PREFIX := DATA_DIR . "\" . APP_NAME . "-next-gallery"
 NEXT_PARENT_PREFIX := DATA_DIR . "\" . APP_NAME . "-next-parent"
 PREVIOUS_PARENT_PREFIX := DATA_DIR . "\" . APP_NAME . "-previous-parent"
-PARENT_PREVIEW_PREFIX := DATA_DIR . "\" . APP_NAME . "-parent-preview"
+REMOTE_PREVIEW_PREFIX := DATA_DIR . "\" . APP_NAME . "-remote-preview"
 
 IMAGE_EXTENSIONS := "jpg,jpeg,png,gif,bmp,tif,tiff,webp,heic,jfif"
 EXCLUDED_FOLDER_NAMES := "_DELETE|_CROP|_DUPLICATES|_SMALL"
@@ -38,6 +38,8 @@ current_parent := ""
 current_gallery := ""
 current_irfan_pid := ""
 current_video := ""
+current_vlc_window_id := ""
+current_vlc_pid := ""
 last_command_id := ""
 script_is_exiting := false
 switching_slideshow := false
@@ -46,12 +48,19 @@ irfan_keyword_menu_map := {}
 manager_window_id := ""
 manager_monitor_index := 0
 manager_monitor_signature := ""
-parent_preview_active := false
-parent_preview_gallery := ""
-parent_preview_parent := ""
-parent_preview_window_id := ""
-parent_preview_bitmap_handle := 0
-parent_preview_timeout_ms := 4000
+remote_open := false
+remote_preview_gallery := ""
+remote_preview_parent := ""
+remote_preview_direction := ""
+remote_window_id := ""
+remote_bitmap_handle := 0
+remote_timeout_ms := 4000
+remote_monitor_index := 0
+remote_return_window_id := ""
+remote_disabled_irfan_window_id := ""
+remote_disabled_vlc_window_id := ""
+tab_press_pending := false
+tab_double_press_window_ms := 500
 temporary_vlc_mute_active := false
 temporary_vlc_mute_window_id := ""
 temporary_vlc_mute_pid := ""
@@ -62,6 +71,8 @@ random_unique_seen := []
 random_unique_parent_seen := []
 random_gallery_history := []
 random_gallery_history_limit := 12
+stored_random_gallery := ""
+stored_random_parent := ""
 takeover_existing_bridge := false
 open_manager_on_start := A_Args.Length() < 1
 
@@ -104,7 +115,7 @@ if (A_Args.Length() >= 1)
 initializeResidentBridge()
 return
 
-#If isGalleryNavigationActive()
+#If isGalleryNavigationActive() && !remote_open
 $^0::
     assignCurrentParentRating(0)
     KeyWait, 0
@@ -155,44 +166,29 @@ $^9::
     KeyWait, 9
 return
 
-$+Tab::
-    requestPreparedSwitch("previousparent")
-    KeyWait, Tab
-return
+#If
 
+#If isGalleryNavigationActive() && !remote_open
 $Tab::
-    if (parent_preview_active)
-    {
-        advanceParentPreview()
-    }
-    else
-    {
-        requestPreparedSwitch("gallery")
-    }
+    handleSlideshowTabPress()
     KeyWait, Tab
 return
 
 $^Tab::
-    if (parent_preview_active)
-    {
-        commitParentPreview("confirmed")
-    }
-    else
-    {
-        beginParentPreview()
-    }
+    cancelPendingSingleTab()
+    requestPreparedSwitch("parent")
     KeyWait, Tab
 return
 #If
 
-#If isGalleryNavigationActive() && parent_preview_active
-$Esc::
-    stopParentPreview(true)
-    KeyWait, Esc
+#If isRemoteActive()
+$Tab::
+    previewRemoteDirection("next")
+    KeyWait, Tab
 return
 #If
 
-#If isIrfanViewActive()
+#If isIrfanViewActive() && !remote_open
 $Enter::
     if (!automatic_enter_in_progress)
     {
@@ -224,8 +220,12 @@ monitorManagerWindowTimer:
     monitorManagerWindowPlacement()
 return
 
-parentPreviewTimeoutTimer:
-    commitParentPreview("timeout")
+remoteTimeoutTimer:
+    executeRemotePreview("timeout")
+return
+
+singleTabTimer:
+    commitSingleTabPress()
 return
 
 vlcAutoUnmuteTimer:
@@ -255,16 +255,21 @@ return
 irfanKeywordMenuNoOp:
 return
 
+RemoteGuiClose:
+    closeRemoteWindow(true)
+return
+
 handleBridgeExit:
     script_is_exiting := true
     SetTimer, pollCommandTimer, Off
     SetTimer, monitorIrfanViewTimer, Off
     SetTimer, monitorManagerWindowTimer, Off
-    SetTimer, parentPreviewTimeoutTimer, Off
+    SetTimer, remoteTimeoutTimer, Off
+    SetTimer, singleTabTimer, Off
     SetTimer, vlcAutoUnmuteTimer, Off
 
     restoreTemporaryVlcSound()
-    stopParentPreview(true)
+    closeRemoteWindow(false)
     closeManagedIrfanView()
     clearRunningSessionState()
 
@@ -557,6 +562,7 @@ initializeResidentBridge()
     global RESIDENT_PID_FILE, SCRIPT_ICON
     global open_manager_on_start
     global takeover_existing_bridge
+    global tab_double_press_window_ms
 
     if (!initializeSharedDataStorage())
     {
@@ -567,6 +573,7 @@ initializeResidentBridge()
     current_pid := DllCall("GetCurrentProcessId")
     random_seed := A_TickCount ^ current_pid
     Random,, %random_seed%
+    tab_double_press_window_ms := getSystemDoubleClickInterval()
 
     if (FileExist(RESIDENT_PID_FILE))
     {
@@ -1292,7 +1299,7 @@ launchHtmlManager()
 }
 
 /*
-Read executable paths, root folder, and Auto VLC state.
+Read executable paths, root folder, Auto VLC state and Remote timeout.
 */
 loadSettings()
 {
@@ -1307,6 +1314,28 @@ loadSettings()
     irfanview_exe := Trim(irfanview_exe, " `t`r`n""")
     vlc_exe := Trim(vlc_exe, " `t`r`n""")
     auto_vlc_enabled := auto_vlc_value ? true : false
+    loadRemoteTimeoutSetting()
+}
+
+/*
+Load the persistent Remote timeout, constrained to the safe one-to-sixty
+second range exposed by the HTML manager.
+*/
+loadRemoteTimeoutSetting()
+{
+    global SETTINGS_INI, remote_timeout_ms
+
+    IniRead, timeout_value, %SETTINGS_INI%, Options, RemoteTimeoutMs, 4000
+
+    if (!isIntegerValue(timeout_value)
+        || timeout_value < 1000
+        || timeout_value > 60000)
+    {
+        timeout_value := 4000
+    }
+
+    remote_timeout_ms := timeout_value + 0
+    return remote_timeout_ms
 }
 
 /*
@@ -1382,9 +1411,17 @@ pollCommandFile()
 /*
 Start one gallery, creating only its direct image list.
 */
-startGallery(gallery_path)
+startGallery(gallery_path, preserve_remote := false)
 {
     global switching_slideshow, CURRENT_PREFIX
+    global remote_open
+
+    cancelPendingSingleTab()
+
+    if (remote_open && !preserve_remote)
+    {
+        closeRemoteWindow(false)
+    }
 
     gallery_path := normalizeFolderPath(gallery_path)
 
@@ -1503,6 +1540,7 @@ launchPreparedSlot(slot_prefix)
     current_parent := normalizeFolderPath(parent_folder)
     current_video := video_path
     recordRandomGalleryVisit(current_gallery)
+    consumeStoredRandomDestination(current_gallery)
 
     if (auto_vlc_enabled && video_path != "" && FileExist(video_path))
     {
@@ -1585,7 +1623,8 @@ isManagerPatchableSlideshowAssistant(script_path)
     script_text := script_file.Read()
     script_file.Close()
 
-    return InStr(script_text, "/*  PREVIEW OR CONFIRM THE NEXT PARENT GALLERY") && InStr(script_text, "/*  RATE THE CURRENT OR PREVIEWED PARENT GALLERY") && InStr(script_text, "$^Tab::")
+    return InStr(script_text, "/*  PREVIEW OR CONFIRM THE NEXT PARENT GALLERY")
+        && InStr(script_text, "/*  RATE THE CURRENT OR PREVIEWED PARENT GALLERY")
 }
 
 /*
@@ -1637,12 +1676,12 @@ findSlideshowAssistantPath()
 
 /*
 Create a temporary manager-aware copy of slideshow-assistant.
-Random mode rebuilds and reshuffles parent-preview candidates for
-every preview activation. The original assistant is never modified.
+The bridge owns all Tab navigation. The original assistant is never modified.
 */
 prepareManagerAwareSlideshowAssistant(source_path)
 {
     global MANAGER_AWARE_ASSISTANT
+    global remote_timeout_ms
 
     if (source_path = "" || !FileExist(source_path) || !isManagerPatchableSlideshowAssistant(source_path))
     {
@@ -1671,10 +1710,12 @@ prepareManagerAwareSlideshowAssistant(source_path)
         return source_path
     }
 
-    replacement_text := "; GALLERY MANAGER BRIDGE OWNS TAB / CTRL+TAB NAVIGATION`n`n"
+    replacement_text := "; GALLERY MANAGER BRIDGE OWNS TAB / REMOTE NAVIGATION`n`n"
     source_text := SubStr(source_text, 1, hotkey_start - 1) . replacement_text . SubStr(source_text, hotkey_end)
-    source_text := StrReplace(source_text, "gallery_preview_timeout_ms := 3000", "gallery_preview_timeout_ms := 4000", timeout_count, 1)
-    source_text := StrReplace(source_text, "Auto-open in 3 seconds", "Auto-open in 4 seconds", footer_count, 1)
+    timeout_replacement := "gallery_preview_timeout_ms := " . remote_timeout_ms
+    footer_replacement := "Auto-open in " . formatRemoteTimeoutLabel()
+    source_text := StrReplace(source_text, "gallery_preview_timeout_ms := 3000", timeout_replacement, timeout_count, 1)
+    source_text := StrReplace(source_text, "Auto-open in 3 seconds", footer_replacement, footer_count, 1)
 
     FileDelete, %MANAGER_AWARE_ASSISTANT%
     output_file := FileOpen(MANAGER_AWARE_ASSISTANT, "w", "UTF-8")
@@ -1864,8 +1905,9 @@ refreshPreparedNavigationSlots()
 {
     global current_gallery
     global NEXT_GALLERY_PREFIX, NEXT_PARENT_PREFIX, PREVIOUS_PARENT_PREFIX
+    global remote_open
 
-    stopParentPreview(true)
+    clearStoredRandomDestination()
     cleanupSlot(NEXT_GALLERY_PREFIX)
     cleanupSlot(NEXT_PARENT_PREFIX)
     cleanupSlot(PREVIOUS_PARENT_PREFIX)
@@ -1873,6 +1915,11 @@ refreshPreparedNavigationSlots()
     if (current_gallery != "")
     {
         prepareNextNavigationSlots()
+    }
+
+    if (remote_open)
+    {
+        resetRemoteToCurrent()
     }
 
     return true
@@ -1912,7 +1959,7 @@ prepareNextNavigationSlots()
 
     if (isRandomNavigationMode())
     {
-        random_next_gallery := getRandomDifferentParentGalleryPath(current_parent)
+        random_next_gallery := ensureStoredRandomDestination()
         startPreparationWorker(NEXT_GALLERY_PREFIX, random_next_gallery)
         startPreparationWorker(NEXT_PARENT_PREFIX, random_next_gallery)
         startPreparationWorker(PREVIOUS_PARENT_PREFIX, random_next_gallery)
@@ -1958,179 +2005,482 @@ startPreparationWorker(slot_prefix, gallery_path)
 }
 
 /*
-Start a three-second preview of the next parent gallery.
-The preview is AlwaysOnTop but uses NoActivate, so IrfanView or VLC keeps focus.
+Use the Windows double-click interval for the Tab double-press gesture.
 */
-beginParentPreview()
+getSystemDoubleClickInterval()
 {
-    global current_parent
+    interval_ms := DllCall("GetDoubleClickTime")
 
-    if (current_parent = "")
+    if (interval_ms < 250 || interval_ms > 1000)
     {
-        showTrayTip("Parent preview", "No current parent gallery is available.", 2)
-        return false
+        interval_ms := 500
     }
 
-    next_gallery := getNextParentGalleryPath(current_parent)
-
-    if (next_gallery = "")
-    {
-        showTrayTip("Parent preview", "No next parent gallery was found.", 2)
-        return false
-    }
-
-    return showParentPreview(next_gallery)
+    return interval_ms
 }
 
 /*
-While the preview is open, plain Tab skips the offered parent and previews
-the next parent in the sorted A-Z queue. The timeout restarts each time.
+Delay the single-Tab gallery switch long enough to distinguish a double press.
+The second Tab cancels the pending switch and opens Remote on the current gallery.
 */
-advanceParentPreview()
+handleSlideshowTabPress()
 {
-    global parent_preview_active, parent_preview_parent
+    global tab_press_pending, tab_double_press_window_ms
 
-    if (!parent_preview_active)
+    if (tab_press_pending)
     {
-        return beginParentPreview()
+        cancelPendingSingleTab()
+        return openOrActivateRemote()
     }
 
-    next_gallery := getNextParentGalleryPath(parent_preview_parent)
-
-    if (next_gallery = "")
-    {
-        return false
-    }
-
-    return showParentPreview(next_gallery)
-}
-
-/*
-Display one parent candidate and prepare its first gallery in the background.
-*/
-showParentPreview(gallery_path)
-{
-    global parent_preview_active, parent_preview_gallery, parent_preview_parent
-    global parent_preview_timeout_ms, PARENT_PREVIEW_PREFIX
-
-    gallery_path := normalizeFolderPath(gallery_path)
-
-    if (gallery_path = "" || !InStr(FileExist(gallery_path), "D"))
-    {
-        return false
-    }
-
-    SplitPath, gallery_path,, parent_folder
-    parent_folder := normalizeFolderPath(parent_folder)
-
-    if (parent_folder = "")
-    {
-        return false
-    }
-
-    SetTimer, parentPreviewTimeoutTimer, Off
-    cleanupSlot(PARENT_PREVIEW_PREFIX)
-
-    parent_preview_active := true
-    parent_preview_gallery := gallery_path
-    parent_preview_parent := parent_folder
-
-    startPreparationWorker(PARENT_PREVIEW_PREFIX, gallery_path)
-    showParentPreviewWindow(parent_folder, gallery_path)
-
-    SetTimer, parentPreviewTimeoutTimer, % -parent_preview_timeout_ms
+    tab_press_pending := true
+    timer_period := -1 * tab_double_press_window_ms
+    SetTimer, singleTabTimer, %timer_period%
     return true
 }
 
 /*
-Open the currently offered parent immediately, or automatically after timeout.
+Commit one delayed single-Tab action only if the slideshow is still active.
 */
-commitParentPreview(commit_reason := "")
+commitSingleTabPress()
 {
-    global parent_preview_active, parent_preview_gallery
-    global PARENT_PREVIEW_PREFIX, switching_slideshow
+    global tab_press_pending, remote_open
 
-    if (!parent_preview_active || parent_preview_gallery = "")
+    if (GetKeyState("Tab", "P"))
+    {
+        SetTimer, singleTabTimer, -50
+        return true
+    }
+
+    tab_press_pending := false
+
+    if (remote_open || !isGalleryNavigationActive())
     {
         return false
     }
 
-    gallery_path := parent_preview_gallery
-    stopParentPreview(false)
+    return requestPreparedSwitch("gallery")
+}
 
-    if (preparedSlotMatchesGallery(PARENT_PREVIEW_PREFIX, gallery_path))
+/*
+Cancel a pending single-Tab action before Ctrl+Tab or double-Tab navigation.
+*/
+cancelPendingSingleTab()
+{
+    global tab_press_pending
+
+    SetTimer, singleTabTimer, Off
+    tab_press_pending := false
+    return true
+}
+
+/*
+Open or activate the Remote control surface.
+Opening always starts on the current gallery and does not start the automatic
+execution timer.
+*/
+openOrActivateRemote()
+{
+    global current_gallery, current_parent
+    global remote_open
+    global remote_preview_gallery, remote_preview_parent, remote_preview_direction
+    global remote_monitor_index, remote_return_window_id
+
+    cancelPendingSingleTab()
+    loadRemoteTimeoutSetting()
+
+    if (remote_open)
+    {
+        return activateRemoteWindow()
+    }
+
+    if (current_gallery = "" || !InStr(FileExist(current_gallery), "D"))
+    {
+        showTrayTip("Remote", "No managed gallery is currently running.", 2)
+        return false
+    }
+
+    remote_return_window_id := WinExist("A")
+    remote_monitor_index := getWindowMonitorIndex(remote_return_window_id)
+    remote_open := true
+    remote_preview_gallery := current_gallery
+    remote_preview_parent := current_parent
+    remote_preview_direction := ""
+
+    if (!showRemoteWindow(current_parent, current_gallery))
+    {
+        remote_open := false
+        return false
+    }
+
+    isolateRemoteSlideshowInput()
+    return true
+}
+
+/*
+Bring the existing Remote window to the foreground, rebuilding it if needed.
+*/
+activateRemoteWindow()
+{
+    global remote_open, remote_window_id
+    global remote_preview_gallery, remote_preview_parent
+
+    if (!remote_open)
+    {
+        return openOrActivateRemote()
+    }
+
+    if (remote_window_id = "" || !WinExist("ahk_id " . remote_window_id))
+    {
+        if (!showRemoteWindow(remote_preview_parent, remote_preview_gallery))
+        {
+            return false
+        }
+    }
+
+    WinShow, ahk_id %remote_window_id%
+    WinActivate, ahk_id %remote_window_id%
+    WinWaitActive, ahk_id %remote_window_id%,, 1
+    return true
+}
+
+/*
+Return true only while Remote owns keyboard focus.
+*/
+isRemoteActive()
+{
+    global remote_open, remote_window_id
+
+    return remote_open
+        && remote_window_id != ""
+        && WinActive("ahk_id " . remote_window_id)
+}
+
+/*
+Return Remote to the authoritative current gallery without starting a timer.
+*/
+resetRemoteToCurrent()
+{
+    global current_gallery, current_parent
+    global remote_open
+    global remote_preview_gallery, remote_preview_parent, remote_preview_direction
+    global REMOTE_PREVIEW_PREFIX
+
+    SetTimer, remoteTimeoutTimer, Off
+    cleanupSlot(REMOTE_PREVIEW_PREFIX)
+
+    remote_preview_gallery := current_gallery
+    remote_preview_parent := current_parent
+    remote_preview_direction := ""
+
+    if (!remote_open)
+    {
+        return true
+    }
+
+    show_result := showRemoteWindow(current_parent, current_gallery)
+    isolateRemoteSlideshowInput()
+    return show_result
+}
+
+/*
+Preview the next gallery offered from Remote.
+Every displayed path is stored before its preparation worker starts.
+*/
+previewRemoteDirection(direction)
+{
+    global current_gallery, current_parent
+    global remote_open
+    global remote_preview_gallery, remote_preview_parent, remote_preview_direction
+    global remote_timeout_ms, REMOTE_PREVIEW_PREFIX
+    global stored_random_gallery
+
+    if (!remote_open || (direction != "next" && direction != "previous"))
+    {
+        return false
+    }
+
+    loadRemoteTimeoutSetting()
+    SetTimer, remoteTimeoutTimer, Off
+    base_gallery := remote_preview_gallery != "" ? remote_preview_gallery : current_gallery
+    base_parent := remote_preview_parent != "" ? remote_preview_parent : current_parent
+
+    if (isRandomNavigationMode())
+    {
+        if (remote_preview_direction != ""
+            && stored_random_gallery != ""
+            && toLowerText(remote_preview_gallery) = toLowerText(stored_random_gallery))
+        {
+            clearStoredRandomDestination()
+        }
+
+        candidate_gallery := ensureStoredRandomDestination()
+    }
+    else
+    {
+        if (direction = "next")
+        {
+            candidate_gallery := getNextGalleryPath(base_parent, base_gallery)
+        }
+        else
+        {
+            candidate_gallery := getPreviousGalleryPath(base_parent, base_gallery)
+        }
+    }
+
+    candidate_gallery := normalizeFolderPath(candidate_gallery)
+
+    if (candidate_gallery = "" || !InStr(FileExist(candidate_gallery), "D"))
+    {
+        showTrayTip("Remote", "No eligible gallery was found.", 2)
+        activateRemoteWindow()
+        return false
+    }
+
+    if (toLowerText(candidate_gallery) = toLowerText(base_gallery))
+    {
+        showTrayTip("Remote", "There is no other eligible gallery in this direction.", 2)
+        activateRemoteWindow()
+        return false
+    }
+
+    SplitPath, candidate_gallery,, candidate_parent
+    candidate_parent := normalizeFolderPath(candidate_parent)
+
+    remote_preview_gallery := candidate_gallery
+    remote_preview_parent := candidate_parent
+    remote_preview_direction := direction
+
+    startPreparationWorker(REMOTE_PREVIEW_PREFIX, candidate_gallery)
+    showRemoteWindow(candidate_parent, candidate_gallery)
+    isolateRemoteSlideshowInput()
+
+    SetTimer, remoteTimeoutTimer, % -remote_timeout_ms
+    return true
+}
+
+/*
+Execute exactly the gallery displayed by Remote.
+Remote stays open and returns to the newly running gallery after success.
+*/
+executeRemotePreview(commit_reason := "")
+{
+    global current_gallery, current_parent, current_irfan_pid
+    global remote_open
+    global remote_preview_gallery, remote_preview_parent, remote_preview_direction
+    global remote_return_window_id
+    global REMOTE_PREVIEW_PREFIX, switching_slideshow
+
+    if (!remote_open
+        || remote_preview_direction = ""
+        || remote_preview_gallery = "")
+    {
+        return false
+    }
+
+    gallery_path := remote_preview_gallery
+    preview_parent := remote_preview_parent
+    preview_direction := remote_preview_direction
+    SetTimer, remoteTimeoutTimer, Off
+    restoreRemoteSlideshowInput(false)
+
+    if (preparedSlotMatchesGallery(REMOTE_PREVIEW_PREFIX, gallery_path))
     {
         switching_slideshow := true
-        launch_result := launchPreparedSlot(PARENT_PREVIEW_PREFIX)
+        launch_result := launchPreparedSlot(REMOTE_PREVIEW_PREFIX)
         switching_slideshow := false
-        return launch_result
+    }
+    else
+    {
+        launch_result := startGallery(gallery_path, true)
     }
 
-    return startGallery(gallery_path)
+    if (launch_result)
+    {
+        remote_preview_gallery := current_gallery
+        remote_preview_parent := current_parent
+        remote_preview_direction := ""
+        remote_return_window_id := current_irfan_pid != "" ? WinExist("ahk_pid " . current_irfan_pid) : ""
+        showRemoteWindow(current_parent, current_gallery)
+        isolateRemoteSlideshowInput()
+        return true
+    }
+
+    remote_preview_gallery := gallery_path
+    remote_preview_parent := preview_parent
+    remote_preview_direction := preview_direction
+    showRemoteWindow(preview_parent, gallery_path)
+    isolateRemoteSlideshowInput()
+    showTrayTip("Remote", "The displayed gallery could not be opened.", 3)
+    return false
 }
 
 /*
-Close the preview UI and optionally delete its prepared slot.
+Close Remote, cancel its timer and restore input to the managed slideshow.
 */
-stopParentPreview(cleanup_prepared_slot := true)
+closeRemoteWindow(restore_focus := true)
 {
-    global parent_preview_active, parent_preview_gallery, parent_preview_parent
-    global PARENT_PREVIEW_PREFIX
+    global remote_open
+    global remote_preview_gallery, remote_preview_parent, remote_preview_direction
+    global remote_monitor_index, remote_return_window_id
+    global REMOTE_PREVIEW_PREFIX
 
-    SetTimer, parentPreviewTimeoutTimer, Off
-    destroyParentPreviewWindow()
+    SetTimer, remoteTimeoutTimer, Off
+    destroyRemoteWindow()
 
-    parent_preview_active := false
-    parent_preview_gallery := ""
-    parent_preview_parent := ""
+    remote_open := false
+    remote_preview_gallery := ""
+    remote_preview_parent := ""
+    remote_preview_direction := ""
+    remote_monitor_index := 0
 
-    if (cleanup_prepared_slot)
+    cleanupSlot(REMOTE_PREVIEW_PREFIX)
+    restoreRemoteSlideshowInput(restore_focus)
+    remote_return_window_id := ""
+    return true
+}
+
+/*
+Disable only the managed IrfanView and VLC windows while Remote is open.
+Playback and the underlying processes continue.
+*/
+isolateRemoteSlideshowInput()
+{
+    global current_irfan_pid, current_vlc_window_id
+    global remote_disabled_irfan_window_id, remote_disabled_vlc_window_id
+
+    irfan_window_id := current_irfan_pid != "" ? WinExist("ahk_pid " . current_irfan_pid) : ""
+
+    if (irfan_window_id != "" && WinExist("ahk_id " . irfan_window_id))
     {
-        cleanupSlot(PARENT_PREVIEW_PREFIX)
+        WinSet, Disable,, ahk_id %irfan_window_id%
+        remote_disabled_irfan_window_id := irfan_window_id
+    }
+    else
+    {
+        remote_disabled_irfan_window_id := ""
+    }
+
+    if (current_vlc_window_id != "" && WinExist("ahk_id " . current_vlc_window_id))
+    {
+        WinSet, Disable,, ahk_id %current_vlc_window_id%
+        remote_disabled_vlc_window_id := current_vlc_window_id
+    }
+    else
+    {
+        remote_disabled_vlc_window_id := ""
     }
 
     return true
 }
 
 /*
-Create a centered preview canvas on the monitor containing the active
-IrfanView or VLC window. Missing folder.jpg produces a blank placeholder.
+Re-enable exactly the windows disabled for Remote and optionally restore focus.
 */
-showParentPreviewWindow(parent_folder, gallery_path)
+restoreRemoteSlideshowInput(restore_focus := true)
 {
-    global parent_preview_window_id, parent_preview_bitmap_handle
+    global current_irfan_pid
+    global remote_return_window_id
+    global remote_disabled_irfan_window_id, remote_disabled_vlc_window_id
 
-    destroyParentPreviewWindow()
-
-    active_window_id := WinExist("A")
-    monitor_index := getWindowMonitorIndex(active_window_id)
-
-    SysGet, preview_work_area, MonitorWorkArea, %monitor_index%
-
-    work_width := preview_work_areaRight - preview_work_areaLeft
-    work_height := preview_work_areaBottom - preview_work_areaTop
-
-    preview_width := work_width - 100
-    preview_height := work_height - 100
-
-    if (preview_width > 860)
+    if (remote_disabled_irfan_window_id != ""
+        && WinExist("ahk_id " . remote_disabled_irfan_window_id))
     {
-        preview_width := 860
+        WinSet, Enable,, ahk_id %remote_disabled_irfan_window_id%
     }
 
-    if (preview_height > 620)
+    if (remote_disabled_vlc_window_id != ""
+        && WinExist("ahk_id " . remote_disabled_vlc_window_id))
     {
-        preview_height := 620
+        WinSet, Enable,, ahk_id %remote_disabled_vlc_window_id%
     }
 
-    if (preview_width < 420)
+    remote_disabled_irfan_window_id := ""
+    remote_disabled_vlc_window_id := ""
+
+    if (!restore_focus)
     {
-        preview_width := work_width
+        return true
     }
 
-    if (preview_height < 320)
+    focus_window_id := remote_return_window_id
+
+    if (focus_window_id = "" || !WinExist("ahk_id " . focus_window_id))
     {
-        preview_height := work_height
+        focus_window_id := current_irfan_pid != "" ? WinExist("ahk_pid " . current_irfan_pid) : ""
+    }
+
+    if (focus_window_id != "")
+    {
+        WinActivate, ahk_id %focus_window_id%
+    }
+
+    return true
+}
+
+/*
+Format the configured Remote timeout for the visible footer.
+*/
+formatRemoteTimeoutLabel()
+{
+    global remote_timeout_ms
+
+    if (Mod(remote_timeout_ms, 1000) = 0)
+    {
+        seconds_value := Floor(remote_timeout_ms / 1000)
+    }
+    else
+    {
+        seconds_value := Round(remote_timeout_ms / 1000.0, 1)
+    }
+
+    unit_name := seconds_value = 1 ? "second" : "seconds"
+    return seconds_value . " " . unit_name
+}
+
+/*
+Create the active Remote control surface on the slideshow monitor.
+*/
+showRemoteWindow(parent_folder, gallery_path)
+{
+    global remote_window_id, remote_bitmap_handle
+    global remote_monitor_index, remote_preview_direction
+
+    parent_folder := normalizeFolderPath(parent_folder)
+    gallery_path := normalizeFolderPath(gallery_path)
+
+    if (parent_folder = "" || gallery_path = "")
+    {
+        return false
+    }
+
+    destroyRemoteWindow()
+    monitor_index := remote_monitor_index > 0 ? remote_monitor_index : 1
+    SysGet, remote_work_area, MonitorWorkArea, %monitor_index%
+
+    work_width := remote_work_areaRight - remote_work_areaLeft
+    work_height := remote_work_areaBottom - remote_work_areaTop
+    remote_width := work_width - 100
+    remote_height := work_height - 100
+
+    if (remote_width > 860)
+    {
+        remote_width := 860
+    }
+
+    if (remote_height > 620)
+    {
+        remote_height := 620
+    }
+
+    if (remote_width < 420)
+    {
+        remote_width := work_width
+    }
+
+    if (remote_height < 320)
+    {
+        remote_height := work_height
     }
 
     SplitPath, parent_folder, parent_name
@@ -2138,34 +2488,52 @@ showParentPreviewWindow(parent_folder, gallery_path)
     parent_rating := getSavedParentRating(parent_folder)
     rating_stars := buildParentRatingStars(parent_rating)
 
-    parent_header_height := 44
-    gallery_name_height := 32
-    rating_height := parent_rating > 0 ? 38 : 0
-    footer_height := 46
+    if (remote_preview_direction = "next")
+    {
+        state_name := "Next"
+    }
+    else if (remote_preview_direction = "previous")
+    {
+        state_name := "Previous"
+    }
+    else
+    {
+        state_name := "Current"
+    }
+
+    mode_height := 34
+    parent_header_height := 42
+    gallery_name_height := 30
+    rating_height := parent_rating > 0 ? 36 : 0
+    footer_height := 58
     canvas_left := 18
-    canvas_top := parent_header_height + gallery_name_height + rating_height
-    canvas_width := preview_width - 36
-    canvas_height := preview_height - canvas_top - footer_height
+    canvas_top := mode_height + parent_header_height + gallery_name_height + rating_height
+    canvas_width := remote_width - 36
+    canvas_height := remote_height - canvas_top - footer_height
 
-    Gui, ParentPreview:New, +AlwaysOnTop -Caption +ToolWindow +Border +Hwndparent_preview_window_id
-    Gui, ParentPreview:Color, 101216
-    Gui, ParentPreview:Margin, 0, 0
+    Gui, Remote:New, +AlwaysOnTop +ToolWindow -MinimizeBox -MaximizeBox +Hwndremote_window_id
+    Gui, Remote:Color, 101216
+    Gui, Remote:Margin, 0, 0
 
-    Gui, ParentPreview:Font, s17 cFFFFFF Bold, Segoe UI
-    parent_header_options := "x0 y0 w" . preview_width . " h" . parent_header_height . " Center 0x200"
-    Gui, ParentPreview:Add, Text, %parent_header_options%, %parent_name%
+    Gui, Remote:Font, s10 c7EE0FF Bold, Segoe UI
+    mode_options := "x0 y0 w" . remote_width . " h" . mode_height . " Center 0x200"
+    Gui, Remote:Add, Text, %mode_options%, % state_name . " gallery"
 
-    Gui, ParentPreview:Font, s12 cD5DCE8 Norm, Segoe UI
-    gallery_name_y := parent_header_height
-    gallery_name_options := "x18 y" . gallery_name_y . " w" . (preview_width - 36) . " h" . gallery_name_height . " Center 0x200"
-    Gui, ParentPreview:Add, Text, %gallery_name_options%, %gallery_name%
+    Gui, Remote:Font, s17 cFFFFFF Bold, Segoe UI
+    parent_options := "x0 y" . mode_height . " w" . remote_width . " h" . parent_header_height . " Center 0x200"
+    Gui, Remote:Add, Text, %parent_options%, %parent_name%
+
+    Gui, Remote:Font, s12 cD5DCE8 Norm, Segoe UI
+    gallery_name_y := mode_height + parent_header_height
+    gallery_name_options := "x18 y" . gallery_name_y . " w" . (remote_width - 36) . " h" . gallery_name_height . " Center 0x200"
+    Gui, Remote:Add, Text, %gallery_name_options%, %gallery_name%
 
     if (parent_rating > 0)
     {
-        Gui, ParentPreview:Font, s21 cFFD34D Bold, Segoe UI Symbol
-        rating_y := parent_header_height + gallery_name_height
-        rating_options := "x18 y" . rating_y . " w" . (preview_width - 36) . " h" . rating_height . " Center 0x200"
-        Gui, ParentPreview:Add, Text, %rating_options%, %rating_stars%
+        Gui, Remote:Font, s20 cFFD34D Bold, Segoe UI Symbol
+        rating_y := mode_height + parent_header_height + gallery_name_height
+        rating_options := "x18 y" . rating_y . " w" . (remote_width - 36) . " h" . rating_height . " Center 0x200"
+        Gui, Remote:Add, Text, %rating_options%, %rating_stars%
     }
 
     folder_image := parent_folder . "\folder.jpg"
@@ -2173,43 +2541,45 @@ showParentPreviewWindow(parent_folder, gallery_path)
 
     if (FileExist(folder_image))
     {
-        parent_preview_bitmap_handle := loadScaledPreviewBitmap(folder_image, canvas_width, canvas_height, bitmap_width, bitmap_height)
+        remote_bitmap_handle := loadScaledPreviewBitmap(folder_image, canvas_width, canvas_height, bitmap_width, bitmap_height)
 
-        if (parent_preview_bitmap_handle)
+        if (remote_bitmap_handle)
         {
             image_x := canvas_left + Floor((canvas_width - bitmap_width) / 2)
             image_y := canvas_top + Floor((canvas_height - bitmap_height) / 2)
-            picture_options := "x" . image_x . " y" . image_y . " w" . bitmap_width . " h" . bitmap_height . " 0xE hwndpreview_picture_id"
-            Gui, ParentPreview:Add, Picture, %picture_options%
-            bitmap_value := "HBITMAP:*" . parent_preview_bitmap_handle
-            GuiControl, ParentPreview:, %preview_picture_id%, %bitmap_value%
+            picture_options := "x" . image_x . " y" . image_y . " w" . bitmap_width . " h" . bitmap_height . " 0xE hwndremote_picture_id"
+            Gui, Remote:Add, Picture, %picture_options%
+            bitmap_value := "HBITMAP:*" . remote_bitmap_handle
+            GuiControl, Remote:, %remote_picture_id%, %bitmap_value%
             image_loaded := true
         }
     }
 
     if (!image_loaded)
     {
-        Gui, ParentPreview:Font, s20 c7F8A99 Bold, Segoe UI
+        Gui, Remote:Font, s20 c7F8A99 Bold, Segoe UI
         placeholder_options := "x" . canvas_left . " y" . canvas_top . " w" . canvas_width . " h" . canvas_height . " Center 0x200 +Border"
-        placeholder_text := gallery_name
-        Gui, ParentPreview:Add, Text, %placeholder_options%, %placeholder_text%
+        Gui, Remote:Add, Text, %placeholder_options%, %gallery_name%
     }
 
-    Gui, ParentPreview:Font, s11 cD5DCE8 Norm, Segoe UI
-    footer_y := preview_height - footer_height
-    footer_options := "x0 y" . footer_y . " w" . preview_width . " h" . footer_height . " Center 0x200"
-    footer_text := "Tab: next parent     Ctrl+Tab: open now     Esc: cancel     Auto-open in 4 seconds"
-    Gui, ParentPreview:Add, Text, %footer_options%, %footer_text%
+    Gui, Remote:Font, s10 cD5DCE8 Norm, Segoe UI
+    footer_y := remote_height - footer_height
+    footer_options := "x0 y" . footer_y . " w" . remote_width . " h" . footer_height . " Center 0x200"
+    timeout_label := formatRemoteTimeoutLabel()
+    footer_text := remote_preview_direction = "" ? "Tab  OFFER NEXT GALLERY" : "Tab  OFFER NEXT GALLERY`nStarts slideshow in " . timeout_label . " · Close Remote to cancel"
+    Gui, Remote:Add, Text, %footer_options%, %footer_text%
 
-    preview_x := preview_work_areaLeft + Floor((work_width - preview_width) / 2)
-    preview_y := preview_work_areaTop + Floor((work_height - preview_height) / 2)
-    show_options := "x" . preview_x . " y" . preview_y . " w" . preview_width . " h" . preview_height . " NoActivate"
-    Gui, ParentPreview:Show, %show_options%, Next parent gallery
+    remote_x := remote_work_areaLeft + Floor((work_width - remote_width) / 2)
+    remote_y := remote_work_areaTop + Floor((work_height - remote_height) / 2)
+    show_options := "x" . remote_x . " y" . remote_y . " w" . remote_width . " h" . remote_height
+    Gui, Remote:Show, %show_options%, Remote
+    WinActivate, ahk_id %remote_window_id%
+    WinWaitActive, ahk_id %remote_window_id%,, 1
     return true
 }
 
 /*
-Load folder.jpg as a bitmap fitted inside the preview canvas without distortion.
+Load folder.jpg as a bitmap fitted inside the Remote canvas without distortion.
 */
 loadScaledPreviewBitmap(image_path, maximum_width, maximum_height, ByRef bitmap_width, ByRef bitmap_height)
 {
@@ -2269,19 +2639,19 @@ getBitmapDimensions(bitmap_handle, ByRef bitmap_width, ByRef bitmap_height)
 }
 
 /*
-Destroy the non-activating preview window and release its bitmap.
+Destroy the Remote window and release its bitmap.
 */
-destroyParentPreviewWindow()
+destroyRemoteWindow()
 {
-    global parent_preview_window_id, parent_preview_bitmap_handle
+    global remote_window_id, remote_bitmap_handle
 
-    Gui, ParentPreview:Destroy
-    parent_preview_window_id := ""
+    Gui, Remote:Destroy
+    remote_window_id := ""
 
-    if (parent_preview_bitmap_handle)
+    if (remote_bitmap_handle)
     {
-        DllCall("DeleteObject", "Ptr", parent_preview_bitmap_handle)
-        parent_preview_bitmap_handle := 0
+        DllCall("DeleteObject", "Ptr", remote_bitmap_handle)
+        remote_bitmap_handle := 0
     }
 
     return true
@@ -2294,11 +2664,13 @@ requestPreparedSwitch(switch_type)
 {
     global current_gallery, current_parent, switching_slideshow
     global NEXT_GALLERY_PREFIX, NEXT_PARENT_PREFIX, PREVIOUS_PARENT_PREFIX
-    global parent_preview_active
+    global remote_open
 
-    if (parent_preview_active)
+    cancelPendingSingleTab()
+
+    if (remote_open)
     {
-        stopParentPreview(true)
+        closeRemoteWindow(false)
     }
 
     if (current_gallery = "")
@@ -2309,17 +2681,14 @@ requestPreparedSwitch(switch_type)
     if (switch_type = "gallery")
     {
         slot_prefix := NEXT_GALLERY_PREFIX
-        fallback_gallery := getNextGalleryPath(current_parent, current_gallery)
     }
     else if (switch_type = "parent")
     {
         slot_prefix := NEXT_PARENT_PREFIX
-        fallback_gallery := getNextParentGalleryPath(current_parent)
     }
     else if (switch_type = "previousparent")
     {
         slot_prefix := PREVIOUS_PARENT_PREFIX
-        fallback_gallery := getPreviousParentGalleryPath(current_parent)
     }
     else
     {
@@ -2328,12 +2697,19 @@ requestPreparedSwitch(switch_type)
 
     if (isRandomNavigationMode())
     {
-        prepared_random_gallery := getPreparedSlotGalleryPath(slot_prefix)
-
-        if (prepared_random_gallery != "")
-        {
-            fallback_gallery := prepared_random_gallery
-        }
+        fallback_gallery := ensureStoredRandomDestination()
+    }
+    else if (switch_type = "gallery")
+    {
+        fallback_gallery := getNextGalleryPath(current_parent, current_gallery)
+    }
+    else if (switch_type = "parent")
+    {
+        fallback_gallery := getNextParentGalleryPath(current_parent)
+    }
+    else
+    {
+        fallback_gallery := getPreviousParentGalleryPath(current_parent)
     }
 
     saveAndCloseCurrentIrfanView()
@@ -2359,12 +2735,15 @@ setRandomNavigationMode(is_active, unique_active := false)
     global random_unique_seen
     global random_unique_parent_seen
     global random_gallery_history
+    global stored_random_gallery, stored_random_parent
 
     random_navigation_active := is_active ? true : false
     random_unique_active := random_navigation_active && unique_active
     random_unique_seen := []
     random_unique_parent_seen := []
     random_gallery_history := []
+    stored_random_gallery := ""
+    stored_random_parent := ""
     return true
 }
 
@@ -2381,10 +2760,13 @@ setRandomUniqueMode(is_active)
     global random_unique_parent_seen
     global current_gallery
     global current_parent
+    global stored_random_gallery, stored_random_parent
 
     random_unique_active := random_navigation_active && is_active
     random_unique_seen := []
     random_unique_parent_seen := []
+    stored_random_gallery := ""
+    stored_random_parent := ""
 
     if (random_unique_active)
     {
@@ -2711,6 +3093,69 @@ isRandomNavigationMode()
     global random_navigation_active
 
     return random_navigation_active
+}
+
+/*
+Return the one authoritative random destination, choosing it only when no
+valid stored destination exists.
+*/
+ensureStoredRandomDestination()
+{
+    global current_parent
+    global stored_random_gallery, stored_random_parent
+
+    stored_random_gallery := normalizeFolderPath(stored_random_gallery)
+
+    if (stored_random_gallery != ""
+        && InStr(FileExist(stored_random_gallery), "D"))
+    {
+        return stored_random_gallery
+    }
+
+    clearStoredRandomDestination()
+    selected_gallery := getRandomDifferentParentGalleryPath(current_parent)
+    selected_gallery := normalizeFolderPath(selected_gallery)
+
+    if (selected_gallery = "" || !InStr(FileExist(selected_gallery), "D"))
+    {
+        return ""
+    }
+
+    SplitPath, selected_gallery,, selected_parent
+    stored_random_gallery := selected_gallery
+    stored_random_parent := normalizeFolderPath(selected_parent)
+    return stored_random_gallery
+}
+
+/*
+Clear the stored random offer only after execution, filter changes or an
+explicit Remote skip.
+*/
+clearStoredRandomDestination()
+{
+    global stored_random_gallery, stored_random_parent
+
+    stored_random_gallery := ""
+    stored_random_parent := ""
+    return true
+}
+
+/*
+Consume the stored offer only when the gallery which actually opened matches it.
+*/
+consumeStoredRandomDestination(gallery_path)
+{
+    global stored_random_gallery
+
+    if (stored_random_gallery != ""
+        && toLowerText(normalizeFolderPath(gallery_path))
+            = toLowerText(normalizeFolderPath(stored_random_gallery)))
+    {
+        clearStoredRandomDestination()
+        return true
+    }
+
+    return false
 }
 
 /*
@@ -3111,7 +3556,7 @@ getNextGalleryPath(parent_folder, gallery_folder)
 
         if (isRandomNavigationMode())
         {
-            return getRandomDifferentParentGalleryPath(parent_folder)
+            return ensureStoredRandomDestination()
         }
 
         current_parent_galleries := []
@@ -3150,6 +3595,60 @@ getNextGalleryPath(parent_folder, gallery_folder)
 }
 
 /*
+Return the previous gallery path, wrapping inside the current parent.
+*/
+getPreviousGalleryPath(parent_folder, gallery_folder)
+{
+    filtered_queue := getFilteredNavigationQueue(queue_is_valid)
+
+    if (queue_is_valid)
+    {
+        if (filtered_queue.Length() < 1)
+        {
+            return ""
+        }
+
+        if (isRandomNavigationMode())
+        {
+            return ensureStoredRandomDestination()
+        }
+
+        current_parent_galleries := []
+
+        for gallery_index, filtered_gallery in filtered_queue
+        {
+            SplitPath, filtered_gallery,, filtered_parent
+            filtered_parent := normalizeFolderPath(filtered_parent)
+
+            if (toLowerText(filtered_parent) = toLowerText(parent_folder))
+            {
+                current_parent_galleries.Push(filtered_gallery)
+            }
+        }
+
+        if (current_parent_galleries.Length() < 1)
+        {
+            return filtered_queue[filtered_queue.Length()]
+        }
+
+        current_index := findPathIndex(current_parent_galleries, gallery_folder)
+        previous_index := current_index <= 1 ? current_parent_galleries.Length() : current_index - 1
+        return current_parent_galleries[previous_index]
+    }
+
+    gallery_folders := getGalleryFolders(parent_folder)
+
+    if (gallery_folders.Length() < 1)
+    {
+        return ""
+    }
+
+    current_index := findPathIndex(gallery_folders, gallery_folder)
+    previous_index := current_index <= 1 ? gallery_folders.Length() : current_index - 1
+    return gallery_folders[previous_index]
+}
+
+/*
 Return the first gallery in the next parent across the A-Z hierarchy.
 */
 getNextParentGalleryPath(parent_folder)
@@ -3167,7 +3666,7 @@ getNextParentGalleryPath(parent_folder)
 
         if (isRandomNavigationMode())
         {
-            return getRandomDifferentParentGalleryPath(parent_folder)
+            return ensureStoredRandomDestination()
         }
 
         current_index := 0
@@ -3218,7 +3717,7 @@ getPreviousParentGalleryPath(parent_folder)
 
         if (isRandomNavigationMode())
         {
-            return getRandomDifferentParentGalleryPath(parent_folder)
+            return ensureStoredRandomDestination()
         }
 
         current_index := 0
@@ -3538,6 +4037,7 @@ ten seconds, and close the old instance.
 sendVideoToVlc(video_path)
 {
     global vlc_exe
+    global current_vlc_window_id, current_vlc_pid
 
     restoreTemporaryVlcSound()
 
@@ -3574,6 +4074,8 @@ sendVideoToVlc(video_path)
         return false
     }
 
+    current_vlc_window_id := new_vlc_window_id
+    current_vlc_pid := new_vlc_pid
     WinShow, ahk_id %new_vlc_window_id%
     Sleep, 1200
 
@@ -4287,21 +4789,27 @@ clearRunningSessionState()
     global SESSION_INI
     global current_parent, current_gallery
     global current_video, current_irfan_pid
+    global current_vlc_window_id, current_vlc_pid
     global random_navigation_active
     global random_unique_active
     global random_unique_seen
     global random_unique_parent_seen
     global random_gallery_history
+    global stored_random_gallery, stored_random_parent
 
     current_parent := ""
     current_gallery := ""
     current_video := ""
     current_irfan_pid := ""
+    current_vlc_window_id := ""
+    current_vlc_pid := ""
     random_navigation_active := false
     random_unique_active := false
     random_unique_seen := []
     random_unique_parent_seen := []
     random_gallery_history := []
+    stored_random_gallery := ""
+    stored_random_parent := ""
 
     IniDelete, %SESSION_INI%, Session, CurrentParent
     IniDelete, %SESSION_INI%, Session, CurrentGallery
@@ -4513,7 +5021,7 @@ monitorManagedIrfanView()
 
     if (!processExists(current_irfan_pid))
     {
-        stopParentPreview(true)
+        closeRemoteWindow(false)
         clearRunningSessionState()
         ExitApp
     }
