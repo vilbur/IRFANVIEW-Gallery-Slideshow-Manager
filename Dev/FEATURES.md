@@ -26,6 +26,7 @@ This is the functional source of truth.
 - No redundant startup window.
 - Preserve user data and saved layout/settings.
 - Tray messages only for useful errors or explicit status.
+- An open manager automatically restarts after matching, stable, newer HTA and bridge versions are created.
 
 ## Slideshow
 
@@ -65,7 +66,7 @@ Run the selected gallery in IrfanView and control it through the bridge.
 - Double Tab opens Remote without first moving galleries.
 - Ctrl+Tab moves to the next parent gallery.
 - Tab inside Remote offers the next gallery and starts its timeout.
-- Ctrl+Tab inside Remote offers the first eligible gallery in the next parent and starts its timeout.
+- Ctrl+Tab inside Remote offers the first matching gallery in the next parent and starts its timeout.
 - A next-parent candidate must exist and belong to a different parent.
 - Invalid live and prepared parent candidates leave the current slideshow running.
 - While Remote is open, slideshow hotkeys are inactive outside Remote.
@@ -86,13 +87,13 @@ Run galleries in genuinely random order.
 
 ### Random selection
 
-- Choose the next eligible parent randomly.
-- Then choose one eligible gallery from that parent.
+- Choose the next matching parent randomly.
+- Then choose one matching gallery from that parent.
 - Alphabetical, sorted or directory order must not decide the result.
 - Avoid immediately repeating the current parent when alternatives exist.
 - Avoid immediately repeating the current gallery when alternatives exist.
 - Use recent-history avoidance where possible.
-- Reset history only when all eligible options have been exhausted.
+- Reset history only when all matching options have been exhausted.
 - A missing or corrupt manager queue falls back to direct gallery-tree discovery.
 - A valid queue with zero filter matches must not fall back or bypass filters.
 
@@ -116,7 +117,7 @@ Rules:
 - redraws do not generate a replacement;
 - explicit skip may clear the stored offer and generate one new destination.
 
-### Eligibility
+### Gallery matching
 
 Random mode must respect:
 
@@ -204,11 +205,12 @@ These must remain removed:
 - Configurable executable path.
 - Expected known path may be `D:\GoogleDrive\TotalComander\_Utilities\IrfanView\i_view64.exe`.
 - Launch selected gallery.
-- Track only the managed instance.
+- Run IrfanView in one-instance mode.
+- Close pre-existing IrfanView processes before starting a slideshow.
 - Target only the main viewer window.
 - Detect process exit and clear state.
 - Preserve fullscreen and configured monitor placement.
-- Do not close unrelated IrfanView instances.
+- Closing the last manager window closes IrfanView and the resident bridge.
 
 ## VLC integration
 
@@ -237,12 +239,12 @@ These must remain removed:
 - Sort keywords alphabetically on startup.
 - Display plain keywords without redundant `Keywords:` label.
 - Empty keyword state displays nothing.
-- Keyword filters affect normal and random eligibility.
+- Keyword filters affect normal and random gallery matching.
 - Preserve existing keyword data.
 
 ## UNIQUE mode
 
-- Apply UNIQUE to the eligible queue before navigation.
+- Apply UNIQUE to the matching queue before navigation.
 - Affect both normal and random mode.
 - Do not make random mode alphabetical.
 - Keep current-gallery tracking valid.
@@ -284,7 +286,7 @@ Rules:
 
 - Skip state belongs to parent gallery.
 - Persist it.
-- Random eligibility may respect it.
+- Random gallery matching may respect it.
 - Explicit user action can clear/change it.
 - Skip state must not silently reorder normal mode.
 

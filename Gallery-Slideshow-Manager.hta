@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta charset="utf-8" />
-<title>Gallery Slideshow Manager 0.62</title>
+<title>Gallery Slideshow Manager 0.64</title>
 <hta:application
     id="galleryApp"
     applicationname="Gallery Slideshow Manager"
@@ -98,6 +98,54 @@ input[type=text]:focus {
     background: #171a20;
     border-bottom: 1px solid #2b313b;
 }
+#optionsRollout {
+    margin-bottom: 10px;
+    border: 1px solid #303844;
+    border-radius: 9px;
+    overflow: hidden;
+    background: #15191f;
+}
+#optionsRolloutHeader {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 38px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 0;
+    background: #202630;
+    color: #edf2f8;
+    text-align: left;
+}
+#optionsRolloutHeader:hover {
+    background: #272e39;
+}
+#optionsRolloutArrow {
+    width: 18px;
+    color: #8fbfff;
+    font-size: 17px;
+    font-weight: 700;
+    text-align: center;
+}
+#optionsRolloutTitle {
+    margin-left: 5px;
+    font-size: 13px;
+    font-weight: 700;
+}
+#optionsRolloutSummary {
+    margin-left: 10px;
+    color: #8e9aaa;
+    font-size: 11px;
+    font-weight: 400;
+}
+#optionsRolloutBody {
+    display: none;
+    padding: 10px 12px 1px 12px;
+    border-top: 1px solid #303844;
+}
+#optionsRollout.open #optionsRolloutBody {
+    display: block;
+}
 .row {
     display: flex;
     align-items: center;
@@ -122,10 +170,10 @@ input[type=text]:focus {
     font-size: 11px;
 }
 #keywordName {
-    width: 250px;
+    width: 210px;
 }
 #searchInput {
-    width: 220px;
+    width: 180px;
 }
 #filterPresetSelect {
     width: 230px;
@@ -295,13 +343,10 @@ input:disabled {
     font-size: 11px;
 }
 #toolbar {
-    display: grid;
-    grid-template-columns:
-        minmax(0, 1fr)
-        auto
-        minmax(0, 1fr);
+    display: flex;
     align-items: center;
-    column-gap: 14px;
+    justify-content: space-between;
+    flex-wrap: nowrap;
     min-height: 62px;
     padding: 10px 18px;
     background: #14171c;
@@ -311,31 +356,34 @@ input:disabled {
     display: flex;
     align-items: center;
     align-self: center;
-    gap: 9px;
+    flex: 0 1 auto;
+    flex-wrap: nowrap;
     min-width: 0;
     height: 42px;
     min-height: 42px;
 }
 .toolbarZone.left {
-    grid-column: 1;
-    justify-self: start;
     justify-content: flex-start;
 }
 .toolbarZone.right {
-    grid-column: 3;
-    justify-self: end;
     justify-content: flex-end;
 }
 #slideshowActions {
     display: flex;
-    grid-column: 2;
-    justify-self: center;
     align-self: center;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    flex: 0 1 auto;
+    flex-wrap: nowrap;
+    margin: 0 14px;
     height: 42px;
     min-height: 42px;
+}
+.toolbarZone .toolbarControl + .toolbarControl {
+    margin-left: 9px;
+}
+#slideshowActions .toolbarControl + .toolbarControl {
+    margin-left: 12px;
 }
 .toolbarControl {
     display: inline-flex;
@@ -394,6 +442,33 @@ input:disabled {
     font-weight: 850;
     letter-spacing: 0.6px;
     text-transform: uppercase;
+}
+@media screen and (max-width: 1180px) {
+    #toolbar {
+        padding-right: 10px;
+        padding-left: 10px;
+    }
+    #slideshowActions {
+        margin-right: 7px;
+        margin-left: 7px;
+    }
+    .toolbarZone .toolbarControl + .toolbarControl,
+    #slideshowActions .toolbarControl + .toolbarControl {
+        margin-left: 6px;
+    }
+    .toolbarControl,
+    .toolbarCheckButton,
+    .slideshowActionButton {
+        min-width: 0;
+        padding-right: 8px;
+        padding-left: 8px;
+        font-size: 11px;
+        letter-spacing: 0;
+    }
+    .toolbarCheckButton .checkbuttonMark {
+        width: 13px;
+        margin-right: 2px;
+    }
 }
 
 .toggle {
@@ -591,6 +666,8 @@ input:disabled {
 .keywordBadges {
     margin-top: 8px;
     min-height: 22px;
+    max-height: 46px;
+    overflow: hidden;
 }
 .keywordBadge {
     display: inline-block;
@@ -600,6 +677,7 @@ input:disabled {
     background: #2a3443;
     color: #c7d6ea;
     font-size: 10px;
+    line-height: 12px;
 }
 #emptyState {
     display: none;
@@ -765,14 +843,13 @@ input:disabled {
     color: #8f9baa;
     font-size: 11px;
 }
-#contextMenu {
+.keywordMenuSurface {
     display: none;
     position: fixed;
     z-index: 200;
     min-width: 300px;
     max-width: 460px;
-    max-height: 520px;
-    overflow-y: auto;
+    overflow: visible;
     box-sizing: border-box;
     padding: 9px;
     border: 1px solid #46505f;
@@ -855,7 +932,7 @@ var fso = new ActiveXObject("Scripting.FileSystemObject");
 var shell = new ActiveXObject("WScript.Shell");
 var shellApp = new ActiveXObject("Shell.Application");
 
-var APP_VERSION = "0.62";
+var APP_VERSION = "0.64";
 var APP_NAME = "Gallery-Slideshow-Manager";
 var appDir = getApplicationDirectory();
 var tempDir = shell.ExpandEnvironmentStrings("%TEMP%");
@@ -880,6 +957,7 @@ var state = {
     root: "",
     autoVlc: true,
     remoteTimeoutMs: 4000,
+    optionsExpanded: false,
     uniqueRandom: false,
     parents: [],
     keywords: [],
@@ -889,6 +967,7 @@ var state = {
     searchText: "",
     ratingFilterValue: -1,
     ratingFilterMode: "all",
+    ratingFilterValues: {},
     ratingFilterClickTimer: 0,
     parentClickTimer: 0,
     displayMode: "section",
@@ -917,6 +996,12 @@ var state = {
 
 var sharedFileTextCache = {};
 var deferredFileWrites = {};
+var keywordPopup = null;
+var keywordPopupCssText = "";
+var versionRestartCandidate = "";
+var versionRestartStableChecks = 0;
+var versionRestartInProgress = false;
+var managerExitRequested = false;
 
 function getApplicationDirectory() {
     var path = unescape(window.location.pathname).replace(/\//g, "\\");
@@ -1216,6 +1301,22 @@ function updateFixedControlsLayout() {
     content.style.top = controlsHeight + "px";
     scheduleVisibleThumbnailRefresh();
     return true;
+}
+
+function toggleOptionsRollout() {
+    var rollout = document.getElementById("optionsRollout");
+    var header = document.getElementById("optionsRolloutHeader");
+    var arrow = document.getElementById("optionsRolloutArrow");
+
+    state.optionsExpanded = !state.optionsExpanded;
+    rollout.className = state.optionsExpanded ? "open" : "";
+    header.setAttribute(
+        "aria-expanded",
+        state.optionsExpanded ? "true" : "false"
+    );
+    arrow.innerText = state.optionsExpanded ? "\u25BE" : "\u25B8";
+    updateFixedControlsLayout();
+    return false;
 }
 
 function scheduleVisibleThumbnailRefresh() {
@@ -1909,6 +2010,32 @@ function loadSettings() {
             state.ratingFilterValue >= 0 ? "upto" : "all"
         )
     );
+    state.ratingFilterValues = {};
+
+    var savedRatingFilterValues = String(
+        getIniValue(
+            data,
+            "Options",
+            "RatingFilterValues",
+            ""
+        )
+    ).split("|");
+    var savedRatingIndex;
+
+    for (
+        savedRatingIndex = 0;
+        savedRatingIndex < savedRatingFilterValues.length;
+        savedRatingIndex++
+    ) {
+        var savedRating = parseInt(
+            savedRatingFilterValues[savedRatingIndex],
+            10
+        );
+
+        if (savedRating >= 1 && savedRating <= 9) {
+            state.ratingFilterValues[savedRating] = true;
+        }
+    }
 
     if (isNaN(state.ratingFilterValue)
         || state.ratingFilterValue < -1
@@ -1916,13 +2043,25 @@ function loadSettings() {
         state.ratingFilterValue = -1;
     }
 
-    if (state.ratingFilterValue < 0) {
+    if (
+        state.ratingFilterMode === "multiple"
+        && getSelectedRatingValues().length
+    ) {
+        if (state.ratingFilterValue < 1) {
+            state.ratingFilterValue =
+                getSelectedRatingValues()[0];
+        }
+    } else if (state.ratingFilterValue < 0) {
         state.ratingFilterMode = "all";
     } else if (
         state.ratingFilterMode !== "upto"
         && state.ratingFilterMode !== "exact"
     ) {
         state.ratingFilterMode = "upto";
+    }
+
+    if (state.ratingFilterMode !== "multiple") {
+        state.ratingFilterValues = {};
     }
 
     if (state.displayMode !== "tile" && state.displayMode !== "section") {
@@ -2158,7 +2297,7 @@ function updateUniqueRandomButton() {
         state.uniqueRandom ? "true" : "false"
     );
     button.title = state.uniqueRandom
-        ? "Each eligible gallery is shown once before the random cycle resets."
+        ? "Each gallery matching the rating/mask is shown once before the random cycle resets."
         : "Random galleries may repeat before every gallery has been shown.";
     return true;
 }
@@ -2270,18 +2409,51 @@ function saveRatingFilter() {
         "RatingFilterMode",
         state.ratingFilterMode
     );
+    setIniValue(
+        settingsPath,
+        "Options",
+        "RatingFilterValues",
+        getSelectedRatingValues().join("|")
+    );
+}
+
+function getSelectedRatingValues() {
+    var values = [];
+    var rating;
+
+    for (rating = 1; rating <= 9; rating++) {
+        if (state.ratingFilterValues[rating]) {
+            values.push(rating);
+        }
+    }
+
+    return values;
 }
 
 function applyRatingFilter(mode, value) {
     state.ratingFilterValue = value;
     state.ratingFilterMode = mode;
 
+    if (mode !== "multiple") {
+        state.ratingFilterValues = {};
+    }
+
     saveRatingFilter();
     renderRatingFilters();
     renderParents();
     updateFixedControlsLayout();
 
-    if (mode === "exact" && value === 0) {
+    if (mode === "all") {
+        setStatus(
+            "Showing parent galleries of every rating."
+        );
+    } else if (mode === "multiple") {
+        setStatus(
+            "Showing selected parent-gallery ratings: "
+            + getSelectedRatingValues().join("★, ")
+            + "★."
+        );
+    } else if (mode === "exact" && value === 0) {
         setStatus(
             "Showing only non-starred parent galleries."
         );
@@ -2302,7 +2474,7 @@ function applyRatingFilter(mode, value) {
     }
 }
 
-function scheduleUpToRatingFilter(value) {
+function scheduleRatingFilterToggle(value) {
     if (state.ratingFilterClickTimer) {
         window.clearTimeout(state.ratingFilterClickTimer);
     }
@@ -2310,28 +2482,36 @@ function scheduleUpToRatingFilter(value) {
     state.ratingFilterClickTimer = window.setTimeout(function() {
         state.ratingFilterClickTimer = 0;
 
-        if (
-            value === 1
-            && state.ratingFilterValue === 1
-            && (
-                state.ratingFilterMode === "upto"
-                || state.ratingFilterMode === "exact"
-            )
-        ) {
-            applyRatingFilter("exact", 0);
+        if (state.ratingFilterMode !== "multiple") {
+            state.ratingFilterValues = {};
+        }
+
+        if (state.ratingFilterValues[value]) {
+            delete state.ratingFilterValues[value];
         } else {
-            applyRatingFilter("upto", value);
+            state.ratingFilterValues[value] = true;
+        }
+
+        if (!getSelectedRatingValues().length) {
+            applyRatingFilter("all", -1);
+        } else {
+            applyRatingFilter("multiple", value);
         }
     }, 260);
 }
 
-function applyExactRatingFilter(value) {
+function toggleRatingFilterMode(value) {
     if (state.ratingFilterClickTimer) {
         window.clearTimeout(state.ratingFilterClickTimer);
         state.ratingFilterClickTimer = 0;
     }
 
-    applyRatingFilter("exact", value);
+    applyRatingFilter(
+        state.ratingFilterMode === "upto"
+        ? "exact"
+        : "upto",
+        value
+    );
 }
 
 function renderRatingFilters() {
@@ -2361,16 +2541,22 @@ function renderRatingFilters() {
             var isExact =
                 state.ratingFilterMode === "exact"
                 && value === state.ratingFilterValue;
+            var isMultiple =
+                state.ratingFilterMode === "multiple"
+                && !!state.ratingFilterValues[value];
             var isActive =
                 state.ratingFilterMode === "upto"
                 ? (
                     state.ratingFilterValue >= 1
                     && value <= state.ratingFilterValue
                 )
-                : isExact;
+                : (isExact || isMultiple);
             var isSelected =
                 !unratedOnly
-                && value === state.ratingFilterValue;
+                && (
+                    isMultiple
+                    || value === state.ratingFilterValue
+                );
 
             star.type = "button";
             star.className =
@@ -2379,19 +2565,14 @@ function renderRatingFilters() {
                 + (isSelected ? " selected" : "")
                 + (isExact ? " exact" : "");
             star.title =
-                value === 1
-                ? (
-                    "Single click: show non-starred through 1★. "
-                    + "Click active 1★ again: show only non-starred. "
-                    + "Double click: show only 1★."
-                )
-                : (
-                    "Single click: show non-starred through "
-                    + value
-                    + "★. Double click: show only "
-                    + value
-                    + "★."
-                );
+                "Single click: add or remove "
+                + value
+                + "★ from the selected ratings. Double click: switch between "
+                + "ratings up to "
+                + value
+                + "★ and only "
+                + value
+                + "★.";
             star.innerHTML =
                 '<span class="ratingFilterGlyph">★</span>'
                 + '<span class="ratingFilterNumber">'
@@ -2399,7 +2580,7 @@ function renderRatingFilters() {
                 + '</span>';
 
             star.onclick = function() {
-                scheduleUpToRatingFilter(value);
+                scheduleRatingFilterToggle(value);
 
                 window.event.cancelBubble = true;
                 window.event.returnValue = false;
@@ -2407,7 +2588,7 @@ function renderRatingFilters() {
             };
 
             star.ondblclick = function() {
-                applyExactRatingFilter(value);
+                toggleRatingFilterMode(value);
 
                 window.event.cancelBubble = true;
                 window.event.returnValue = false;
@@ -2425,6 +2606,11 @@ function renderRatingFilters() {
             hint.innerText =
                 "Only rating: "
                 + state.ratingFilterValue
+                + "★";
+        } else if (state.ratingFilterMode === "multiple") {
+            hint.innerText =
+                "Selected ratings: "
+                + getSelectedRatingValues().join("★, ")
                 + "★";
         } else if (state.ratingFilterMode === "upto") {
             hint.innerText =
@@ -2523,6 +2709,208 @@ function addKeyword() {
     renderParents();
     saveLibraryCache();
     setStatus("Keyword added" + (state.selectedParent ? " and assigned to " + state.selectedParent.name : "") + ": " + word);
+}
+
+function replaceKeywordInList(words, oldWord, newWord) {
+    var oldKey = lower(oldWord);
+    var result = [];
+    var i;
+
+    for (i = 0; i < words.length; i++) {
+        result.push(
+            lower(words[i]) === oldKey
+            ? newWord
+            : words[i]
+        );
+    }
+
+    return parseKeywordList(joinKeywords(result));
+}
+
+function renameKeyword() {
+    if (!state.root) {
+        alert("Select a galleries root first.");
+        return false;
+    }
+
+    var input = document.getElementById("keywordName");
+    var requestedWord =
+        String(input.value || "")
+        .replace(/^\s+|\s+$/g, "");
+
+    if (!requestedWord) {
+        alert("Enter the current keyword in the Keyword field.");
+        input.focus();
+        return false;
+    }
+
+    var existingIndex = -1;
+    var i;
+
+    for (i = 0; i < state.keywords.length; i++) {
+        if (lower(state.keywords[i]) === lower(requestedWord)) {
+            existingIndex = i;
+            break;
+        }
+    }
+
+    if (existingIndex < 0) {
+        alert("Keyword not found: " + requestedWord);
+        return false;
+    }
+
+    var oldWord = state.keywords[existingIndex];
+    var newWord = prompt(
+        "Rename keyword \"" + oldWord + "\" to:",
+        oldWord
+    );
+
+    if (newWord === null) {
+        return false;
+    }
+
+    newWord = newWord.replace(/^\s+|\s+$/g, "");
+
+    if (!newWord) {
+        alert("Enter a new keyword name.");
+        return false;
+    }
+
+    if (newWord.indexOf("|") >= 0) {
+        alert("A keyword cannot contain |.");
+        return false;
+    }
+
+    if (newWord === oldWord) {
+        setStatus("Keyword name is unchanged: " + oldWord);
+        return false;
+    }
+
+    for (i = 0; i < state.keywords.length; i++) {
+        if (
+            i !== existingIndex
+            && lower(state.keywords[i]) === lower(newWord)
+        ) {
+            alert("This keyword already exists.");
+            return false;
+        }
+    }
+
+    var oldKey = lower(oldWord);
+    var newKey = lower(newWord);
+    var keywordData = readIni(keywordIniPath());
+    var section;
+
+    state.keywords[existingIndex] = newWord;
+
+    if (!keywordData.Keywords) {
+        keywordData.Keywords = {};
+    }
+
+    keywordData.Keywords.List = joinKeywords(state.keywords);
+
+    for (section in keywordData) {
+        if (
+            keywordData.hasOwnProperty(section)
+            && section.indexOf("Parent.") === 0
+        ) {
+            var sectionWords = parseKeywordList(
+                getIniValue(
+                    keywordData,
+                    section,
+                    "Keywords",
+                    ""
+                )
+            );
+            keywordData[section].Keywords = joinKeywords(
+                replaceKeywordInList(
+                    sectionWords,
+                    oldWord,
+                    newWord
+                )
+            );
+        }
+    }
+
+    writeIni(keywordIniPath(), keywordData);
+
+    var settingsData = readIni(settingsPath);
+    var presetSection =
+        settingsData.KeywordFilterPresets || {};
+    var presetsChanged = false;
+    var presetKey;
+
+    for (presetKey in presetSection) {
+        if (
+            presetSection.hasOwnProperty(presetKey)
+            && presetKey.indexOf("Preset.") === 0
+        ) {
+            var presetWords = parseKeywordList(
+                presetSection[presetKey]
+            );
+            var renamedPresetWords = replaceKeywordInList(
+                presetWords,
+                oldWord,
+                newWord
+            );
+            var renamedPresetText =
+                joinKeywords(renamedPresetWords);
+
+            if (renamedPresetText !== presetSection[presetKey]) {
+                presetSection[presetKey] = renamedPresetText;
+                presetsChanged = true;
+            }
+        }
+    }
+
+    if (presetsChanged) {
+        settingsData.KeywordFilterPresets = presetSection;
+        writeIni(settingsPath, settingsData);
+    }
+
+    var wasActive = !!state.activeFilters[oldKey];
+    delete state.activeFilters[oldKey];
+
+    if (wasActive) {
+        state.activeFilters[newKey] = true;
+    }
+
+    for (i = 0; i < state.parents.length; i++) {
+        state.parents[i].keywords = replaceKeywordInList(
+            state.parents[i].keywords || [],
+            oldWord,
+            newWord
+        );
+    }
+
+    if (state.selectedParent) {
+        state.selectedParent.keywords = replaceKeywordInList(
+            state.selectedParent.keywords || [],
+            oldWord,
+            newWord
+        );
+
+        var galleryKeywords =
+            document.getElementById("galleryKeywords");
+
+        if (galleryKeywords) {
+            galleryKeywords.innerText =
+                state.selectedParent.keywords.join(", ");
+        }
+    }
+
+    input.value = "";
+    loadFilterPresets();
+    renderKeywordFilters();
+    renderParents();
+    saveLibraryCache();
+    setStatus(
+        "Keyword renamed: "
+        + oldWord
+        + " → "
+        + newWord
+    );
+    return true;
 }
 
 function clearUnusedKeywords() {
@@ -2795,6 +3183,7 @@ function setKeywordFilterState(word, enabled) {
 function createKeywordFilterButton(word) {
     var active = !!state.activeFilters[lower(word)];
     var button = document.createElement("button");
+    var clickTimer = 0;
 
     button.type = "button";
     button.className =
@@ -2802,8 +3191,8 @@ function createKeywordFilterButton(word) {
         + (active ? " active" : "");
     button.title =
         active
-        ? "Disable keyword filter: " + word
-        : "Enable keyword filter: " + word;
+        ? "Click to disable filter; double-click to edit: " + word
+        : "Click to enable filter; double-click to edit: " + word;
     button.innerHTML =
         '<span class="keywordFilterMark">'
         + (active ? "✓" : "")
@@ -2813,7 +3202,35 @@ function createKeywordFilterButton(word) {
         + '</span>';
 
     button.onclick = function() {
-        setKeywordFilterState(word, !active);
+        if (clickTimer) {
+            window.clearTimeout(clickTimer);
+        }
+
+        clickTimer = window.setTimeout(function() {
+            clickTimer = 0;
+            setKeywordFilterState(word, !active);
+        }, 260);
+
+        window.event.cancelBubble = true;
+        window.event.returnValue = false;
+        return false;
+    };
+
+    button.ondblclick = function() {
+        if (clickTimer) {
+            window.clearTimeout(clickTimer);
+            clickTimer = 0;
+        }
+
+        var input = document.getElementById("keywordName");
+        input.value = word;
+        input.focus();
+        input.select();
+        setStatus(
+            "Keyword ready to rename: "
+            + word
+        );
+
         window.event.cancelBubble = true;
         window.event.returnValue = false;
         return false;
@@ -4063,6 +4480,11 @@ function parentMatches(parent) {
         return false;
     }
 
+    if (state.ratingFilterMode === "multiple"
+        && !state.ratingFilterValues[parentRating]) {
+        return false;
+    }
+
     var hasFilter = false;
     var key;
     for (key in state.activeFilters) {
@@ -5107,8 +5529,7 @@ function searchChanged() {
     renderParents();
 }
 
-function showKeywordContext(parent, x, y, centered) {
-    var menu = document.getElementById("contextMenu");
+function renderKeywordMenu(menu, ownerDocument, parent) {
     var parentRating = parseInt(parent.rating, 10) || 0;
     menu.innerHTML =
         '<div class="contextTitle">'
@@ -5134,10 +5555,10 @@ function showKeywordContext(parent, x, y, centered) {
 
         for (groupIndex = 0; groupIndex < groups.length; groupIndex++) {
             var group = groups[groupIndex];
-            var groupElement = document.createElement("div");
+            var groupElement = ownerDocument.createElement("div");
             groupElement.className = "contextKeywordGroup";
 
-            var buttons = document.createElement("div");
+            var buttons = ownerDocument.createElement("div");
             buttons.className = "contextKeywordButtons";
 
             var wordIndex;
@@ -5149,7 +5570,7 @@ function showKeywordContext(parent, x, y, centered) {
             ) {
                 (function(word) {
                     var key = lower(word);
-                    var button = document.createElement("button");
+                    var button = ownerDocument.createElement("button");
                     var mark = null;
 
                     function refreshButton() {
@@ -5185,8 +5606,15 @@ function showKeywordContext(parent, x, y, centered) {
                         assigned[key] = newChecked;
                         refreshButton();
 
-                        window.event.cancelBubble = true;
-                        window.event.returnValue = false;
+                        var clickEvent =
+                            ownerDocument.parentWindow
+                            && ownerDocument.parentWindow.event;
+
+                        if (clickEvent) {
+                            clickEvent.cancelBubble = true;
+                            clickEvent.returnValue = false;
+                        }
+
                         return false;
                     };
 
@@ -5198,6 +5626,12 @@ function showKeywordContext(parent, x, y, centered) {
             menu.appendChild(groupElement);
         }
     }
+}
+
+function showKeywordContext(parent, x, y, centered) {
+    var menu = document.getElementById("contextMenu");
+
+    renderKeywordMenu(menu, document, parent);
 
     menu.style.left = "0px";
     menu.style.top = "0px";
@@ -5232,18 +5666,198 @@ function showKeywordContext(parent, x, y, centered) {
 
 function hideContextMenu() {
     document.getElementById("contextMenu").style.display = "none";
+
+    if (keywordPopup) {
+        try {
+            if (!keywordPopup.closed) {
+                keywordPopup.close();
+            }
+        } catch (error) {
+        }
+
+        keywordPopup = null;
+    }
 }
 
-function showRequestedKeywordWindow(parentPath) {
+function keywordPopupStyleText() {
+    if (keywordPopupCssText) {
+        return keywordPopupCssText;
+    }
+
+    var cssText = "";
+    var i;
+
+    for (i = 0; i < document.styleSheets.length; i++) {
+        try {
+            cssText += document.styleSheets[i].cssText || "";
+        } catch (error) {
+        }
+    }
+
+    keywordPopupCssText = cssText;
+    return keywordPopupCssText;
+}
+
+function showKeywordPopup(
+    parent,
+    screenX,
+    screenY,
+    workLeft,
+    workTop,
+    workRight,
+    workBottom
+) {
+    try {
+        if (keywordPopup && !keywordPopup.closed) {
+            keywordPopup.close();
+        }
+
+        var popupFeatures =
+            "width=460"
+            + ",height=240"
+            + ",left=" + parseInt(screenX, 10)
+            + ",top=" + parseInt(screenY, 10)
+            + ",toolbar=no"
+            + ",location=no"
+            + ",directories=no"
+            + ",status=no"
+            + ",menubar=no"
+            + ",scrollbars=no"
+            + ",resizable=no";
+
+        keywordPopup = window.open(
+            "about:blank",
+            "GallerySlideshowKeywordWindow",
+            popupFeatures
+        );
+
+        if (!keywordPopup) {
+            return false;
+        }
+
+        var popupDocument = keywordPopup.document;
+        var popupBody = popupDocument.body;
+        var styleElement = popupDocument.createElement("style");
+        var menu = popupDocument.createElement("div");
+        var popupWidth = 460;
+        var popupHeight;
+        var frameWidth;
+        var frameHeight;
+        var outerWidth;
+        var outerHeight;
+        var left = parseInt(screenX, 10);
+        var top = parseInt(screenY, 10);
+        var availableLeft = parseInt(workLeft, 10);
+        var availableTop = parseInt(workTop, 10);
+        var availableRight = parseInt(workRight, 10);
+        var availableBottom = parseInt(workBottom, 10);
+
+        styleElement.type = "text/css";
+        var popupHeads = popupDocument.getElementsByTagName("head");
+        (popupHeads.length ? popupHeads[0] : popupBody).appendChild(
+            styleElement
+        );
+
+        if (styleElement.styleSheet) {
+            styleElement.styleSheet.cssText = keywordPopupStyleText();
+        } else {
+            styleElement.appendChild(
+                popupDocument.createTextNode(keywordPopupStyleText())
+            );
+        }
+
+        popupDocument.title = "Keywords - " + parent.name;
+
+        popupBody.style.margin = "0";
+        popupBody.style.padding = "0";
+        popupBody.style.width = popupWidth + "px";
+        popupBody.style.height = "auto";
+        popupBody.style.minHeight = "0";
+        popupBody.style.overflow = "hidden";
+        popupBody.style.background = "#1c2128";
+
+        menu.className = "keywordMenuSurface";
+        menu.style.display = "block";
+        menu.style.position = "static";
+        menu.style.width = popupWidth + "px";
+        menu.style.maxWidth = popupWidth + "px";
+        popupBody.appendChild(menu);
+
+        renderKeywordMenu(menu, popupDocument, parent);
+        popupHeight = Math.max(
+            54,
+            menu.scrollHeight || 0,
+            menu.offsetHeight || 0
+        );
+        frameWidth = Math.max(
+            0,
+            (keywordPopup.outerWidth || 0)
+            - (popupDocument.documentElement.clientWidth || 0)
+        );
+        frameHeight = Math.max(
+            0,
+            (keywordPopup.outerHeight || 0)
+            - (popupDocument.documentElement.clientHeight || 0)
+        );
+        outerWidth = popupWidth + frameWidth;
+        outerHeight = popupHeight + frameHeight;
+
+        if (
+            !isNaN(availableLeft)
+            && !isNaN(availableRight)
+            && availableRight > availableLeft
+        ) {
+            left = Math.max(
+                availableLeft,
+                Math.min(left, availableRight - outerWidth)
+            );
+        }
+
+        if (
+            !isNaN(availableTop)
+            && !isNaN(availableBottom)
+            && availableBottom > availableTop
+        ) {
+            top = Math.max(
+                availableTop,
+                Math.min(top, availableBottom - outerHeight)
+            );
+        }
+
+        keywordPopup.resizeTo(outerWidth, outerHeight);
+        keywordPopup.moveTo(left, top);
+        keywordPopup.focus();
+        return true;
+    } catch (error) {
+        keywordPopup = null;
+        return false;
+    }
+}
+
+function showRequestedKeywordWindow(
+    parentPath,
+    screenX,
+    screenY,
+    workLeft,
+    workTop,
+    workRight,
+    workBottom
+) {
     var normalizedParentPath = normalizePath(parentPath);
     var parent = null;
+    var cursorX = parseInt(screenX, 10);
+    var cursorY = parseInt(screenY, 10);
+    var hasCursorPosition = !isNaN(cursorX) && !isNaN(cursorY);
     var i;
 
     if (!normalizedParentPath) {
         return false;
     }
 
-    loadKeywords();
+    var keywordData = readIni(keywordIniPath());
+    state.keywords = parseKeywordList(
+        getIniValue(keywordData, "Keywords", "List", "")
+    );
 
     for (i = 0; i < state.parents.length; i++) {
         if (lower(state.parents[i].path) === lower(normalizedParentPath)) {
@@ -5263,7 +5877,27 @@ function showRequestedKeywordWindow(parentPath) {
         };
     }
 
-    showKeywordContext(parent, 0, 0, true);
+    if (hasCursorPosition) {
+        if (!showKeywordPopup(
+            parent,
+            cursorX,
+            cursorY,
+            workLeft,
+            workTop,
+            workRight,
+            workBottom
+        )) {
+            showKeywordContext(
+                parent,
+                cursorX - window.screenLeft,
+                cursorY - window.screenTop,
+                false
+            );
+        }
+    } else {
+        showKeywordContext(parent, 0, 0, true);
+    }
+
     setStatus("Keywords: " + parent.name);
     return true;
 }
@@ -5368,13 +6002,7 @@ function reloadParentKeywordsFromIni() {
     return true;
 }
 
-function pollSession() {
-    pollThumbnailGeneration();
-
-    var data = readIni(sessionPath);
-    var currentParent = normalizePath(getIniValue(data, "Session", "CurrentParent", ""));
-    var currentGallery = normalizePath(getIniValue(data, "Session", "CurrentGallery", ""));
-    var keywordRevision = getIniValue(data, "Session", "KeywordRevision", "");
+function processKeywordWindowRequest(data, currentParent) {
     var keywordWindowRequest = getIniValue(
         data,
         "Session",
@@ -5387,9 +6015,51 @@ function pollSession() {
         "KeywordWindowHandled",
         ""
     );
+
+    if (
+        !keywordWindowRequest
+        || keywordWindowRequest === keywordWindowHandled
+    ) {
+        return false;
+    }
+
     var keywordWindowParent = normalizePath(
         getIniValue(data, "Session", "KeywordWindowParent", "")
     );
+
+    if (!showRequestedKeywordWindow(
+        keywordWindowParent || currentParent,
+        getIniValue(data, "Session", "KeywordWindowScreenX", ""),
+        getIniValue(data, "Session", "KeywordWindowScreenY", ""),
+        getIniValue(data, "Session", "KeywordWindowWorkLeft", ""),
+        getIniValue(data, "Session", "KeywordWindowWorkTop", ""),
+        getIniValue(data, "Session", "KeywordWindowWorkRight", ""),
+        getIniValue(data, "Session", "KeywordWindowWorkBottom", "")
+    )) {
+        return false;
+    }
+
+    data.Session.KeywordWindowHandled = keywordWindowRequest;
+    writeIni(sessionPath, data);
+    return true;
+}
+
+function pollKeywordWindowRequest() {
+    var data = readIni(sessionPath);
+    var currentParent = normalizePath(
+        getIniValue(data, "Session", "CurrentParent", "")
+    );
+
+    processKeywordWindowRequest(data, currentParent);
+}
+
+function pollSession() {
+    pollThumbnailGeneration();
+
+    var data = readIni(sessionPath);
+    var currentParent = normalizePath(getIniValue(data, "Session", "CurrentParent", ""));
+    var currentGallery = normalizePath(getIniValue(data, "Session", "CurrentGallery", ""));
+    var keywordRevision = getIniValue(data, "Session", "KeywordRevision", "");
     var ratingRevision = getIniValue(data, "Session", "RatingRevision", "");
     var changed = lower(currentParent) !== lower(state.currentParentPath)
         || lower(currentGallery) !== lower(state.currentGalleryPath);
@@ -5409,14 +6079,7 @@ function pollSession() {
         refreshParentRatings();
     }
 
-    if (
-        keywordWindowRequest
-        && keywordWindowRequest !== keywordWindowHandled
-        && showRequestedKeywordWindow(keywordWindowParent || currentParent)
-    ) {
-        data.Session.KeywordWindowHandled = keywordWindowRequest;
-        writeIni(sessionPath, data);
-    }
+    processKeywordWindowRequest(data, currentParent);
 
     if (changed && currentGallery) {
         focusRunningGalleryThumbnail(
@@ -5483,6 +6146,7 @@ function handleWindowScriptError(message, url, lineNumber) {
 
 function requestExit() {
     if (confirm("Exit Gallery Slideshow Manager and close the current IrfanView slideshow?")) {
+        managerExitRequested = true;
         sendCommand("exit", "");
         window.close();
     }
@@ -5491,6 +6155,111 @@ function requestExit() {
 function setStatus(text) {
     document.getElementById("statusBar").innerText =
         "v" + APP_VERSION + " | " + text;
+}
+
+function readEmbeddedVersion(filePath, versionPattern) {
+    var stream = null;
+
+    try {
+        stream = fso.OpenTextFile(filePath, 1, false);
+        var fileText = stream.ReadAll();
+        stream.Close();
+        stream = null;
+
+        var match = versionPattern.exec(fileText);
+        return match ? match[1] : "";
+    } catch (error) {
+        if (stream) {
+            try {
+                stream.Close();
+            } catch (closeError) {
+            }
+        }
+
+        return "";
+    }
+}
+
+function isNewerApplicationVersion(candidateVersion, runningVersion) {
+    var candidateParts = String(candidateVersion).split(".");
+    var runningParts = String(runningVersion).split(".");
+    var partCount = Math.max(candidateParts.length, runningParts.length);
+    var i;
+
+    for (i = 0; i < partCount; i++) {
+        var candidatePart = parseInt(candidateParts[i] || "0", 10);
+        var runningPart = parseInt(runningParts[i] || "0", 10);
+
+        if (isNaN(candidatePart) || isNaN(runningPart)) {
+            return false;
+        }
+        if (candidatePart > runningPart) {
+            return true;
+        }
+        if (candidatePart < runningPart) {
+            return false;
+        }
+    }
+
+    return false;
+}
+
+function pollForNewApplicationVersion() {
+    if (versionRestartInProgress) {
+        return;
+    }
+
+    var managerPath = appDir + "\\Gallery-Slideshow-Manager.hta";
+    var managerVersion = readEmbeddedVersion(
+        managerPath,
+        /var\s+APP_VERSION\s*=\s*["']([^"']+)["']/
+    );
+    var bridgeVersion = readEmbeddedVersion(
+        bridgePath,
+        /SCRIPT_VERSION\s*:=\s*["']([^"']+)["']/
+    );
+
+    if (!managerVersion
+        || managerVersion !== bridgeVersion
+        || !isNewerApplicationVersion(managerVersion, APP_VERSION)) {
+        versionRestartCandidate = "";
+        versionRestartStableChecks = 0;
+        return;
+    }
+
+    if (versionRestartCandidate === managerVersion) {
+        versionRestartStableChecks++;
+    } else {
+        versionRestartCandidate = managerVersion;
+        versionRestartStableChecks = 1;
+    }
+
+    if (versionRestartStableChecks < 2) {
+        return;
+    }
+
+    versionRestartInProgress = true;
+    setStatus(
+        "Version "
+        + managerVersion
+        + " is ready. Restarting..."
+    );
+
+    try {
+        shell.Run('"' + managerPath + '"', 1, false);
+        window.setTimeout(function() {
+            window.close();
+        }, 500);
+    } catch (error) {
+        versionRestartInProgress = false;
+        versionRestartCandidate = "";
+        versionRestartStableChecks = 0;
+        setStatus(
+            "Version "
+            + managerVersion
+            + " is ready, but automatic restart failed."
+        );
+    }
 }
 
 function claimSingleManagerInstance() {
@@ -5602,12 +6371,18 @@ function initialize() {
 
     window.onbeforeunload = function() {
         saveWindowPlacement();
+
+        if (!managerExitRequested) {
+            sendCommand("managerclosed", "");
+        }
     };
 
     updateFixedControlsLayout();
     scheduleVisibleThumbnailRefresh();
     pollSession();
     window.setInterval(pollSession, 1000);
+    window.setInterval(pollKeywordWindowRequest, 100);
+    window.setInterval(pollForNewApplicationVersion, 1000);
 }
 </script>
 </head>
@@ -5615,24 +6390,33 @@ function initialize() {
 <div id="appShell">
     <div id="fixedControls">
         <div id="topBar">
-        <div class="row">
-            <span class="label">Galleries root</span>
-            <input id="rootPath" class="grow" type="text" />
-            <button onclick="browseRoot()">Browse</button>
-            <button onclick="saveRoot()">Save &amp; refresh</button>
+        <div id="optionsRollout">
+            <button id="optionsRolloutHeader" type="button" aria-expanded="false" onclick="return toggleOptionsRollout();">
+                <span id="optionsRolloutArrow">▸</span>
+                <span id="optionsRolloutTitle">Options</span>
+                <span id="optionsRolloutSummary">Gallery location and remote timeout</span>
+            </button>
+            <div id="optionsRolloutBody">
+                <div class="row">
+                    <span class="label">Galleries root</span>
+                    <input id="rootPath" class="grow" type="text" />
+                    <button onclick="browseRoot()">Browse</button>
+                    <button onclick="saveRoot()">Save &amp; refresh</button>
+                </div>
+                <div class="row">
+                    <span class="label">Remote timeout</span>
+                    <input id="remoteTimeoutSeconds" type="text" onkeyup="if(window.event.keyCode===13) saveRemoteTimeout();" />
+                    <span class="label">seconds</span>
+                    <button onclick="saveRemoteTimeout()">Save timeout</button>
+                    <span id="remoteTimeoutHint"></span>
+                </div>
+            </div>
         </div>
         <div class="row">
-            <span class="label">Options</span>
-            <span class="label">Remote timeout</span>
-            <input id="remoteTimeoutSeconds" type="text" onkeyup="if(window.event.keyCode===13) saveRemoteTimeout();" />
-            <span class="label">seconds</span>
-            <button onclick="saveRemoteTimeout()">Save timeout</button>
-            <span id="remoteTimeoutHint"></span>
-        </div>
-        <div class="row">
-            <span class="label">New keyword</span>
+            <span class="label">Keyword</span>
             <input id="keywordName" type="text" />
             <button onclick="addKeyword()">Add keyword</button>
+            <button onclick="renameKeyword()">Rename</button>
             <button onclick="clearUnusedKeywords()">Clear unused</button>
             <span class="label" style="margin-left:18px;">Search</span>
             <input id="searchInput" type="text" onkeyup="searchChanged()" />
@@ -5658,7 +6442,7 @@ function initialize() {
         <div id="toolbar">
             <div class="toolbarZone left">
                 <button id="displayModeButton" class="toolbarControl toolbarCheckButton" type="button" onclick="displayModeChanged()"><span class="checkbuttonMark">✓</span><span>TILES</span></button>
-                <button id="autoVlcButton" class="toolbarControl toolbarCheckButton" type="button" onclick="toggleAutoVlc()"><span class="checkbuttonMark">✓</span><span>Open paired video in VLC</span></button>
+                <button id="autoVlcButton" class="toolbarControl toolbarCheckButton" type="button" onclick="toggleAutoVlc()" title="Open paired video in VLC"><span class="checkbuttonMark">✓</span><span>VLC</span></button>
                 <button id="uniqueRandomButton" class="toolbarControl toolbarCheckButton" type="button" onclick="toggleUniqueRandom()"><span class="checkbuttonMark">✓</span><span>UNIQUE</span></button>
             </div>
 
@@ -5684,7 +6468,7 @@ function initialize() {
         <div id="emptyState">No parent galleries match the current filters.</div>
     </div>
 
-    <div id="statusBar">v0.62 | Ready.</div>
+    <div id="statusBar">v0.64 | Ready.</div>
 </div>
 
 <div id="galleryOverlay" onclick="if (window.event.srcElement === this) closeGalleryDialog();">
@@ -5703,6 +6487,6 @@ function initialize() {
     </div>
 </div>
 
-<div id="contextMenu" onclick="window.event.cancelBubble=true;"></div>
+<div id="contextMenu" class="keywordMenuSurface" onclick="window.event.cancelBubble=true;"></div>
 </body>
 </html>

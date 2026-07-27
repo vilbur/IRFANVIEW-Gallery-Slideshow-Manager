@@ -67,7 +67,7 @@ Review this before every release.
 - [ ] A parent switch never resolves to the current parent.
 - [ ] Remote initially shows current gallery.
 - [ ] Tab inside Remote offers the next gallery.
-- [ ] Ctrl+Tab inside Remote offers the first eligible gallery in the next parent.
+- [ ] Ctrl+Tab inside Remote offers the first matching gallery in the next parent.
 - [ ] Remote shows the first direct image of the displayed gallery when loadable.
 - [ ] Parent `folder.jpg` remains the image fallback.
 - [ ] Timeout defaults to 4000 ms.
@@ -110,7 +110,7 @@ Obsolete controls remain absent:
 - [ ] Rating persists and displays.
 - [ ] Keywords remain alphabetically sorted.
 - [ ] Assignment affects selected parent only.
-- [ ] Keyword filters affect random eligibility.
+- [ ] Keyword filters affect random gallery matching.
 - [ ] No redundant `Keywords:` label.
 - [ ] Existing keyword data remains intact.
 

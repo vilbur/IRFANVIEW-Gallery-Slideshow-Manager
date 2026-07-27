@@ -1,4 +1,4 @@
-Gallery Slideshow Manager — HTML version 0.62
+Gallery Slideshow Manager — HTML version 0.64
 
 ================================================
 
@@ -82,7 +82,7 @@ Tile behavior
 
 - Right-click a parent tile to assign keywords.
 
-- Right-click during an active IrfanView slideshow to open that same keyword window for the current parent.
+- Right-click during an active IrfanView slideshow to open that same keyword window at the mouse cursor for the current parent.
 
 - Keyword filters use OR matching.
 
@@ -637,7 +637,7 @@ Version 0.46
 ------------
 - Parent thumbnails now use: left-click select, double-click open details, right-click open the rating/keyword menu.
 - Running slideshow changes select, focus, and scroll to the parent thumbnail in the main UI without opening gallery details.
-- Random mode chooses a fresh random eligible gallery for every next-gallery destination.
+- Random mode chooses a fresh random gallery matching the filters for every next-gallery destination.
 - The current gallery is excluded from every random choice.
 - When another choice exists, the gallery immediately after the current gallery in the normal UI order is excluded too.
 - Random next-parent and Shift+Tab navigation choose a random different parent and a random gallery inside it.
@@ -665,11 +665,11 @@ Version 0.47
 Version 0.48
 ------------
 - Added a persistent UNIQUE checkbutton to the random-slideshow options.
-- UNIQUE prevents an eligible gallery from being shown twice until every gallery in the current filtered pool has been processed.
+- UNIQUE prevents a matching gallery from being shown twice until every gallery in the current filtered pool has been processed.
 - After the complete pool is exhausted, a new cycle starts while keeping the current gallery marked as processed, preventing an immediate repeat.
 - Unique progress is stored in the session INI and survives a resident bridge restart.
 - Enabling or disabling UNIQUE during an active random slideshow immediately rebuilds the prepared navigation slots.
-- Filter changes are handled dynamically: newly eligible galleries are unseen, and a cycle resets only when the currently eligible pool is exhausted.
+- Filter changes are handled dynamically: newly matching galleries are unseen, and a cycle resets only when the current matching pool is exhausted.
 - All toolbar controls now share the same 42-pixel height, inline-flex centring, box sizing, margin and line height.
 - TILES, VLC and UNIQUE remain in the left options group; slideshow controls remain centred; folder, refresh and exit controls remain right-aligned.
 
@@ -681,9 +681,9 @@ Version 0.50
 - The newly launched bridge uses --takeover, terminates the older resident bridge, waits for it to exit, and then becomes the only resident bridge.
 - The status bar always displays the actual running version.
 - Random slideshow starts on the selected child gallery when selected, otherwise on the first gallery of the selected parent tile.
-- The next destination is selected parent-first: choose one eligible parent uniformly at random, then choose an eligible child gallery inside it.
+- The next destination is selected parent-first: choose one matching parent uniformly at random, then choose a matching child gallery inside it.
 - The parent pool comes only from the filtered queue, so keyword, rating, and search filters are respected.
-- The current parent is excluded whenever another eligible parent exists.
+- The current parent is excluded whenever another matching parent exists.
 - The alphabetically next parent is excluded whenever another random parent exists.
 - UNIQUE mode chooses only unseen child galleries and resets only after the full filtered gallery pool is exhausted.
 - Tab, Ctrl+Tab, Shift+Tab, and prepared transitions all use the same single random-next-parent destination in random mode.
@@ -698,10 +698,10 @@ Version 0.51
 - Every option, slideshow, folder, refresh, and exit control uses the same 42-pixel height and vertical centring.
 - Random slideshow starts from the selected gallery.
 - Each next transition chooses the parent first from the filtered keyword/rating/search pool, uniformly at random, then chooses one child gallery inside that parent.
-- The current parent is excluded whenever another eligible parent exists.
+- The current parent is excluded whenever another matching parent exists.
 - The alphabetically next parent is excluded whenever another random choice exists.
-- UNIQUE prevents child-gallery repeats until every eligible child gallery has been processed.
-- UNIQUE also prefers every eligible parent once per parent round before reusing a parent, while child-gallery progress continues across rounds.
+- UNIQUE prevents child-gallery repeats until every matching child gallery has been processed.
+- UNIQUE also prefers every matching parent once per parent round before reusing a parent, while child-gallery progress continues across rounds.
 - UNIQUE progress is persisted in the session and adapts to filter changes.
 
 
@@ -747,7 +747,7 @@ Version 0.59
 ------------
 - Remote closes automatically after its displayed gallery starts successfully.
 - Remote displays the first direct image of the offered gallery, with parent folder.jpg as fallback.
-- Ctrl+TAB inside Remote offers the first eligible gallery in the next parent and restarts the timeout.
+- Ctrl+TAB inside Remote offers the first matching gallery in the next parent and restarts the timeout.
 
 
 Version 0.60
@@ -769,8 +769,23 @@ Version 0.61
 
 Version 0.62
 ------------
-- Fixed Random Gallery navigation failing when the shared eligible-gallery queue was truncated to zero bytes.
+- Fixed Random Gallery navigation failing when the shared matching-gallery queue was truncated to zero bytes.
 - The manager now writes the navigation queue through a completed temporary file instead of truncating the live file.
 - A missing or empty queue is automatically republished even when its in-memory signature has not changed.
 - If the queue is missing or corrupt, the bridge builds random candidates directly from the gallery tree.
 - A valid queue containing zero filter matches remains authoritative and does not use the fallback.
+
+
+Version 0.63
+------------
+- An open manager now detects when matching newer HTA and bridge versions have been created.
+- The version pair must remain complete and unchanged across two checks before restart.
+- The manager launches the new version automatically and closes the older window through the existing single-instance handoff.
+
+
+Version 0.64
+------------
+- IrfanView now starts in one-instance mode.
+- Existing 32-bit or 64-bit IrfanView processes are closed before a manager slideshow starts.
+- Closing the final Gallery Slideshow Manager window closes IrfanView and exits the resident bridge.
+- Automatic manager replacement keeps the slideshow running when a replacement manager window already exists.

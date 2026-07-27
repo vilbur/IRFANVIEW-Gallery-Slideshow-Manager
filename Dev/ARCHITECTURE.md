@@ -34,7 +34,7 @@ Does not directly own IrfanView, VLC, slideshow hotkeys, Remote logic or random 
 Owns:
 
 - slideshow start and replacement;
-- IrfanView and VLC process/window tracking;
+- single-instance IrfanView lifecycle and VLC process/window tracking;
 - fullscreen and monitor placement;
 - current gallery and parent state;
 - slideshow hotkeys;
@@ -209,6 +209,8 @@ The bridge is the only owner of manager slideshow-navigation hotkeys.
 - **0.60** — guarded Ctrl+Tab parent switching with validated prepared-slot recovery; Windows runtime still requires user confirmation.
 - **0.61** — Random Gallery default and strict next-parent destination validation; Windows runtime still requires user confirmation.
 - **0.62** — atomic queue publishing and direct-library recovery for corrupt random-navigation queues; Windows runtime still requires user confirmation.
+- **0.63** — automatic manager restart after a complete, stable newer HTA/bridge version pair appears; Windows runtime still requires user confirmation.
+- **0.64** — system-wide single IrfanView enforcement and last-manager-window lifecycle cleanup; Windows runtime still requires user confirmation.
 
 Static validation is not runtime validation.
 

@@ -2,6 +2,28 @@
 
 This records design milestones and trusted baselines, not every code edit.
 
+## 0.64
+
+IrfanView lifecycle tightened:
+
+- slideshow launches use IrfanView's one-instance mode;
+- any existing 32-bit or 64-bit IrfanView process is closed before a slideshow starts;
+- closing the final manager window exits the resident bridge and closes IrfanView;
+- manager replacement and automatic version handoff keep working because the new manager window exists before the old one closes.
+
+Status: statically validated; live Windows process behaviour still requires user confirmation.
+
+## 0.63
+
+New-version handoff automated:
+
+- an open manager checks the adjacent HTA and bridge version declarations;
+- restart occurs only when both files advertise the same version newer than the running manager;
+- the candidate must remain stable across two checks, avoiding partially written releases;
+- the existing single-instance claim replaces the older manager window.
+
+Status: statically validated; live update handoff still requires user confirmation.
+
 ## 0.62
 
 Random next-item failure fixed at the queue boundary:
@@ -48,7 +70,7 @@ Remote preview refined:
 
 - the first direct image of the displayed gallery is used for Remote preview;
 - parent `folder.jpg` remains a fallback when that image cannot be loaded;
-- Ctrl+Tab inside Remote offers the first eligible gallery in the next parent;
+- Ctrl+Tab inside Remote offers the first matching gallery in the next parent;
 - both Remote offer controls start or restart the configured timeout;
 - Remote closes automatically after the displayed gallery starts successfully;
 - failed execution retains the displayed offer and keeps Remote open.

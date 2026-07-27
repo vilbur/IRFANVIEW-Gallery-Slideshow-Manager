@@ -10,7 +10,7 @@ SetWorkingDir, %A_ScriptDir%
 ; AutoHotkey v1.1.36 native bridge for the HTML tile interface.
 ; Handles IrfanView, VLC, global navigation, dynamic lists, and background preparation.
 
-SCRIPT_VERSION := "0.62"
+SCRIPT_VERSION := "0.64"
 APP_NAME := "Gallery-Slideshow-Manager"
 DATA_DIR := A_Temp . "\" . APP_NAME
 SETTINGS_INI := DATA_DIR . "\" . APP_NAME . ".ini"
@@ -47,6 +47,8 @@ automatic_enter_in_progress := false
 manager_window_id := ""
 manager_monitor_index := 0
 manager_monitor_signature := ""
+manager_window_seen := false
+manager_window_missing_since := 0
 remote_open := false
 remote_preview_gallery := ""
 remote_preview_parent := ""
@@ -202,8 +204,11 @@ $Enter::
 return
 
 $RButton::
+    CoordMode, Mouse, Screen
+    MouseGetPos, keyword_window_mouse_x, keyword_window_mouse_y
+    getWorkAreaAtPoint(keyword_window_mouse_x, keyword_window_mouse_y, keyword_work_left, keyword_work_top, keyword_work_right, keyword_work_bottom)
     KeyWait, RButton
-    requestCurrentParentKeywordWindow()
+    requestCurrentParentKeywordWindow(keyword_window_mouse_x, keyword_window_mouse_y, keyword_work_left, keyword_work_top, keyword_work_right, keyword_work_bottom)
 return
 
 $Esc::
@@ -779,7 +784,7 @@ buildParentRatingStars(rating_value)
 Ask the HTML manager to show its keyword window for the active slideshow
 parent. Keyword assignment now has one shared UI.
 */
-requestCurrentParentKeywordWindow()
+requestCurrentParentKeywordWindow(mouse_x, mouse_y, work_left, work_top, work_right, work_bottom)
 {
     global root_folder, current_parent, current_gallery, SESSION_INI
 
@@ -812,6 +817,27 @@ requestCurrentParentKeywordWindow()
         return false
     }
 
+    IniWrite, %mouse_x%, %SESSION_INI%, Session, KeywordWindowScreenX
+
+    if (ErrorLevel)
+    {
+        showTrayTip("Keywords", "The keyword window position could not be saved.", 3)
+        return false
+    }
+
+    IniWrite, %mouse_y%, %SESSION_INI%, Session, KeywordWindowScreenY
+
+    if (ErrorLevel)
+    {
+        showTrayTip("Keywords", "The keyword window position could not be saved.", 3)
+        return false
+    }
+
+    IniWrite, %work_left%, %SESSION_INI%, Session, KeywordWindowWorkLeft
+    IniWrite, %work_top%, %SESSION_INI%, Session, KeywordWindowWorkTop
+    IniWrite, %work_right%, %SESSION_INI%, Session, KeywordWindowWorkRight
+    IniWrite, %work_bottom%, %SESSION_INI%, Session, KeywordWindowWorkBottom
+
     IniWrite, %keyword_window_request%, %SESSION_INI%, Session, KeywordWindowRequest
 
     if (ErrorLevel)
@@ -821,6 +847,40 @@ requestCurrentParentKeywordWindow()
     }
 
     return launchHtmlManager()
+}
+
+/*
+Return the work area for the monitor containing one screen point.
+*/
+getWorkAreaAtPoint(point_x, point_y, ByRef work_left, ByRef work_top, ByRef work_right, ByRef work_bottom)
+{
+    SysGet, monitor_count, MonitorCount
+
+    Loop, %monitor_count%
+    {
+        monitor_index := A_Index
+        SysGet, point_monitor, Monitor, %monitor_index%
+
+        if (point_x >= point_monitorLeft
+            && point_x < point_monitorRight
+            && point_y >= point_monitorTop
+            && point_y < point_monitorBottom)
+        {
+            SysGet, point_work_area, MonitorWorkArea, %monitor_index%
+            work_left := point_work_areaLeft
+            work_top := point_work_areaTop
+            work_right := point_work_areaRight
+            work_bottom := point_work_areaBottom
+            return true
+        }
+    }
+
+    SysGet, point_work_area, MonitorWorkArea, 1
+    work_left := point_work_areaLeft
+    work_top := point_work_areaTop
+    work_right := point_work_areaRight
+    work_bottom := point_work_areaBottom
+    return false
 }
 
 /*
@@ -928,6 +988,7 @@ Poll the atomic command file written by the HTML application.
 pollCommandFile()
 {
     global COMMAND_FILE, last_command_id, script_is_exiting
+    global manager_window_seen
 
     if (script_is_exiting || !FileExist(COMMAND_FILE))
     {
@@ -988,7 +1049,11 @@ pollCommandFile()
     }
     else if (command_action = "exit")
     {
-        confirmExitBridge()
+        ExitApp
+    }
+    else if (command_action = "managerclosed")
+    {
+        manager_window_seen := true
     }
 }
 
@@ -1147,7 +1212,7 @@ launchIrfanViewList(list_path)
     global irfanview_exe, current_irfan_pid, root_folder
     global automatic_enter_in_progress
 
-    command_line := quotePath(irfanview_exe) . " /filelist=" . quotePath(list_path)
+    command_line := quotePath(irfanview_exe) . " /one /filelist=" . quotePath(list_path)
     working_folder := root_folder != "" ? root_folder : A_ScriptDir
 
     Run, %command_line%, %working_folder%, UseErrorLevel, new_pid
@@ -1821,14 +1886,14 @@ previewRemoteDirection(direction)
 
     if (candidate_gallery = "" || !InStr(FileExist(candidate_gallery), "D"))
     {
-        showTrayTip("Remote", "No eligible gallery was found.", 2)
+        showTrayTip("Remote", "No gallery matching the rating/mask was found.", 2)
         activateRemoteWindow()
         return false
     }
 
     if (toLowerText(candidate_gallery) = toLowerText(base_gallery))
     {
-        showTrayTip("Remote", "There is no other eligible gallery in this direction.", 2)
+        showTrayTip("Remote", "No other gallery matching the rating/mask was found in this direction.", 2)
         activateRemoteWindow()
         return false
     }
@@ -1839,7 +1904,7 @@ previewRemoteDirection(direction)
     if (direction = "parent"
         && toLowerText(candidate_parent) = toLowerText(base_parent))
     {
-        showTrayTip("Remote", "No other eligible parent gallery was found.", 2)
+        showTrayTip("Remote", "No other parent gallery matching the rating/mask was found.", 2)
         activateRemoteWindow()
         return false
     }
@@ -2371,11 +2436,11 @@ requestPreparedSwitch(switch_type)
         {
             if (switch_type = "gallery")
             {
-                error_label := "No eligible next gallery was found."
+                error_label := "No next gallery matching the rating/mask was found."
             }
             else
             {
-                error_label := "No eligible parent gallery was found."
+                error_label := "No parent gallery matching the rating/mask was found."
             }
 
             showTrayTip("Gallery navigation", error_label, 2)
@@ -2956,7 +3021,7 @@ chooseRandomPath(path_list, current_path := "", sequential_path := "", allow_uni
 }
 
 /*
-Choose a random eligible gallery from the entire filtered queue.
+Choose a random gallery matching the filters from the entire filtered queue.
 */
 getRandomGalleryPath(filtered_queue, current_gallery)
 {
@@ -2967,7 +3032,7 @@ getRandomGalleryPath(filtered_queue, current_gallery)
 
 /*
 Choose a random parent different from the current one, then choose
-a random eligible gallery inside it.
+a random gallery matching the filters inside it.
 */
 /*
 Build random-navigation groups directly from the gallery tree.
@@ -3876,6 +3941,33 @@ Minimized, maximized, and unrelated windows are never restored or moved.
 monitorManagerWindowPlacement()
 {
     global manager_window_id, manager_monitor_index, manager_monitor_signature
+    global manager_window_seen, manager_window_missing_since
+
+    existing_window_id := findGalleryManagerWindow()
+
+    if (existing_window_id = "")
+    {
+        if (!manager_window_seen)
+        {
+            return false
+        }
+
+        if (manager_window_missing_since = 0)
+        {
+            manager_window_missing_since := A_TickCount
+            return false
+        }
+
+        if (A_TickCount - manager_window_missing_since >= 1000)
+        {
+            ExitApp
+        }
+
+        return false
+    }
+
+    manager_window_seen := true
+    manager_window_missing_since := 0
 
     detected_window_id := WinActive("Gallery Slideshow Manager ahk_exe mshta.exe")
 
@@ -4532,32 +4624,95 @@ saveAndCloseCurrentIrfanView()
 {
     global current_irfan_pid
 
-    if (current_irfan_pid = "" || !processExists(current_irfan_pid))
+    if (current_irfan_pid != "" && processExists(current_irfan_pid))
     {
-        current_irfan_pid := ""
-        return
+        window_id := WinExist("ahk_pid " . current_irfan_pid)
+
+        if (window_id != "")
+        {
+            saveWindowPlacement(window_id, "IrfanViewWindow")
+        }
     }
 
-    window_id := WinExist("ahk_pid " . current_irfan_pid)
-
-    if (window_id != "")
-    {
-        saveWindowPlacement(window_id, "IrfanViewWindow")
-        WinClose, ahk_id %window_id%
-    }
-
-    Process, WaitClose, %current_irfan_pid%, 1
-
-    if (processExists(current_irfan_pid))
-    {
-        Process, Close, %current_irfan_pid%
-    }
-
+    closeAllIrfanViewInstances()
     current_irfan_pid := ""
 }
 
 /*
-Close the current managed IrfanView without changing the stored session path.
+Close every IrfanView process so the application has one slideshow engine.
+Windows are asked to close first; remaining processes are then terminated.
+*/
+closeAllIrfanViewInstances()
+{
+    closeIrfanViewWindows("i_view64.exe")
+    closeIrfanViewWindows("i_view32.exe")
+
+    close_deadline := A_TickCount + 1000
+
+    while (hasAnyIrfanViewProcess() && A_TickCount < close_deadline)
+    {
+        Sleep, 50
+    }
+
+    forceCloseIrfanViewProcesses("i_view64.exe")
+    forceCloseIrfanViewProcesses("i_view32.exe")
+    return !hasAnyIrfanViewProcess()
+}
+
+/*
+Ask all top-level windows for one IrfanView executable to close.
+*/
+closeIrfanViewWindows(executable_name)
+{
+    WinGet, irfanview_window_list, List, ahk_exe %executable_name%
+
+    Loop, %irfanview_window_list%
+    {
+        irfanview_window_id := irfanview_window_list%A_Index%
+        WinClose, ahk_id %irfanview_window_id%
+    }
+}
+
+/*
+Force-close every remaining process for one IrfanView executable.
+*/
+forceCloseIrfanViewProcesses(executable_name)
+{
+    Loop, 100
+    {
+        Process, Exist, %executable_name%
+        irfanview_process_id := ErrorLevel
+
+        if (!irfanview_process_id)
+        {
+            return true
+        }
+
+        Process, Close, %irfanview_process_id%
+        Process, WaitClose, %irfanview_process_id%, 0.2
+    }
+
+    return false
+}
+
+/*
+Return true while either 64-bit or 32-bit IrfanView is running.
+*/
+hasAnyIrfanViewProcess()
+{
+    Process, Exist, i_view64.exe
+
+    if (ErrorLevel)
+    {
+        return true
+    }
+
+    Process, Exist, i_view32.exe
+    return ErrorLevel ? true : false
+}
+
+/*
+Close IrfanView without changing the stored session path.
 */
 closeManagedIrfanView()
 {
