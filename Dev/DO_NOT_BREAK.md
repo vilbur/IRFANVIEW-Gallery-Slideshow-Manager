@@ -59,7 +59,8 @@ Review this before every release.
 
 ## Remote
 
-- [ ] Tab opens the next gallery immediately.
+- [ ] A single Tab opens the next gallery after the system double-click interval.
+- [ ] A double Tab opens Remote on the current gallery.
 - [ ] In random mode, Tab never leaves the current parent.
 - [ ] Ctrl+Tab moves to the next parent gallery.
 - [ ] In random mode, only Ctrl+Tab chooses a random different parent.

@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta charset="utf-8" />
-<title>Gallery Slideshow Manager 0.66</title>
+<title>Gallery Slideshow Manager 0.68</title>
 <hta:application
     id="galleryApp"
     applicationname="Gallery Slideshow Manager"
@@ -949,7 +949,7 @@ var fso = new ActiveXObject("Scripting.FileSystemObject");
 var shell = new ActiveXObject("WScript.Shell");
 var shellApp = new ActiveXObject("Shell.Application");
 
-var APP_VERSION = "0.66";
+var APP_VERSION = "0.68";
 var APP_NAME = "Gallery-Slideshow-Manager";
 var appDir = getApplicationDirectory();
 var tempDir = shell.ExpandEnvironmentStrings("%TEMP%");
@@ -1017,6 +1017,11 @@ var sharedFileTextCache = {};
 var deferredFileWrites = {};
 var keywordPopup = null;
 var keywordPopupCssText = "";
+var keywordGroupCacheSignature = "";
+var keywordGroupCache = [];
+var keywordMenuMarkupSignature = "";
+var keywordMenuMarkupCache = "";
+var keywordMenuWordCache = [];
 var versionRestartCandidate = "";
 var versionRestartStableChecks = 0;
 var versionRestartInProgress = false;
@@ -1523,6 +1528,21 @@ function nonEmptyFileExists(path) {
     }
 }
 
+function tryWriteUnicodeTextNow(path, text) {
+    var file = null;
+
+    try {
+        file = fso.CreateTextFile(path, true, true);
+        file.Write(String(text == null ? "" : text));
+        file.Close();
+        file = null;
+        return true;
+    } catch (error) {
+        closeTextFileQuietly(file);
+        return false;
+    }
+}
+
 function writeTextAtomically(path, text) {
     var output = String(text == null ? "" : text);
     var tempPath =
@@ -1534,7 +1554,19 @@ function writeTextAtomically(path, text) {
         + ".tmp";
     var attempt;
 
-    if (!writeText(tempPath, output, false)) {
+    /*
+     * Navigation paths can contain characters outside the Windows ANSI code
+     * page. An ANSI TextStream creates the file and then fails during Write,
+     * leaving a zero-byte queue file and the last valid parent set in use.
+     */
+    if (!tryWriteUnicodeTextNow(tempPath, output)) {
+        try {
+            if (fso.FileExists(tempPath)) {
+                fso.DeleteFile(tempPath, true);
+            }
+        } catch (cleanupError) {
+        }
+
         return false;
     }
 
@@ -3962,6 +3994,7 @@ function scanLibrary() {
 
     setStatus("Scanning parent galleries...");
     loadKeywords();
+    primeKeywordMenu();
 
     var letterFolders = enumerateSubfolders(state.root);
     var i;
@@ -5657,7 +5690,191 @@ function searchChanged() {
     renderParents();
 }
 
+function getCachedKeywordGroups() {
+    var signature = joinKeywords(state.keywords);
+
+    if (keywordGroupCacheSignature !== signature) {
+        keywordGroupCacheSignature = signature;
+        keywordGroupCache = groupedKeywords(state.keywords);
+        keywordMenuMarkupSignature = "";
+        keywordMenuMarkupCache = "";
+        keywordMenuWordCache = [];
+    }
+
+    return keywordGroupCache;
+}
+
+function updateKeywordMenuButtonState(button, assigned) {
+    var active = !!assigned[button._keywordKey];
+
+    button.className =
+        "contextKeywordButton"
+        + (active ? " active" : "");
+    button.title =
+        active
+        ? "Remove keyword: " + button._keywordWord
+        : "Assign keyword: " + button._keywordWord;
+    button._keywordMark.innerText = active ? "✓" : "";
+}
+
+function keywordMenuButtonClicked() {
+    var button = this;
+    var menu = button._keywordMenu;
+    var parent = menu && menu._keywordParent;
+    var assigned = menu && menu._keywordAssigned;
+
+    if (!parent || !assigned) {
+        return false;
+    }
+
+    var newChecked = !assigned[button._keywordKey];
+    toggleParentKeyword(parent, button._keywordWord, newChecked);
+    assigned[button._keywordKey] = newChecked;
+    updateKeywordMenuButtonState(button, assigned);
+
+    var clickEvent =
+        button.ownerDocument.parentWindow
+        && button.ownerDocument.parentWindow.event;
+
+    if (clickEvent) {
+        clickEvent.cancelBubble = true;
+        clickEvent.returnValue = false;
+    }
+
+    return false;
+}
+
+function hydrateKeywordMenuStructure(menu, signature) {
+    menu._keywordButtons = [];
+
+    var spans = menu.getElementsByTagName("span");
+    var i;
+
+    for (i = 0; i < spans.length; i++) {
+        var className = " " + (spans[i].className || "") + " ";
+
+        if (className.indexOf(" contextRatingStars ") >= 0) {
+            menu._keywordRatingStars = spans[i];
+        } else if (className.indexOf(" contextRatingCount ") >= 0) {
+            menu._keywordRatingCount = spans[i];
+        }
+    }
+
+    var buttons = menu.getElementsByTagName("button");
+
+    for (i = 0; i < buttons.length; i++) {
+        var button = buttons[i];
+        var word = keywordMenuWordCache[i] || "";
+        button._keywordWord = word;
+        button._keywordKey = lower(word);
+        button._keywordMenu = menu;
+        button._keywordMark = button.firstChild;
+        button.onclick = keywordMenuButtonClicked;
+        menu._keywordButtons.push(button);
+    }
+
+    menu._keywordSignature = signature;
+}
+
+function buildKeywordMenuStructure(menu, ownerDocument, signature) {
+    if (
+        keywordMenuMarkupSignature === signature
+        && keywordMenuMarkupCache
+    ) {
+        menu.innerHTML = keywordMenuMarkupCache;
+        hydrateKeywordMenuStructure(menu, signature);
+        return;
+    }
+    menu.innerHTML = "";
+    menu._keywordButtons = [];
+    keywordMenuWordCache = [];
+
+    var title = ownerDocument.createElement("div");
+    title.className = "contextTitle";
+
+    var ratingLabel = ownerDocument.createElement("span");
+    ratingLabel.innerText = "Rating:";
+    title.appendChild(ratingLabel);
+
+    var ratingStars = ownerDocument.createElement("span");
+    ratingStars.className = "contextRatingStars";
+    title.appendChild(ratingStars);
+
+    var ratingCount = ownerDocument.createElement("span");
+    ratingCount.className = "contextRatingCount";
+    title.appendChild(ratingCount);
+    menu.appendChild(title);
+
+    menu._keywordRatingStars = ratingStars;
+    menu._keywordRatingCount = ratingCount;
+
+    if (!state.keywords.length) {
+        var empty = ownerDocument.createElement("div");
+        empty.className = "smallMuted";
+        empty.style.padding = "8px";
+        empty.innerText = "No keywords defined.";
+        menu.appendChild(empty);
+        menu._keywordSignature = signature;
+        keywordMenuMarkupSignature = signature;
+        keywordMenuMarkupCache = menu.innerHTML;
+        return;
+    }
+
+    var groups = getCachedKeywordGroups();
+    var groupIndex;
+
+    for (groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+        var group = groups[groupIndex];
+        var groupElement = ownerDocument.createElement("div");
+        groupElement.className = "contextKeywordGroup";
+
+        var buttons = ownerDocument.createElement("div");
+        buttons.className = "contextKeywordButtons";
+
+        var wordIndex;
+
+        for (wordIndex = 0; wordIndex < group.words.length; wordIndex++) {
+            var word = group.words[wordIndex];
+            var button = ownerDocument.createElement("button");
+            button.type = "button";
+            button._keywordWord = word;
+            button._keywordKey = lower(word);
+            button._keywordMenu = menu;
+            keywordMenuWordCache.push(word);
+
+            var mark = ownerDocument.createElement("span");
+            mark.className = "contextKeywordMark";
+            button._keywordMark = mark;
+            button.appendChild(mark);
+
+            var label = ownerDocument.createElement("span");
+            label.innerText = word;
+            button.appendChild(label);
+
+            button.onclick = keywordMenuButtonClicked;
+            buttons.appendChild(button);
+            menu._keywordButtons.push(button);
+        }
+
+        groupElement.appendChild(buttons);
+        menu.appendChild(groupElement);
+    }
+
+    menu._keywordSignature = signature;
+    keywordMenuMarkupSignature = signature;
+    keywordMenuMarkupCache = menu.innerHTML;
+}
+
 function renderKeywordMenu(menu, ownerDocument, parent) {
+    var signature = joinKeywords(state.keywords);
+
+    if (
+        menu._keywordSignature !== signature
+        || !menu._keywordButtons
+    ) {
+        buildKeywordMenuStructure(menu, ownerDocument, signature);
+    }
+
     var parentRating = parseInt(parent.rating, 10) || 0;
 
     if (parentRating < 0) {
@@ -5666,110 +5883,42 @@ function renderKeywordMenu(menu, ownerDocument, parent) {
         parentRating = 9;
     }
 
-    menu.innerHTML =
-        '<div class="contextTitle">'
-        + '<span>Rating:</span>'
-        + (
-            parentRating
-            ? '<span class="contextRatingStars">'
-                + escapeHtml(ratingStarsText(parentRating))
-                + '</span>'
-            : ''
-        )
-        + '<span class="contextRatingCount">'
-        + parentRating
-        + '</span>'
-        + '</div>';
+    menu._keywordParent = parent;
+    menu._keywordRatingStars.innerText =
+        parentRating ? ratingStarsText(parentRating) : "";
+    menu._keywordRatingCount.innerText = String(parentRating);
 
-    if (!state.keywords.length) {
-        menu.innerHTML +=
-            '<div class="smallMuted" style="padding:8px;">'
-            + 'No keywords defined.'
-            + '</div>';
-    } else {
-        var assigned = {};
-        var i;
+    var assigned = {};
+    var i;
 
-        for (i = 0; i < parent.keywords.length; i++) {
-            assigned[lower(parent.keywords[i])] = true;
-        }
-
-        var groups = groupedKeywords(state.keywords);
-        var groupIndex;
-
-        for (groupIndex = 0; groupIndex < groups.length; groupIndex++) {
-            var group = groups[groupIndex];
-            var groupElement = ownerDocument.createElement("div");
-            groupElement.className = "contextKeywordGroup";
-
-            var buttons = ownerDocument.createElement("div");
-            buttons.className = "contextKeywordButtons";
-
-            var wordIndex;
-
-            for (
-                wordIndex = 0;
-                wordIndex < group.words.length;
-                wordIndex++
-            ) {
-                (function(word) {
-                    var key = lower(word);
-                    var button = ownerDocument.createElement("button");
-                    var mark = null;
-
-                    function refreshButton() {
-                        var active = !!assigned[key];
-
-                        button.className =
-                            "contextKeywordButton"
-                            + (active ? " active" : "");
-                        button.title =
-                            active
-                            ? "Remove keyword: " + word
-                            : "Assign keyword: " + word;
-                        button.innerHTML =
-                            '<span class="contextKeywordMark">'
-                            + (active ? "✓" : "")
-                            + '</span>'
-                            + '<span>'
-                            + escapeHtml(word)
-                            + '</span>';
-                        mark = button.firstChild;
-                    }
-
-                    button.type = "button";
-                    refreshButton();
-
-                    button.onclick = function() {
-                        var newChecked = !assigned[key];
-                        toggleParentKeyword(
-                            parent,
-                            word,
-                            newChecked
-                        );
-                        assigned[key] = newChecked;
-                        refreshButton();
-
-                        var clickEvent =
-                            ownerDocument.parentWindow
-                            && ownerDocument.parentWindow.event;
-
-                        if (clickEvent) {
-                            clickEvent.cancelBubble = true;
-                            clickEvent.returnValue = false;
-                        }
-
-                        return false;
-                    };
-
-                    buttons.appendChild(button);
-                })(group.words[wordIndex]);
-            }
-
-            groupElement.appendChild(buttons);
-            menu.appendChild(groupElement);
-        }
+    for (i = 0; i < parent.keywords.length; i++) {
+        assigned[lower(parent.keywords[i])] = true;
     }
+
+    menu._keywordAssigned = assigned;
+
+    for (i = 0; i < menu._keywordButtons.length; i++) {
+        updateKeywordMenuButtonState(
+            menu._keywordButtons[i],
+            assigned
+        );
+    }
+}
+
+function primeKeywordMenu() {
+    var menu = document.getElementById("contextMenu");
+
+    if (!menu) {
+        return false;
+    }
+
+    renderKeywordMenu(
+        menu,
+        document,
+        { rating: 0, keywords: [], path: "", name: "" }
+    );
+    menu.style.display = "none";
+    return true;
 }
 
 function showKeywordContext(parent, x, y, centered) {
@@ -6571,6 +6720,8 @@ function initialize() {
         setStatus("Select the galleries root folder.");
     }
 
+    primeKeywordMenu();
+
     document.onclick = function() {
         hideContextMenu();
     };
@@ -6720,7 +6871,7 @@ function initialize() {
         <div id="emptyState">No parent galleries match the current filters.</div>
     </div>
 
-    <div id="statusBar">v0.66 | Ready.</div>
+    <div id="statusBar">v0.68 | Ready.</div>
 </div>
 
 <div id="galleryOverlay" onclick="if (window.event.srcElement === this) closeGalleryDialog();">

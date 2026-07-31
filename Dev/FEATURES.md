@@ -62,7 +62,8 @@ Run the selected gallery in IrfanView and control it through the bridge.
 
 ### Remote interaction
 
-- Tab opens the next gallery immediately.
+- A single Tab opens the next gallery after the Windows double-click interval.
+- A double Tab opens Remote on the current gallery.
 - Ctrl+Tab moves to the next parent gallery.
 - Tab inside Remote offers the next gallery and starts its timeout.
 - Ctrl+Tab inside Remote offers the first matching gallery in the next parent and starts its timeout.
@@ -149,14 +150,16 @@ Remote-control the currently running slideshow while Remote is open.
 ### Controls
 
 ```text
-Tab outside Remote         Open next gallery immediately
+Single Tab outside Remote  Open next gallery after the double-click interval
+Double Tab outside Remote  Open Remote on the current gallery
 Ctrl+Tab outside Remote    Next parent gallery
 Tab inside Remote          Offer next gallery and start/restart timeout
 Ctrl+Tab inside Remote     Offer next parent gallery and start/restart timeout
 ```
 
-In random mode, both Tab controls stay inside the current parent. Both
-Ctrl+Tab controls are the only controls that choose a random different parent.
+In random mode, single Tab outside Remote and Tab inside Remote stay inside
+the current parent. Both Ctrl+Tab controls are the only controls that choose
+a random different parent.
 
 ### Timeout
 
@@ -198,7 +201,6 @@ These must remain removed:
 - standalone Shift previous-preview control;
 - Space immediate execution;
 - Shift+Tab previous-parent shortcut;
-- Esc cancellation shortcut;
 - old shortcut footer text.
 
 ## IrfanView integration

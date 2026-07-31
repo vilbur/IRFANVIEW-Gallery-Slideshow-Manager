@@ -164,7 +164,8 @@ Gallery starts
 ### Remote
 
 ```text
-Tab outside Remote        → Open next gallery immediately
+Single Tab outside Remote → Open next gallery after the double-click interval
+Double Tab outside Remote → Open Remote on the current gallery
 Ctrl+Tab outside Remote   → Next parent gallery
 Tab inside Remote         → Offer next gallery and start/restart timer
 Ctrl+Tab inside Remote    → Offer first gallery in next parent and restart timer

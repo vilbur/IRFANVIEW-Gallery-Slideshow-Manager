@@ -10,7 +10,7 @@ SetWorkingDir, %A_ScriptDir%
 ; AutoHotkey v1.1.36 native bridge for the HTML tile interface.
 ; Handles IrfanView, VLC, global navigation, dynamic lists, and background preparation.
 
-SCRIPT_VERSION := "0.66"
+SCRIPT_VERSION := "0.68"
 APP_NAME := "Gallery-Slideshow-Manager"
 DATA_DIR := A_Temp . "\" . APP_NAME
 SETTINGS_INI := DATA_DIR . "\" . APP_NAME . ".ini"
@@ -60,6 +60,8 @@ remote_monitor_index := 0
 remote_return_window_id := ""
 remote_disabled_irfan_window_id := ""
 remote_disabled_vlc_window_id := ""
+tab_press_pending := false
+tab_double_press_window_ms := 500
 temporary_vlc_mute_active := false
 temporary_vlc_mute_window_id := ""
 temporary_vlc_mute_pid := ""
@@ -170,11 +172,12 @@ return
 
 #If isGalleryNavigationActive() && !remote_open
 $Tab::
-    requestPreparedSwitch("gallery")
+    handleSlideshowTabPress()
     KeyWait, Tab
 return
 
 $^Tab::
+    cancelPendingSingleTab()
     requestPreparedSwitch("parent")
     KeyWait, Tab
 return
@@ -245,6 +248,10 @@ remoteTimeoutTimer:
     executeRemotePreview("timeout")
 return
 
+singleTabTimer:
+    commitSingleTabPress()
+return
+
 vlcAutoUnmuteTimer:
     restoreTemporaryVlcSound()
 return
@@ -275,6 +282,7 @@ handleBridgeExit:
     SetTimer, monitorIrfanViewTimer, Off
     SetTimer, monitorManagerWindowTimer, Off
     SetTimer, remoteTimeoutTimer, Off
+    SetTimer, singleTabTimer, Off
     SetTimer, vlcAutoUnmuteTimer, Off
 
     restoreTemporaryVlcSound()
@@ -571,6 +579,7 @@ initializeResidentBridge()
     global RESIDENT_PID_FILE, SCRIPT_ICON
     global open_manager_on_start
     global takeover_existing_bridge
+    global tab_double_press_window_ms
 
     if (!initializeSharedDataStorage())
     {
@@ -581,6 +590,8 @@ initializeResidentBridge()
     current_pid := DllCall("GetCurrentProcessId")
     random_seed := A_TickCount ^ current_pid
     Random,, %random_seed%
+    tab_double_press_window_ms := getSystemDoubleClickInterval()
+
     if (FileExist(RESIDENT_PID_FILE))
     {
         FileRead, old_pid_text, %RESIDENT_PID_FILE%
@@ -850,6 +861,20 @@ requestCurrentParentKeywordWindow(mouse_x, mouse_y, work_left, work_top, work_ri
         return false
     }
 
+    return ensureHtmlManagerForKeywordPopup()
+}
+
+/*
+Use an existing manager without restoring or activating its full window.
+The manager session poll can create and focus the lightweight keyword popup.
+*/
+ensureHtmlManagerForKeywordPopup()
+{
+    if (findGalleryManagerWindow() != "")
+    {
+        return true
+    }
+
     return launchHtmlManager()
 }
 
@@ -1068,6 +1093,8 @@ startGallery(gallery_path, preserve_remote := false)
 {
     global switching_slideshow, CURRENT_PREFIX
     global remote_open
+
+    cancelPendingSingleTab()
 
     if (remote_open && !preserve_remote)
     {
@@ -1659,6 +1686,76 @@ startPreparationWorker(slot_prefix, gallery_path)
 }
 
 /*
+Use the Windows double-click interval for the Tab double-press gesture.
+*/
+getSystemDoubleClickInterval()
+{
+    interval_ms := DllCall("GetDoubleClickTime")
+
+    if (interval_ms < 250 || interval_ms > 1000)
+    {
+        interval_ms := 500
+    }
+
+    return interval_ms
+}
+
+/*
+Delay the single-Tab gallery switch long enough to distinguish a double press.
+The second Tab cancels the pending switch and opens Remote on the current gallery.
+*/
+handleSlideshowTabPress()
+{
+    global tab_press_pending, tab_double_press_window_ms
+
+    if (tab_press_pending)
+    {
+        cancelPendingSingleTab()
+        return openOrActivateRemote()
+    }
+
+    tab_press_pending := true
+    timer_period := -1 * tab_double_press_window_ms
+    SetTimer, singleTabTimer, %timer_period%
+    return true
+}
+
+/*
+Commit one delayed single-Tab action only if the slideshow is still active.
+*/
+commitSingleTabPress()
+{
+    global tab_press_pending, remote_open
+
+    if (GetKeyState("Tab", "P"))
+    {
+        SetTimer, singleTabTimer, -50
+        return true
+    }
+
+    tab_press_pending := false
+
+    if (remote_open || !isGalleryNavigationActive())
+    {
+        return false
+    }
+
+    return requestPreparedSwitch("gallery")
+}
+
+/*
+Cancel a pending single-Tab action before Ctrl+Tab or double-Tab navigation.
+*/
+cancelPendingSingleTab()
+{
+    global tab_press_pending
+
+    SetTimer, singleTabTimer, Off
+    tab_press_pending := false
+    return true
+}
+
+/*
 Open or activate the Remote control surface.
 Opening always starts on the current gallery and does not start the automatic
 execution timer.
@@ -1670,6 +1767,7 @@ openOrActivateRemote()
     global remote_preview_gallery, remote_preview_parent, remote_preview_direction
     global remote_monitor_index, remote_return_window_id
 
+    cancelPendingSingleTab()
     loadRemoteTimeoutSetting()
 
     if (remote_open)
@@ -2376,6 +2474,8 @@ requestPreparedSwitch(switch_type)
     global current_gallery, current_parent, switching_slideshow
     global NEXT_GALLERY_PREFIX, NEXT_PARENT_PREFIX, PREVIOUS_PARENT_PREFIX
     global remote_open
+
+    cancelPendingSingleTab()
 
     if (remote_open)
     {

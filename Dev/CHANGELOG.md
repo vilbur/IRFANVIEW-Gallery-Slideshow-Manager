@@ -2,6 +2,57 @@
 
 This records design milestones and trusted baselines, not every code edit.
 
+## 0.68
+
+Slideshow navigation recovery:
+
+- filtered navigation is published as Unicode so a non-ANSI gallery path cannot leave a zero-byte temporary file and preserve a stale two-parent queue;
+- single Tab again changes gallery after the Windows double-click interval;
+- double Tab again opens Remote on the current gallery;
+- Ctrl+Tab still changes parent, and Tab inside Remote still offers the next gallery;
+- random Tab navigation remains constrained to the current parent while random parent navigation remains different-parent only.
+
+Status: syntax and static regression validation required; live Windows interaction requires user confirmation.
+
+## 0.67
+
+Reusable keyword-menu rendering:
+
+- the keyword menu structure and grouped keyword order are prepared once;
+- later openings update only the rating and checked keyword states;
+- slideshow popup windows clone cached menu markup and hydrate lightweight click handlers;
+- popup requests no longer restore or activate the complete manager window;
+- 0.66 focus lifecycle, slideshow pause, fast tile updates and deferred cache writing remain unchanged;
+- 0.64 TAB/Remote/random navigation code remains unchanged.
+
+Status: syntax and package validation required; live Windows interaction requires user confirmation.
+
+## 0.66
+
+Keyword-menu responsiveness and focus lifecycle:
+
+- removed the global popup RButton interceptor that could consume a slideshow right-click;
+- the popup now closes itself on focus loss and clears its stale window reference;
+- main-tile right-click updates selection without rebuilding the parent grid;
+- keyword assignment updates only the affected tile and defers cache serialization;
+- an active keyword filter still triggers a render when membership changes;
+- 0.64 TAB/Remote/random navigation code remains unchanged.
+
+Status: syntax and package validation required; live Windows interaction requires user confirmation.
+
+## 0.65
+
+Shared slideshow keyword popup:
+
+- slideshow right-click uses the same HTML keyword renderer as the manager UI;
+- no native AutoHotkey keyword menu remains in the slideshow path;
+- right-click anywhere dismisses the popup;
+- automatic slideshow navigation pauses while the popup is visible;
+- the popup disables scrollbars and expands to the monitor work area when needed;
+- the 0.64 TAB, Remote, random-navigation, and IrfanView lifecycle paths are unchanged.
+
+Status: syntax and package validated; live Windows interaction requires user confirmation.
+
 ## 0.64
 
 IrfanView lifecycle tightened:

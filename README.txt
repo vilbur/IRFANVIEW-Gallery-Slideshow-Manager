@@ -1,4 +1,4 @@
-Gallery Slideshow Manager — HTML version 0.66
+Gallery Slideshow Manager — HTML version 0.68
 
 ================================================
 
@@ -811,3 +811,21 @@ Version 0.66
 - Keyword changes update only the affected tile and defer the expensive library-cache write.
 - Active keyword-filter visibility still refreshes immediately when an assignment changes the match result.
 - Version 0.65 slideshow pause and version 0.64 Tab, Remote, random-navigation and IrfanView lifecycle behavior are preserved.
+
+
+Version 0.67
+------------
+- Keyword menu layout and controls are prepared once and reused.
+- Later menu openings update only the parent rating and assigned keyword states.
+- The slideshow popup clones the prepared menu markup instead of rebuilding and regrouping all keywords.
+- Requesting the slideshow popup no longer restores or activates the complete manager window.
+- Version 0.66 automatic hiding, slideshow pause, fast tile updates and deferred cache writing are preserved.
+- Version 0.64 Tab, Remote and random-navigation behavior remains unchanged.
+
+Version 0.68
+------------
+
+- Fixed filtered navigation publishing when gallery paths contain characters outside the Windows ANSI code page.
+- Fixed stale random queues that could loop through only the last two successfully published parent galleries.
+- Restored single-Tab next-gallery and double-Tab Remote behavior.
+- Ctrl+Tab continues to select the next parent; Tab and Ctrl+Tab inside Remote update its offer.
