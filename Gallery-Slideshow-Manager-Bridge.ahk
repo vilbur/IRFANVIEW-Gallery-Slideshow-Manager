@@ -128,12 +128,14 @@ if (A_Args.Length() >= 1)
 initializeResidentBridge()
 return
 
-#If isGalleryNavigationActive() && !remote_open
+#If isKeywordWindowToggleActive()
 $x::
-    showCurrentGalleryKeywords()
+    toggleCurrentParentKeywordWindow()
     KeyWait, x
 return
+#If
 
+#If isGalleryNavigationActive() && !remote_open
 $^0::
     assignCurrentParentRating(0)
     KeyWait, 0
@@ -859,6 +861,94 @@ showCurrentGalleryKeywords()
 
     showTrayTip("Gallery keywords", gallery_name . "`n" . keyword_text, 1)
     return true
+}
+
+/*
+Return the visible dedicated slideshow keyword window, including a copy left
+open by a bridge restart.
+*/
+getSlideshowKeywordWindowId()
+{
+    global keyword_window_id
+
+    if (keyword_window_id != ""
+        && DllCall("IsWindow", "Ptr", keyword_window_id)
+        && DllCall("IsWindowVisible", "Ptr", keyword_window_id))
+    {
+        return keyword_window_id
+    }
+
+    detected_window_id := WinExist("Keywords - Gallery Slideshow ahk_exe mshta.exe")
+
+    if (detected_window_id != ""
+        && DllCall("IsWindowVisible", "Ptr", detected_window_id))
+    {
+        return detected_window_id
+    }
+
+    return ""
+}
+
+/*
+Allow X in the running IrfanView/VLC slideshow and while the dedicated keyword
+window has focus, so the same key can close the window it opened.
+*/
+isKeywordWindowToggleActive()
+{
+    global remote_open
+
+    if (remote_open)
+    {
+        return false
+    }
+
+    if isGalleryNavigationActive()
+    {
+        return true
+    }
+
+    active_window_id := WinExist("A")
+    keyword_window_id := getSlideshowKeywordWindowId()
+    return keyword_window_id != "" && active_window_id = keyword_window_id
+}
+
+/*
+Toggle the dedicated keyword window beside the pointer. Closing it returns
+focus to the managed IrfanView slideshow when that viewer is still available.
+*/
+toggleCurrentParentKeywordWindow()
+{
+    global current_irfan_pid
+
+    if (getSlideshowKeywordWindowId() != "")
+    {
+        closeSlideshowKeywordWindow()
+        activateCurrentIrfanView()
+        return true
+    }
+
+    keyword_owner_window_id := ""
+
+    if isIrfanViewActive()
+    {
+        keyword_owner_window_id := WinExist("A")
+    }
+    else if (current_irfan_pid != "")
+    {
+        keyword_owner_window_id := WinExist("ahk_pid " . current_irfan_pid)
+    }
+
+    CoordMode, Mouse, Screen
+    MouseGetPos, keyword_window_mouse_x, keyword_window_mouse_y
+    getWorkAreaAtPoint(keyword_window_mouse_x, keyword_window_mouse_y, keyword_work_left, keyword_work_top, keyword_work_right, keyword_work_bottom)
+
+    return requestCurrentParentKeywordWindow(keyword_window_mouse_x
+        , keyword_window_mouse_y
+        , keyword_work_left
+        , keyword_work_top
+        , keyword_work_right
+        , keyword_work_bottom
+        , keyword_owner_window_id)
 }
 
 /*

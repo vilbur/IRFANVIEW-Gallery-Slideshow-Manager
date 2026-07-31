@@ -12,7 +12,7 @@ if not A_IsAdmin
 }
 
 ; slideshow-assistant.ahk
-; Version: 0.30
+; Version: 0.31
 ; Multiple instances are allowed; each instance exits when its exact bound viewer closes.
 ; Automatic navigation waits at least one second after physical input and between image changes.
 ; Files are never deleted or overwritten; destructive actions move them to _DELETE or _CROP.
@@ -2472,9 +2472,10 @@ return
 
 
 /*  COPY CURRENT IMAGE AS PARENT FOLDER.JPG
-    Ctrl+Shift+F is fully intercepted so IrfanView cannot set the image as wallpaper.
+    The wildcard also catches Ctrl+Shift+F while another modifier is still held,
+    so IrfanView never receives its Set as wallpaper shortcut.
  */
-$^+f::
+$*^+f::
     Critical, On
     copyCurrentImageAsFolderJpg()
     Critical, Off

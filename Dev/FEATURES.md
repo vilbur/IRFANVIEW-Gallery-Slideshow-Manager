@@ -276,7 +276,7 @@ These must remain removed:
   older include-only presets unchanged.
 - Display plain keywords without redundant `Keywords:` label.
 - Empty keyword state displays nothing.
-- `X` shows the current slideshow gallery's parent keywords in a tray notification.
+- `X` toggles the current slideshow gallery's dedicated keyword window.
 - IrfanView right-click opens a separate browser-chrome-free keyword HTA owned
   by the slideshow window; it never activates the main manager.
 - The slideshow keyword window opens beside the mouse cursor and flips or

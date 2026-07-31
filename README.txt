@@ -143,8 +143,8 @@ Native controls
 
 - Escape while IrfanView is active: confirmation before bridge exit.
 
-- X while IrfanView or VLC is active: show the current gallery keywords in a
-  Windows tray notification.
+- X while IrfanView or VLC is active: open the current gallery's keyword
+  window. Press X again while the keyword window has focus to close it.
 
 - IrfanView enters fullscreen after launch.
 

@@ -9,6 +9,8 @@ Color-only keyword assignment state:
 - removed the checkbox square and checkmark from keyword buttons in the
   manager right-click menu and the dedicated slideshow overlay;
 - assigned keywords retain only the blue active-color accent;
+- `X` now toggles the dedicated slideshow keyword window instead of showing a
+  tray-only keyword notification;
 - keyword ordering, captions, click behavior, rating display and slideshow
   overlay lifecycle remain unchanged.
 

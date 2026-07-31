@@ -141,7 +141,7 @@ Obsolete controls remain absent:
 - [ ] Filter buttons have no checkbox: LMB is green include and RMB is red exclude.
 - [ ] Filter and LMB/RMB helper labels stay absent; button tooltips retain that guidance.
 - [ ] Older include-only keyword-filter presets still load unchanged.
-- [ ] X shows the current slideshow gallery's parent keywords in a tray notification.
+- [ ] X opens the current slideshow gallery's keyword window; pressing X again closes it.
 - [ ] IrfanView right-click opens a dedicated keyword HTA without activating or restoring the manager.
 - [ ] The dedicated keyword window is owned by and displayed above the active IrfanView viewer.
 - [ ] The keyword window starts beside the cursor and remains inside the cursor monitor's work area.
