@@ -146,6 +146,7 @@ Obsolete controls remain absent:
 - [ ] The dedicated keyword window is owned by and displayed above the active IrfanView viewer.
 - [ ] The keyword window starts beside the cursor and remains inside the cursor monitor's work area.
 - [ ] The keyword window matches the manager keyword menu's order, captions, assignment state and rating display.
+- [ ] Assigned keywords use the active-color accent only, without checkboxes or checkmarks.
 - [ ] Escape, focus loss and right-click dismissal close the slideshow keyword window.
 - [ ] Keyword filters affect random gallery matching.
 - [ ] No redundant `Keywords:` label.

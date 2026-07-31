@@ -2,6 +2,19 @@
 
 This records design milestones and trusted baselines, not every code edit.
 
+## 0.90
+
+Color-only keyword assignment state:
+
+- removed the checkbox square and checkmark from keyword buttons in the
+  manager right-click menu and the dedicated slideshow overlay;
+- assigned keywords retain only the blue active-color accent;
+- keyword ordering, captions, click behavior, rating display and slideshow
+  overlay lifecycle remain unchanged.
+
+Status: JavaScript syntax/behavior, AutoHotkey v1 syntax-load, static regression
+and package checks required; live Windows appearance requires user confirmation.
+
 ## 0.89
 
 Dedicated slideshow Keywords window:

@@ -630,6 +630,13 @@ check(
         && keywordWindowText.indexOf('className = "keywordButton"') >= 0,
     "The dedicated window should retain the main keyword-menu captions and styling."
 );
+check(
+    htaText.indexOf("contextKeywordMark") < 0
+        && htaText.indexOf("_keywordMark") < 0
+        && keywordWindowText.indexOf("keywordMark") < 0
+        && keywordWindowText.indexOf("_mark") < 0,
+    "Keyword assignment windows should indicate active state by color only."
+);
 const sharedOrderingInput = [
     "lower",
     "Capital",

@@ -283,6 +283,8 @@ These must remain removed:
   clamps within the cursor monitor's available work area.
 - The separate window shares the manager menu's dark styling, keyword order,
   prefix-free captions, assignment state and parent-rating presentation.
+- Keyword assignment buttons use only the blue active-color accent; they do
+  not display checkbox outlines or checkmarks.
 - Closing, right-clicking outside its controls, pressing Escape or changing
   focus dismisses the slideshow keyword window.
 - Keyword filters affect normal and random gallery matching.

@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta charset="utf-8" />
-<title>Gallery Slideshow Manager 0.89</title>
+<title>Gallery Slideshow Manager 0.90</title>
 <hta:application
     id="galleryApp"
     applicationname="Gallery Slideshow Manager"
@@ -932,7 +932,7 @@ input:disabled {
     align-items: center;
     min-height: 36px;
     box-sizing: border-box;
-    padding: 6px 10px 6px 7px;
+    padding: 6px 11px;
     border: 1px solid #394452;
     border-radius: 7px;
     background: #222830;
@@ -951,26 +951,6 @@ input:disabled {
     background: #255a9f;
     color: #ffffff;
 }
-.contextKeywordMark {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    min-width: 18px;
-    margin-right: 7px;
-    border: 2px solid #687486;
-    border-radius: 5px;
-    color: transparent;
-    font-size: 13px;
-    font-weight: 800;
-    line-height: 14px;
-}
-.contextKeywordButton.active .contextKeywordMark {
-    border-color: #dcecff;
-    background: #eaf4ff;
-    color: #24599b;
-}
 .smallMuted {
     color: #7f8998;
     font-size: 11px;
@@ -981,7 +961,7 @@ var fso = new ActiveXObject("Scripting.FileSystemObject");
 var shell = new ActiveXObject("WScript.Shell");
 var shellApp = new ActiveXObject("Shell.Application");
 
-var APP_VERSION = "0.89";
+var APP_VERSION = "0.90";
 var APP_NAME = "Gallery-Slideshow-Manager";
 var appDir = getApplicationDirectory();
 var tempDir = shell.ExpandEnvironmentStrings("%TEMP%");
@@ -7200,7 +7180,6 @@ function updateKeywordMenuButtonState(button, assigned) {
         active
         ? "Remove keyword: " + button._keywordWord
         : "Assign keyword: " + button._keywordWord;
-    button._keywordMark.innerText = active ? "✓" : "";
 }
 
 function keywordMenuButtonClicked() {
@@ -7254,7 +7233,6 @@ function hydrateKeywordMenuStructure(menu, signature) {
         button._keywordWord = word;
         button._keywordKey = lower(word);
         button._keywordMenu = menu;
-        button._keywordMark = button.firstChild;
         button.onclick = keywordMenuButtonClicked;
         menu._keywordButtons.push(button);
     }
@@ -7327,11 +7305,6 @@ function buildKeywordMenuStructure(menu, ownerDocument, signature) {
             button._keywordKey = lower(word);
             button._keywordMenu = menu;
             keywordMenuWordCache.push(word);
-
-            var mark = ownerDocument.createElement("span");
-            mark.className = "contextKeywordMark";
-            button._keywordMark = mark;
-            button.appendChild(mark);
 
             var label = ownerDocument.createElement("span");
             label.innerText = keywordControlText(word);
@@ -8471,7 +8444,7 @@ function initialize() {
         <div id="emptyState">No parent galleries match the current filters.</div>
     </div>
 
-    <div id="statusBar">v0.89 | Ready.</div>
+    <div id="statusBar">v0.90 | Ready.</div>
 </div>
 
 <div id="galleryOverlay" onclick="if (window.event.srcElement === this) closeGalleryDialog();">

@@ -1,4 +1,4 @@
-Gallery Slideshow Manager — HTML version 0.89
+Gallery Slideshow Manager — HTML version 0.90
 
 ================================================
 
@@ -1043,3 +1043,11 @@ Version 0.89
   the manager's right-click keyword menu.
 - Keyword changes are written to the same gallery-keywords.ini file and notify
   an open manager to refresh.
+
+Version 0.90
+------------
+
+- Removed checkbox outlines and checkmarks from keyword assignment buttons in
+  both the manager menu and slideshow overlay.
+- Assigned keywords are now indicated only by the existing blue active-color
+  accent.
