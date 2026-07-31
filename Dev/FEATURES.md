@@ -14,6 +14,7 @@ This is the functional source of truth.
 ### Selection and preview
 
 - Running gallery remains selected in the manager.
+- The selected parent gallery is saved and restored after manager restart.
 - Starting a slideshow browses to its parent and gallery.
 - Selected gallery shows its first available image.
 - Parent preview uses `folder.jpg` when available.
@@ -27,6 +28,10 @@ This is the functional source of truth.
 - Preserve user data and saved layout/settings.
 - Tray messages only for useful errors or explicit status.
 - An open manager automatically restarts after matching, stable, newer HTA and bridge versions are created.
+- One shared backup directory stores database and configuration backups.
+- Remote timeout changes are saved live without a separate save button.
+- Back up now saves the library cache, keyword/rating data and manager settings.
+- Revert from backup validates and restores both backup sets together.
 
 ## Slideshow
 
@@ -214,6 +219,7 @@ These must remain removed:
 - Detect process exit and clear state.
 - Preserve fullscreen and configured monitor placement.
 - Closing the last manager window closes IrfanView and the resident bridge.
+- Exiting the manager closes all running VLC player processes.
 
 ## VLC integration
 
@@ -227,6 +233,7 @@ These must remain removed:
 - While Remote is open, playback continues but VLC input is isolated.
 - Restore VLC input when Remote closes.
 - Do not close unrelated VLC instances.
+- Manager exit is the explicit exception: it closes all VLC processes.
 
 ## Ratings
 
@@ -242,6 +249,8 @@ These must remain removed:
 - Sort keywords alphabetically on startup.
 - Display plain keywords without redundant `Keywords:` label.
 - Empty keyword state displays nothing.
+- `X` shows the current slideshow gallery's parent keywords in a tray notification.
+- The slideshow keyword window uses a browser-chrome-free app-style dialog when supported.
 - Keyword filters affect normal and random gallery matching.
 - Preserve existing keyword data.
 

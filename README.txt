@@ -1,4 +1,4 @@
-Gallery Slideshow Manager — HTML version 0.68
+Gallery Slideshow Manager — HTML version 0.71
 
 ================================================
 
@@ -114,6 +114,9 @@ Native controls
 
 - Escape while IrfanView is active: confirmation before bridge exit.
 
+- X while IrfanView or VLC is active: show the current gallery keywords in a
+  Windows tray notification.
+
 - IrfanView enters fullscreen after launch.
 
 - VLC enters fullscreen, then focus returns to IrfanView.
@@ -126,14 +129,36 @@ Settings
 
 Gallery-Slideshow-Manager.ini
 
-    Root path, Auto VLC, Remote timeout, IrfanView path, VLC path, and HTML
-    window placement.
+    Root path, Auto VLC, Remote timeout, backup directory, remembered
+    gallery selection, IrfanView path, VLC path, and HTML window placement.
 
 
 
 <selected root>\gallery-keywords.ini
 
     Global keywords and per-parent assignments.
+
+
+
+Backup and restore
+------------------
+
+- Options contains one shared database and configuration backup directory.
+
+- Back up now saves Gallery-Slideshow-Manager.cache, gallery-keywords.ini and
+  gallery-ratings.ini to the shared backup directory.
+
+- Back up now saves Gallery-Slideshow-Manager.ini to that same directory.
+
+- Remote timeout values save live; there is no separate Save timeout button.
+
+- Revert from backup checks that both backup sets belong to the same gallery
+  root before replacing the current data.
+
+- The selected parent gallery is restored automatically after manager restart.
+
+- Exiting Slideshow Manager closes the current IrfanView slideshow and all
+  running VLC players.
 
 
 

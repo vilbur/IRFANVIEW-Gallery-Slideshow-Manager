@@ -73,6 +73,7 @@ Review this before every release.
 - [ ] Parent `folder.jpg` remains the image fallback.
 - [ ] Timeout defaults to 4000 ms.
 - [ ] Timeout option persists and accepts only 1–60 seconds.
+- [ ] Timeout changes save live without a separate save button.
 - [ ] Opening Remote does not start timeout.
 - [ ] Timer starts only after Tab or Ctrl+Tab offers a gallery inside Remote.
 - [ ] Timer executes exact displayed gallery.
@@ -104,7 +105,8 @@ Obsolete controls remain absent:
 - [ ] Remote does not stop playback.
 - [ ] VLC input is isolated only while Remote is open.
 - [ ] VLC input restores on Remote close.
-- [ ] Unrelated VLC instances are untouched.
+- [ ] Unrelated VLC instances are untouched during slideshow replacement.
+- [ ] Exiting Slideshow Manager closes all VLC instances.
 
 ## Ratings and keywords
 
@@ -112,6 +114,8 @@ Obsolete controls remain absent:
 - [ ] Rating persists and displays.
 - [ ] Keywords remain alphabetically sorted.
 - [ ] Assignment affects selected parent only.
+- [ ] X shows the current slideshow gallery's parent keywords in a tray notification.
+- [ ] The slideshow keyword dialog opens without a browser address bar when supported.
 - [ ] Keyword filters affect random gallery matching.
 - [ ] No redundant `Keywords:` label.
 - [ ] Existing keyword data remains intact.

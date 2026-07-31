@@ -2,6 +2,40 @@
 
 This records design milestones and trusted baselines, not every code edit.
 
+## 0.71
+
+Backup layout cleanup:
+
+- Browse, Save backup path, Back up now and Revert from backup are aligned on
+  the right side of the shared backup-directory row.
+
+Status: syntax and static regression validation required; live Windows interaction requires user confirmation.
+
+## 0.70
+
+Options cleanup:
+
+- Remote timeout changes save live with inline validation;
+- the separate Save timeout button is removed;
+- database and configuration backups now share one backup-directory control;
+- legacy database/configuration backup paths migrate to the shared setting.
+
+Status: syntax and static regression validation required; live Windows interaction requires user confirmation.
+
+## 0.69
+
+Manager convenience, persistence and backup controls:
+
+- exiting Slideshow Manager closes all running VLC processes;
+- `X` displays the current slideshow gallery's parent keywords in a tray notification;
+- the selected parent gallery is persisted and restored after restart;
+- separate database and configuration backup directories can be saved;
+- Back up now copies the library cache, keyword/rating data and manager settings;
+- Revert from backup validates matching database/configuration snapshots before restoring;
+- the slideshow keyword popup prefers an app-style modeless dialog without browser chrome.
+
+Status: syntax and static regression validation required; live Windows interaction requires user confirmation.
+
 ## 0.68
 
 Slideshow navigation recovery:

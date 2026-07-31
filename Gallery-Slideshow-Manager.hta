@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta charset="utf-8" />
-<title>Gallery Slideshow Manager 0.68</title>
+<title>Gallery Slideshow Manager 0.71</title>
 <hta:application
     id="galleryApp"
     applicationname="Gallery Slideshow Manager"
@@ -949,7 +949,7 @@ var fso = new ActiveXObject("Scripting.FileSystemObject");
 var shell = new ActiveXObject("WScript.Shell");
 var shellApp = new ActiveXObject("Shell.Application");
 
-var APP_VERSION = "0.68";
+var APP_VERSION = "0.71";
 var APP_NAME = "Gallery-Slideshow-Manager";
 var appDir = getApplicationDirectory();
 var tempDir = shell.ExpandEnvironmentStrings("%TEMP%");
@@ -972,6 +972,8 @@ var managerInstanceToken = "";
 
 var state = {
     root: "",
+    backupDir: "",
+    rememberedParentPath: "",
     autoVlc: true,
     remoteTimeoutMs: 4000,
     optionsExpanded: false,
@@ -2040,6 +2042,27 @@ function ratingText(rating) {
 function loadSettings() {
     var data = readIni(settingsPath);
     state.root = normalizePath(getIniValue(data, "Galleries", "RootPath", ""));
+    state.backupDir = normalizePath(
+        getIniValue(
+            data,
+            "Backup",
+            "Directory",
+            getIniValue(
+                data,
+                "Backup",
+                "DatabaseDirectory",
+                getIniValue(
+                    data,
+                    "Backup",
+                    "ConfigurationDirectory",
+                    ""
+                )
+            )
+        )
+    );
+    state.rememberedParentPath = normalizePath(
+        getIniValue(data, "Selection", "ParentPath", "")
+    );
     state.autoVlc = String(getIniValue(data, "Options", "AutoVlc", "1")) !== "0";
     state.remoteTimeoutMs = parseInt(
         getIniValue(data, "Options", "RemoteTimeoutMs", "4000"),
@@ -2126,6 +2149,7 @@ function loadSettings() {
     }
 
     document.getElementById("rootPath").value = state.root;
+    document.getElementById("backupPath").value = state.backupDir;
     updateRemoteTimeoutOption();
     updateAutoVlcButton();
     updateUniqueRandomButton();
@@ -2166,32 +2190,35 @@ function updateRemoteTimeoutOption() {
 
 function saveRemoteTimeout() {
     var input = document.getElementById("remoteTimeoutSeconds");
+    var hint = document.getElementById("remoteTimeoutHint");
+    var rawValue = String(input.value || "")
+        .replace(/^\s+|\s+$/g, "")
+        .replace(",", ".");
     var seconds = parseFloat(
-        String(input.value || "").replace(",", ".")
+        rawValue
     );
 
-    if (isNaN(seconds) || seconds < 1 || seconds > 60) {
-        alert("Enter a Remote timeout from 1 through 60 seconds.");
-        updateRemoteTimeoutOption();
-        input.focus();
+    if (!/^\d+(?:\.\d)?$/.test(rawValue)
+        || isNaN(seconds)
+        || seconds < 1
+        || seconds > 60) {
+        hint.innerText = "Enter 1–60 seconds; value not saved.";
         return false;
     }
 
     seconds = Math.round(seconds * 10) / 10;
     state.remoteTimeoutMs = Math.round(seconds * 1000);
-    setIniValue(
+    var saved = setIniValue(
         settingsPath,
         "Options",
         "RemoteTimeoutMs",
         String(state.remoteTimeoutMs)
     );
-    updateRemoteTimeoutOption();
-    setStatus(
-        "Remote timeout set to "
-        + formatRemoteTimeoutLabel(state.remoteTimeoutMs)
-        + "."
-    );
-    return true;
+
+    hint.innerText = saved
+        ? "Saved live · 1–60 seconds."
+        : "Could not save; retrying.";
+    return saved;
 }
 
 function saveRoot() {
@@ -2200,8 +2227,15 @@ function saveRoot() {
         alert("Select an existing galleries root folder.");
         return false;
     }
+    var rootChanged = lower(value) !== lower(state.root);
     state.root = value;
     setIniValue(settingsPath, "Galleries", "RootPath", state.root);
+
+    if (rootChanged) {
+        state.rememberedParentPath = "";
+        setIniValue(settingsPath, "Selection", "ParentPath", "");
+    }
+
     scanLibrary();
     return true;
 }
@@ -2215,6 +2249,446 @@ function browseRoot() {
     var path = normalizePath(folder.Self.Path);
     document.getElementById("rootPath").value = path;
     saveRoot();
+}
+
+function browseBackupDirectory() {
+    var input = document.getElementById("backupPath");
+    var startFolder = normalizePath(input.value) || state.root || 0;
+    var folder = shellApp.BrowseForFolder(
+        0,
+        "Select backup directory",
+        0x11,
+        startFolder
+    );
+
+    if (!folder) {
+        return false;
+    }
+
+    input.value = normalizePath(folder.Self.Path);
+    return true;
+}
+
+function saveBackupSettings() {
+    var backupDirectory = normalizePath(
+        document.getElementById("backupPath").value
+    );
+
+    if (backupDirectory && !fso.FolderExists(backupDirectory)) {
+        alert("Select an existing backup directory.");
+        return false;
+    }
+
+    state.backupDir = backupDirectory;
+
+    var data = readIni(settingsPath);
+
+    if (!data.Backup) {
+        data.Backup = {};
+    }
+
+    data.Backup.Directory = state.backupDir;
+    delete data.Backup.DatabaseDirectory;
+    delete data.Backup.ConfigurationDirectory;
+
+    if (!writeIni(settingsPath, data)) {
+        alert("The backup directory settings could not be saved.");
+        return false;
+    }
+
+    setStatus("Backup directory saved.");
+    return true;
+}
+
+function backupDatabaseManifestPath() {
+    return state.backupDir
+        + "\\"
+        + APP_NAME
+        + "-database-backup.ini";
+}
+
+function backupConfigurationFilePath() {
+    return state.backupDir
+        + "\\"
+        + APP_NAME
+        + ".ini";
+}
+
+function sameFilePath(firstPath, secondPath) {
+    return lower(normalizePath(firstPath))
+        === lower(normalizePath(secondPath));
+}
+
+function copyFileForBackup(sourcePath, destinationPath) {
+    if (!sourcePath
+        || !destinationPath
+        || !fso.FileExists(sourcePath)
+        || sameFilePath(sourcePath, destinationPath)) {
+        return false;
+    }
+
+    try {
+        fso.CopyFile(sourcePath, destinationPath, true);
+        return fso.FileExists(destinationPath);
+    } catch (error) {
+        return false;
+    }
+}
+
+function flushAllDeferredFileWrites() {
+    var keys = [];
+    var key;
+    var i;
+    var success = true;
+
+    for (key in deferredFileWrites) {
+        if (deferredFileWrites.hasOwnProperty(key)) {
+            keys.push(key);
+        }
+    }
+
+    for (i = 0; i < keys.length; i++) {
+        var entry = deferredFileWrites[keys[i]];
+
+        if (!entry) {
+            continue;
+        }
+
+        if (entry.timer) {
+            window.clearTimeout(entry.timer);
+            entry.timer = 0;
+        }
+
+        if (tryWriteTextNow(entry.path, entry.text)) {
+            delete deferredFileWrites[keys[i]];
+        } else {
+            success = false;
+        }
+    }
+
+    return success;
+}
+
+function cancelDeferredFileWrite(path) {
+    var key = sharedFileKey(path);
+    var entry = deferredFileWrites[key];
+
+    if (entry && entry.timer) {
+        window.clearTimeout(entry.timer);
+    }
+
+    if (entry) {
+        delete deferredFileWrites[key];
+    }
+
+    if (sharedFileTextCache.hasOwnProperty(key)) {
+        delete sharedFileTextCache[key];
+    }
+}
+
+function createBackups() {
+    if (!saveBackupSettings()) {
+        return false;
+    }
+
+    if (!state.backupDir) {
+        alert("Select the backup directory first.");
+        return false;
+    }
+
+    if (!state.root || !fso.FolderExists(state.root)) {
+        alert("Select an existing galleries root before creating a backup.");
+        return false;
+    }
+
+    flushLibraryCacheIfDirty();
+    saveWindowPlacement();
+
+    if (!flushAllDeferredFileWrites()) {
+        alert("A data file is busy. Close its other user and try the backup again.");
+        return false;
+    }
+
+    var databaseFiles = [
+        {
+            key: "Cache",
+            source: cachePath,
+            destination:
+                state.backupDir
+                + "\\"
+                + APP_NAME
+                + ".cache"
+        },
+        {
+            key: "Keywords",
+            source: keywordIniPath(),
+            destination:
+                state.backupDir
+                + "\\"
+                + keywordIniName
+        },
+        {
+            key: "Ratings",
+            source: ratingIniPath(),
+            destination:
+                state.backupDir
+                + "\\"
+                + ratingIniName
+        }
+    ];
+    var manifest = {
+        Backup: {
+            RootPath: state.root,
+            Created: String(new Date())
+        }
+    };
+    var copiedDatabaseFiles = 0;
+    var i;
+
+    for (i = 0; i < databaseFiles.length; i++) {
+        var databaseFile = databaseFiles[i];
+        var sourceExists = fso.FileExists(databaseFile.source);
+
+        manifest.Backup["Has" + databaseFile.key] =
+            sourceExists ? "1" : "0";
+
+        if (sourceExists) {
+            if (!copyFileForBackup(
+                databaseFile.source,
+                databaseFile.destination
+            )) {
+                alert(
+                    "Could not back up:\n\n"
+                    + databaseFile.source
+                    + "\n\nto:\n\n"
+                    + databaseFile.destination
+                );
+                return false;
+            }
+
+            copiedDatabaseFiles++;
+        }
+    }
+
+    if (!copiedDatabaseFiles) {
+        alert("No database files are available to back up.");
+        return false;
+    }
+
+    if (!tryWriteTextNow(
+        backupDatabaseManifestPath(),
+        serializeIni(manifest)
+    )) {
+        alert("The database backup manifest could not be written.");
+        return false;
+    }
+
+    if (!copyFileForBackup(
+        settingsPath,
+        backupConfigurationFilePath()
+    )) {
+        alert("The configuration file could not be backed up.");
+        return false;
+    }
+
+    setStatus(
+        "Backup complete: "
+        + copiedDatabaseFiles
+        + " database file(s) and configuration saved."
+    );
+    return true;
+}
+
+function restoreBackupFile(sourcePath, destinationPath) {
+    cancelDeferredFileWrite(destinationPath);
+
+    if (!copyFileForBackup(sourcePath, destinationPath)) {
+        return false;
+    }
+
+    cancelDeferredFileWrite(destinationPath);
+    return true;
+}
+
+function revertFromBackups() {
+    if (!saveBackupSettings()) {
+        return false;
+    }
+
+    if (!state.backupDir) {
+        alert("Select the backup directory before reverting.");
+        return false;
+    }
+
+    var databaseManifestPath = backupDatabaseManifestPath();
+    var configurationBackupPath = backupConfigurationFilePath();
+
+    if (!fso.FileExists(databaseManifestPath)
+        || !fso.FileExists(configurationBackupPath)) {
+        alert(
+            "A complete backup was not found in the selected directory. "
+            + "Use Back up now first or select a directory containing "
+            + "an existing backup."
+        );
+        return false;
+    }
+
+    var manifest = readIni(databaseManifestPath);
+    var backedUpRoot = normalizePath(
+        getIniValue(manifest, "Backup", "RootPath", "")
+    );
+    var configurationData = readIni(configurationBackupPath);
+    var configuredRoot = normalizePath(
+        getIniValue(configurationData, "Galleries", "RootPath", "")
+    );
+
+    if (!backedUpRoot || !fso.FolderExists(backedUpRoot)) {
+        alert("The galleries root recorded by the backup is unavailable.");
+        return false;
+    }
+
+    if (lower(backedUpRoot) !== lower(configuredRoot)) {
+        alert(
+            "The database and configuration backups belong to different "
+            + "gallery roots and cannot be safely restored together."
+        );
+        return false;
+    }
+
+    var databaseFiles = [
+        {
+            key: "Cache",
+            source:
+                state.backupDir
+                + "\\"
+                + APP_NAME
+                + ".cache",
+            destination: cachePath
+        },
+        {
+            key: "Keywords",
+            source:
+                state.backupDir
+                + "\\"
+                + keywordIniName,
+            destination:
+                backedUpRoot
+                + "\\"
+                + keywordIniName
+        },
+        {
+            key: "Ratings",
+            source:
+                state.backupDir
+                + "\\"
+                + ratingIniName,
+            destination:
+                backedUpRoot
+                + "\\"
+                + ratingIniName
+        }
+    ];
+    var restorableFiles = [];
+    var filesToRemove = [];
+    var i;
+
+    for (i = 0; i < databaseFiles.length; i++) {
+        if (
+            getIniValue(
+                manifest,
+                "Backup",
+                "Has" + databaseFiles[i].key,
+                "0"
+            ) === "1"
+        ) {
+            if (!fso.FileExists(databaseFiles[i].source)) {
+                alert(
+                    "The backup is incomplete. Missing:\n\n"
+                    + databaseFiles[i].source
+                );
+                return false;
+            }
+
+            restorableFiles.push(databaseFiles[i]);
+        } else {
+            filesToRemove.push(databaseFiles[i].destination);
+        }
+    }
+
+    if (!restorableFiles.length) {
+        alert("The selected database backup contains no restorable files.");
+        return false;
+    }
+
+    if (!confirm(
+        "Restore the database and configuration from the selected backups?"
+        + "\n\nGallery root:\n"
+        + backedUpRoot
+        + "\n\nCurrent values will be replaced."
+    )) {
+        return false;
+    }
+
+    if (state.libraryCacheSaveTimer) {
+        window.clearTimeout(state.libraryCacheSaveTimer);
+        state.libraryCacheSaveTimer = 0;
+    }
+
+    state.libraryCacheDirty = false;
+
+    for (i = 0; i < restorableFiles.length; i++) {
+        if (!restoreBackupFile(
+            restorableFiles[i].source,
+            restorableFiles[i].destination
+        )) {
+            alert(
+                "Restore stopped because this file could not be replaced:\n\n"
+                + restorableFiles[i].destination
+            );
+            return false;
+        }
+    }
+
+    for (i = 0; i < filesToRemove.length; i++) {
+        cancelDeferredFileWrite(filesToRemove[i]);
+
+        try {
+            if (fso.FileExists(filesToRemove[i])) {
+                fso.DeleteFile(filesToRemove[i], true);
+            }
+        } catch (removeError) {
+            alert(
+                "Restore stopped because this newer database file "
+                + "could not be removed:\n\n"
+                + filesToRemove[i]
+            );
+            return false;
+        }
+    }
+
+    if (!restoreBackupFile(configurationBackupPath, settingsPath)) {
+        alert("The configuration file could not be restored.");
+        return false;
+    }
+
+    closeGalleryDialog();
+    state.parents = [];
+    state.selectedParent = null;
+    state.activeFilters = {};
+    loadSettings();
+    loadKeywords();
+    renderKeywordFilters();
+    renderRatingFilters();
+
+    if (!loadLibraryCache()) {
+        scanLibrary();
+    }
+
+    primeKeywordMenu();
+    setStatus(
+        "Database and configuration restored from backup."
+    );
+    return true;
 }
 
 function updateSlideshowModeButtons() {
@@ -3961,6 +4435,7 @@ function loadLibraryCache() {
 
     state.parents = cachedParents;
     state.selectedParent = null;
+    restoreRememberedParentSelection();
 
     var missingParentThumbnailCount = collectMissingParentThumbnails();
 
@@ -4059,6 +4534,7 @@ function scanLibrary() {
         return ak < bk ? -1 : (ak > bk ? 1 : 0);
     });
 
+    restoreRememberedParentSelection();
     renderParents();
     saveLibraryCache();
 
@@ -4845,6 +5321,7 @@ function createParentTile(parent) {
         }
 
         state.selectedParent = parent;
+        rememberParentSelection(parent);
         state.expandedLetter = parent.letter
             ? String(parent.letter).toUpperCase()
             : state.expandedLetter;
@@ -4864,6 +5341,7 @@ function createParentTile(parent) {
             : null;
 
         state.selectedParent = parent;
+        rememberParentSelection(parent);
         state.expandedLetter = parent.letter
             ? String(parent.letter).toUpperCase()
             : state.expandedLetter;
@@ -4886,8 +5364,56 @@ function keywordBadgeHtml(words) {
     return html;
 }
 
+function rememberParentSelection(parent) {
+    if (!parent || !parent.path) {
+        return false;
+    }
+
+    state.rememberedParentPath = normalizePath(parent.path);
+    setIniValue(
+        settingsPath,
+        "Selection",
+        "ParentPath",
+        state.rememberedParentPath
+    );
+    return true;
+}
+
+function restoreRememberedParentSelection() {
+    var rememberedPath = lower(
+        normalizePath(state.rememberedParentPath)
+    );
+    var i;
+
+    if (!rememberedPath) {
+        return false;
+    }
+
+    for (i = 0; i < state.parents.length; i++) {
+        if (
+            lower(normalizePath(state.parents[i].path))
+            === rememberedPath
+        ) {
+            state.selectedParent = state.parents[i];
+            state.expandedLetter = state.parents[i].letter
+                ? String(state.parents[i].letter).toUpperCase()
+                : state.expandedLetter;
+
+            window.setTimeout(function() {
+                focusParentThumbnail(
+                    state.rememberedParentPath
+                );
+            }, 0);
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function selectParent(parent) {
     state.selectedParent = parent;
+    rememberParentSelection(parent);
     state.expandedLetter = parent.letter
         ? String(parent.letter).toUpperCase()
         : state.expandedLetter;
@@ -5179,6 +5705,7 @@ function focusRunningGalleryThumbnail(galleryPath) {
     }
 
     state.selectedParent = entry.parent;
+    rememberParentSelection(entry.parent);
     state.expandedLetter = entry.parent.letter
         ? String(entry.parent.letter).toUpperCase()
         : state.expandedLetter;
@@ -5999,6 +6526,72 @@ function keywordPopupStyleText() {
     return keywordPopupCssText;
 }
 
+function openKeywordPopupWindow(
+    popupWidth,
+    screenX,
+    screenY,
+    popupFeatures
+) {
+    var popupWindow = null;
+
+    if (window.showModelessDialog) {
+        try {
+            var dialogFeatures =
+                "dialogWidth:" + popupWidth + "px;"
+                + "dialogHeight:240px;"
+                + "dialogLeft:" + parseInt(screenX, 10) + "px;"
+                + "dialogTop:" + parseInt(screenY, 10) + "px;"
+                + "center:no;"
+                + "dialogHide:no;"
+                + "edge:raised;"
+                + "help:no;"
+                + "resizable:no;"
+                + "scroll:no;"
+                + "status:no;";
+
+            popupWindow = window.showModelessDialog(
+                "about:blank",
+                window,
+                dialogFeatures
+            );
+        } catch (dialogError) {
+            popupWindow = null;
+        }
+    }
+
+    if (!popupWindow) {
+        popupWindow = window.open(
+            "about:blank",
+            "GallerySlideshowKeywordWindow",
+            popupFeatures
+        );
+    }
+
+    return popupWindow;
+}
+
+function resizeKeywordPopupWindow(
+    popupWindow,
+    width,
+    height
+) {
+    try {
+        popupWindow.resizeTo(width, height);
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+function moveKeywordPopupWindow(popupWindow, left, top) {
+    try {
+        popupWindow.moveTo(left, top);
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
 function showKeywordPopup(
     parent,
     screenX,
@@ -6044,9 +6637,10 @@ function showKeywordPopup(
             + ",scrollbars=no"
             + ",resizable=no";
 
-        keywordPopup = window.open(
-            "about:blank",
-            "GallerySlideshowKeywordWindow",
+        keywordPopup = openKeywordPopupWindow(
+            popupWidth,
+            screenX,
+            screenY,
             popupFeatures
         );
 
@@ -6135,7 +6729,8 @@ function showKeywordPopup(
             popupBody.style.width = popupWidth + "px";
             menu.style.width = popupWidth + "px";
             menu.style.maxWidth = popupWidth + "px";
-            keywordPopup.resizeTo(
+            resizeKeywordPopupWindow(
+                keywordPopup,
                 popupWidth + frameWidth,
                 Math.max(240, keywordPopup.outerHeight || 240)
             );
@@ -6171,8 +6766,12 @@ function showKeywordPopup(
             );
         }
 
-        popupWindow.resizeTo(outerWidth, outerHeight);
-        popupWindow.moveTo(left, top);
+        resizeKeywordPopupWindow(
+            popupWindow,
+            outerWidth,
+            outerHeight
+        );
+        moveKeywordPopupWindow(popupWindow, left, top);
         popupWindow.focus();
 
         popupWindow.onblur = function() {
@@ -6528,7 +7127,10 @@ function handleWindowScriptError(message, url, lineNumber) {
 }
 
 function requestExit() {
-    if (confirm("Exit Gallery Slideshow Manager and close the current IrfanView slideshow?")) {
+    if (confirm(
+        "Exit Gallery Slideshow Manager, close the current "
+        + "IrfanView slideshow, and close all VLC players?"
+    )) {
         managerExitRequested = true;
         sendCommand("exit", "");
         window.close();
@@ -6797,7 +7399,7 @@ function initialize() {
             <button id="optionsRolloutHeader" type="button" aria-expanded="false" onclick="return toggleOptionsRollout();">
                 <span id="optionsRolloutArrow">▸</span>
                 <span id="optionsRolloutTitle">Options</span>
-                <span id="optionsRolloutSummary">Gallery location and remote timeout</span>
+                <span id="optionsRolloutSummary">Gallery, backup and remote settings</span>
             </button>
             <div id="optionsRolloutBody">
                 <div class="row">
@@ -6808,10 +7410,17 @@ function initialize() {
                 </div>
                 <div class="row">
                     <span class="label">Remote timeout</span>
-                    <input id="remoteTimeoutSeconds" type="text" onkeyup="if(window.event.keyCode===13) saveRemoteTimeout();" />
+                    <input id="remoteTimeoutSeconds" type="text" onkeyup="saveRemoteTimeout();" onchange="saveRemoteTimeout();" onblur="updateRemoteTimeoutOption();" />
                     <span class="label">seconds</span>
-                    <button onclick="saveRemoteTimeout()">Save timeout</button>
                     <span id="remoteTimeoutHint"></span>
+                </div>
+                <div class="row">
+                    <span class="label">Backup directory</span>
+                    <input id="backupPath" class="grow" type="text" />
+                    <button onclick="browseBackupDirectory()">Browse</button>
+                    <button onclick="saveBackupSettings()">Save backup path</button>
+                    <button onclick="createBackups()">Back up now</button>
+                    <button class="danger" onclick="revertFromBackups()">Revert from backup</button>
                 </div>
             </div>
         </div>
@@ -6871,7 +7480,7 @@ function initialize() {
         <div id="emptyState">No parent galleries match the current filters.</div>
     </div>
 
-    <div id="statusBar">v0.68 | Ready.</div>
+    <div id="statusBar">v0.71 | Ready.</div>
 </div>
 
 <div id="galleryOverlay" onclick="if (window.event.srcElement === this) closeGalleryDialog();">

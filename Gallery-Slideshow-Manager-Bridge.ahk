@@ -10,7 +10,7 @@ SetWorkingDir, %A_ScriptDir%
 ; AutoHotkey v1.1.36 native bridge for the HTML tile interface.
 ; Handles IrfanView, VLC, global navigation, dynamic lists, and background preparation.
 
-SCRIPT_VERSION := "0.68"
+SCRIPT_VERSION := "0.71"
 APP_NAME := "Gallery-Slideshow-Manager"
 DATA_DIR := A_Temp . "\" . APP_NAME
 SETTINGS_INI := DATA_DIR . "\" . APP_NAME . ".ini"
@@ -118,6 +118,11 @@ initializeResidentBridge()
 return
 
 #If isGalleryNavigationActive() && !remote_open
+$x::
+    showCurrentGalleryKeywords()
+    KeyWait, x
+return
+
 $^0::
     assignCurrentParentRating(0)
     KeyWait, 0
@@ -288,6 +293,7 @@ handleBridgeExit:
     restoreTemporaryVlcSound()
     closeRemoteWindow(false)
     closeManagedIrfanView()
+    closeAllVlcInstances()
     clearRunningSessionState()
 
     FileDelete, %RESIDENT_PID_FILE%
@@ -793,6 +799,53 @@ buildParentRatingStars(rating_value)
     }
 
     return star_text
+}
+
+/*
+Show the current slideshow gallery's parent keywords as an explicit
+Windows tray notification.
+*/
+showCurrentGalleryKeywords()
+{
+    global root_folder, current_parent, current_gallery
+
+    loadSettings()
+
+    if (current_parent = "" && current_gallery != "")
+    {
+        SplitPath, current_gallery,, derived_parent
+        current_parent := normalizeFolderPath(derived_parent)
+    }
+
+    if (root_folder = "" || current_parent = "")
+    {
+        showTrayTip("Gallery keywords", "No current gallery is available.", 2)
+        return false
+    }
+
+    keyword_ini := root_folder . "\gallery-keywords.ini"
+    parent_section := encodeParentKeywordSection(current_parent)
+    IniRead, keyword_text, %keyword_ini%, %parent_section%, Keywords,
+    keyword_text := Trim(keyword_text)
+
+    if (keyword_text = "")
+    {
+        keyword_text := "No keywords assigned."
+    }
+    else
+    {
+        keyword_text := StrReplace(keyword_text, "|", ", ")
+    }
+
+    SplitPath, current_gallery, gallery_name
+
+    if (gallery_name = "")
+    {
+        SplitPath, current_parent, gallery_name
+    }
+
+    showTrayTip("Gallery keywords", gallery_name . "`n" . keyword_text, 1)
+    return true
 }
 
 /*
@@ -4922,6 +4975,61 @@ closeAllIrfanViewInstances()
 }
 
 /*
+Close every VLC process when the Slideshow Manager bridge exits.
+This exit-only cleanup intentionally includes VLC instances that were not
+started by the current slideshow.
+*/
+closeAllVlcInstances()
+{
+    global current_vlc_window_id, current_vlc_pid
+
+    restoreTemporaryVlcSound()
+    WinGet, vlc_window_list, List, ahk_exe vlc.exe
+
+    Loop, %vlc_window_list%
+    {
+        vlc_window_id := vlc_window_list%A_Index%
+        WinClose, ahk_id %vlc_window_id%
+    }
+
+    close_deadline := A_TickCount + 1000
+
+    Loop
+    {
+        Process, Exist, vlc.exe
+        remaining_vlc_pid := ErrorLevel
+
+        if (!remaining_vlc_pid || A_TickCount >= close_deadline)
+        {
+            break
+        }
+
+        Sleep, 50
+    }
+
+    force_deadline := A_TickCount + 4000
+
+    Loop
+    {
+        Process, Exist, vlc.exe
+        remaining_vlc_pid := ErrorLevel
+
+        if (!remaining_vlc_pid || A_TickCount >= force_deadline)
+        {
+            break
+        }
+
+        Process, Close, %remaining_vlc_pid%
+        Process, WaitClose, %remaining_vlc_pid%, 1
+    }
+
+    current_vlc_window_id := ""
+    current_vlc_pid := ""
+    Process, Exist, vlc.exe
+    return ErrorLevel = 0
+}
+
+/*
 Ask all top-level windows for one IrfanView executable to close.
 */
 closeIrfanViewWindows(executable_name)
@@ -5189,7 +5297,7 @@ Ask before closing the resident bridge and managed IrfanView.
 */
 confirmExitBridge()
 {
-    MsgBox, 262180, Gallery Slideshow Manager, Exit the HTML bridge and close the current IrfanView slideshow?
+    MsgBox, 262180, Gallery Slideshow Manager, Exit the HTML bridge, close the current IrfanView slideshow, and close all VLC players?
 
     IfMsgBox, Yes
     {
