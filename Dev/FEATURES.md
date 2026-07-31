@@ -284,6 +284,11 @@ These must remain removed:
 ## UNIQUE mode
 
 - Apply UNIQUE to the matching queue before navigation.
+- Persist the UNIQUE enabled preference across program launches.
+- Persist completed-parent round progress and restore it on the next launch.
+- Treat the UNIQUE button as pause/resume: disabling temporarily shows all
+  parents, while re-enabling restores the same completed-parent filter.
+- Starting another slideshow continues the current completed-parent round.
 - Affect both normal and random mode.
 - Do not make random mode alphabetical.
 - Keep current-gallery tracking valid.
@@ -303,6 +308,8 @@ These must remain removed:
   the last active parent shown.
 - Escape preserves previously completed parents so the same parent round can
   resume with the unfinished last parent still available.
+- After Escape, an enabled but idle UNIQUE session must settle after one
+  refresh; unchanged polls must not rebuild the parent thumbnail grid.
 
 ## Prepared navigation
 

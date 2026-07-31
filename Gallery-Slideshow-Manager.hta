@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta charset="utf-8" />
-<title>Gallery Slideshow Manager 0.85</title>
+<title>Gallery Slideshow Manager 0.88</title>
 <hta:application
     id="galleryApp"
     applicationname="Gallery Slideshow Manager"
@@ -981,7 +981,7 @@ var fso = new ActiveXObject("Scripting.FileSystemObject");
 var shell = new ActiveXObject("WScript.Shell");
 var shellApp = new ActiveXObject("Shell.Application");
 
-var APP_VERSION = "0.85";
+var APP_VERSION = "0.88";
 var APP_NAME = "Gallery-Slideshow-Manager";
 var appDir = getApplicationDirectory();
 var tempDir = shell.ExpandEnvironmentStrings("%TEMP%");
@@ -1036,6 +1036,7 @@ var state = {
     randomUniqueSessionActive: false,
     randomUniqueParentSeenPaths: {},
     randomUniqueParentSeenSignature: "",
+    persistentRandomUniqueParentSeenText: "",
     randomUniqueActiveParentPath: "",
     randomUniquePendingParentPath: "",
     currentParentPath: "",
@@ -2278,6 +2279,21 @@ function loadSettings() {
         10
     );
     state.uniqueRandom = String(getIniValue(data, "Options", "UniqueRandom", "0")) !== "0";
+    state.persistentRandomUniqueParentSeenText = String(
+        getIniValue(
+            data,
+            "Options",
+            "UniqueRandomParentSeen",
+            ""
+        )
+    );
+
+    if (
+        lower(state.persistentRandomUniqueParentSeenText) === "error"
+        || state.persistentRandomUniqueParentSeenText === "__EMPTY__"
+    ) {
+        state.persistentRandomUniqueParentSeenText = "";
+    }
     state.keywordMatchMode = normalizeKeywordMatchMode(
         getIniValue(data, "Options", "KeywordMatchMode", "any")
     );
@@ -3051,8 +3067,20 @@ function toggleUniqueRandom() {
         state.uniqueRandom ? "1" : "0"
     );
 
-    // Toggling UNIQUE starts a fresh round in the bridge.
-    clearRandomUniqueAvailability();
+    // UNIQUE is a pause/resume filter. Its completed-parent round remains
+    // intact while the button is off and returns when it is enabled again.
+    if (state.uniqueRandom) {
+        state.randomUniqueParentSeenPaths =
+            randomUniqueParentSeenMap(
+                getPersistentRandomUniqueParentSeenText()
+            );
+        state.randomUniqueParentSeenSignature =
+            randomUniqueParentSeenSignature(
+                state.randomUniqueParentSeenPaths
+            );
+    } else {
+        pauseRandomUniqueAvailability();
+    }
 
     if (state.activeSlideshowType === "random") {
         state.randomUniqueSessionActive =
@@ -4958,6 +4986,13 @@ function clearRandomUniqueAvailability() {
     return true;
 }
 
+function pauseRandomUniqueAvailability() {
+    state.randomUniqueSessionActive = false;
+    state.randomUniqueActiveParentPath = "";
+    state.randomUniquePendingParentPath = "";
+    return true;
+}
+
 function randomUniqueAvailabilityIsActive() {
     return !!state.uniqueRandom;
 }
@@ -4970,12 +5005,61 @@ function randomUniqueParentSeenMap(pathText) {
     for (i = 0; i < paths.length; i++) {
         var pathKey = uniqueParentPathKey(paths[i]);
 
-        if (pathKey) {
+        if (
+            pathKey
+            && pathKey !== "error"
+            && pathKey !== "__empty__"
+        ) {
             seenPaths[pathKey] = true;
         }
     }
 
     return seenPaths;
+}
+
+function getPersistentRandomUniqueParentSeenText() {
+    var settingsData = readIni(settingsPath);
+
+    state.persistentRandomUniqueParentSeenText = String(
+        getIniValue(
+            settingsData,
+            "Options",
+            "UniqueRandomParentSeen",
+            ""
+        )
+    );
+
+    if (
+        lower(state.persistentRandomUniqueParentSeenText) === "error"
+        || state.persistentRandomUniqueParentSeenText === "__EMPTY__"
+    ) {
+        state.persistentRandomUniqueParentSeenText = "";
+    }
+
+    return state.persistentRandomUniqueParentSeenText;
+}
+
+function getRandomUniqueParentSeenText(sessionData) {
+    var sessionText = String(
+        getIniValue(
+            sessionData,
+            "Session",
+            "RandomUniqueParentSeen",
+            ""
+        )
+    );
+
+    if (lower(sessionText) === "error") {
+        sessionText = "";
+    }
+
+    if (sessionText) {
+        state.persistentRandomUniqueParentSeenText =
+            sessionText;
+        return sessionText;
+    }
+
+    return getPersistentRandomUniqueParentSeenText();
 }
 
 function randomUniqueParentSeenSignature(seenPaths) {
@@ -5028,14 +5112,19 @@ function completeUniqueParent(parentPath) {
 }
 
 function syncRandomUniqueAvailability(sessionData) {
-    var sessionActive = String(
+    var sessionActiveValue = String(
         getIniValue(
             sessionData,
             "Session",
             "RandomUnique",
-            "0"
+            ""
         )
-    ) === "1";
+    );
+    var sessionActive = sessionActiveValue
+        ? sessionActiveValue === "1"
+        : !!state.uniqueRandom;
+    var parentSeenText =
+        getRandomUniqueParentSeenText(sessionData);
     var currentParentKey = uniqueParentPathKey(
         getIniValue(
             sessionData,
@@ -5044,6 +5133,11 @@ function syncRandomUniqueAvailability(sessionData) {
             ""
         )
     );
+
+    if (!currentParentKey && state.uniqueRandom) {
+        sessionActive = true;
+    }
+
     var pendingParentKey =
         state.randomUniquePendingParentPath;
     var previousSignature =
@@ -5064,12 +5158,7 @@ function syncRandomUniqueAvailability(sessionData) {
         if (!previousActiveParent) {
             var restoredSeenPaths =
                 randomUniqueParentSeenMap(
-                    getIniValue(
-                        sessionData,
-                        "Session",
-                        "RandomUniqueParentSeen",
-                        ""
-                    )
+                    parentSeenText
                 );
 
             if (restoredSeenPaths[currentParentKey]) {
@@ -5089,17 +5178,12 @@ function syncRandomUniqueAvailability(sessionData) {
         // but leave the last active parent unmarked and available next time.
         state.randomUniqueParentSeenPaths =
             randomUniqueParentSeenMap(
-                getIniValue(
-                    sessionData,
-                    "Session",
-                    "RandomUniqueParentSeen",
-                    ""
-                )
+                parentSeenText
             );
         state.randomUniqueActiveParentPath = "";
         state.randomUniquePendingParentPath = "";
     } else if (!sessionActive) {
-        clearRandomUniqueAvailability();
+        pauseRandomUniqueAvailability();
     }
 
     state.randomUniqueParentSeenSignature =
@@ -5115,9 +5199,10 @@ function syncRandomUniqueAvailability(sessionData) {
         || previousActiveParent
             !== state.randomUniqueActiveParentPath;
 
-    state.randomUniqueSessionActive = !!(
-        sessionActive && currentParentKey
-    );
+    // RandomUnique remains enabled after Escape so the completed-parent
+    // round can resume. Store that stable session flag even with no current
+    // parent; otherwise every poll looks changed and rebuilds all thumbnails.
+    state.randomUniqueSessionActive = sessionActive;
     return changed;
 }
 
@@ -6812,7 +6897,7 @@ function startGallery(gallery, slideshowMode) {
             getFilteredParents()
         );
         setActiveSlideshowType("normal");
-        clearRandomUniqueAvailability();
+        pauseRandomUniqueAvailability();
     } else if (slideshowMode === "random") {
         var galleryEntry = findGalleryEntryByPath(
             gallery.path
@@ -6849,12 +6934,8 @@ function startGallery(gallery, slideshowMode) {
         state.activeSlideshowType === "random"
         && state.uniqueRandom
     ) {
-        // An explicit manager start begins a new parent round. The active
-        // parent remains visible until a different parent actually opens.
-        // After Escape, retain the completed set and resume the same round.
-        if (state.randomUniqueActiveParentPath) {
-            clearRandomUniqueAvailability();
-        }
+        // Starting another slideshow resumes the same durable parent round.
+        // The active parent stays visible until a different parent opens.
         state.randomUniqueSessionActive = true;
         state.randomUniqueActiveParentPath =
             uniqueParentPathKey(
@@ -6865,7 +6946,7 @@ function startGallery(gallery, slideshowMode) {
                 state.currentParentPath
             );
     } else {
-        clearRandomUniqueAvailability();
+        pauseRandomUniqueAvailability();
     }
 
     refreshUniqueAvailabilityPresentation();
@@ -8390,7 +8471,7 @@ function initialize() {
         <div id="emptyState">No parent galleries match the current filters.</div>
     </div>
 
-    <div id="statusBar">v0.85 | Ready.</div>
+    <div id="statusBar">v0.88 | Ready.</div>
 </div>
 
 <div id="galleryOverlay" onclick="if (window.event.srcElement === this) closeGalleryDialog();">

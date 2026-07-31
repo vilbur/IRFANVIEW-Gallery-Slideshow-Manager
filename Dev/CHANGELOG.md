@@ -2,6 +2,48 @@
 
 This records design milestones and trusted baselines, not every code edit.
 
+## 0.88
+
+UNIQUE pause/resume persistence:
+
+- refreshing UNIQUE no longer starts a fresh parent round;
+- switching UNIQUE off temporarily shows all parents without deleting which
+  parents were already completed;
+- switching UNIQUE back on restores the same hidden-parent set;
+- starting another slideshow and reopening the manager resume that set;
+- an explicit durable empty-round marker prevents missing INI values from
+  becoming `ERROR` history entries.
+
+Status: JavaScript syntax/behavior, AutoHotkey v1 syntax-load and package
+checks required; live Windows restart behavior requires user confirmation.
+
+## 0.87
+
+Persistent UNIQUE rounds:
+
+- the UNIQUE enabled preference and completed-parent set are stored in the
+  durable manager settings file;
+- the bridge restores UNIQUE progress from durable settings when temporary
+  session state is absent on the next program launch;
+- restored progress is republished to the live session channel for the manager;
+- missing session values no longer become a literal `ERROR` history entry.
+
+Status: syntax, behavior, static regression and package validation required;
+live Windows restart behavior requires user confirmation.
+
+## 0.86
+
+Idle UNIQUE refresh stabilization:
+
+- an enabled UNIQUE session with no current slideshow parent is retained as
+  active after Escape;
+- repeated unchanged session polls no longer report a false state change;
+- the parent thumbnail grid is therefore rebuilt only for real availability
+  changes, eliminating continuous thumbnail blinking.
+
+Status: JavaScript syntax/behavior, AutoHotkey v1 syntax-load, static regression
+and package checks pass.
+
 ## 0.85
 
 Completed-parent UNIQUE lifecycle:

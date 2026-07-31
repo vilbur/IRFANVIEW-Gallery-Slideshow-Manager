@@ -61,6 +61,11 @@ Review this before every release.
 - [ ] The active random parent remains visible until a different parent becomes active.
 - [ ] Escape never marks the last active parent shown.
 - [ ] Escape preserves earlier completed parents and leaves the last parent available.
+- [ ] Idle UNIQUE polling never continuously rebuilds or blinks parent thumbnails.
+- [ ] UNIQUE enabled state persists across program launches.
+- [ ] Completed UNIQUE parents remain filtered after the next program launch.
+- [ ] Refreshing or toggling UNIQUE off/on resumes the same completed-parent round.
+- [ ] Starting another slideshow does not clear completed UNIQUE parents.
 - [ ] Preview and execution always refer to the same gallery.
 - [ ] Filtered-navigation queue is never published as a partially written file.
 - [ ] Missing/empty/corrupt queue falls back to direct library discovery.

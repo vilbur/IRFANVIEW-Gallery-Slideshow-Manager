@@ -10,7 +10,7 @@ SetWorkingDir, %A_ScriptDir%
 ; AutoHotkey v1.1.36 native bridge for the HTML tile interface.
 ; Handles IrfanView, VLC, global navigation, dynamic lists, and background preparation.
 
-SCRIPT_VERSION := "0.85"
+SCRIPT_VERSION := "0.88"
 APP_NAME := "Gallery-Slideshow-Manager"
 DATA_DIR := A_Temp . "\" . APP_NAME
 SETTINGS_INI := DATA_DIR . "\" . APP_NAME . ".ini"
@@ -2652,6 +2652,7 @@ Set the authoritative resident-bridge navigation mode.
 */
 setRandomNavigationMode(is_active, unique_active := false)
 {
+    global SETTINGS_INI
     global random_navigation_active
     global random_unique_active
     global random_unique_seen
@@ -2661,16 +2662,9 @@ setRandomNavigationMode(is_active, unique_active := false)
     global stored_random_gallery, stored_random_parent
     global stored_random_same_parent_gallery
 
-    continue_parent_round := is_active && unique_active && random_unique_active && current_gallery = ""
-
     random_navigation_active := is_active ? true : false
     random_unique_active := random_navigation_active && unique_active
     random_unique_seen := []
-
-    if (!continue_parent_round)
-    {
-        random_unique_parent_seen := []
-    }
 
     random_unique_skip_parent_completion_once := true
     random_unique_parent_round_reset_pending := false
@@ -2678,6 +2672,14 @@ setRandomNavigationMode(is_active, unique_active := false)
     stored_random_gallery := ""
     stored_random_parent := ""
     stored_random_same_parent_gallery := ""
+
+    if (is_active)
+    {
+        persistent_unique_value := random_unique_active ? 1 : 0
+        IniWrite, %persistent_unique_value%, %SETTINGS_INI%, Options, UniqueRandom
+
+    }
+
     return true
 }
 
@@ -2688,7 +2690,7 @@ post-reset seen list rather than the list from just before preparation.
 */
 writeRandomUniqueSessionProgress()
 {
-    global SESSION_INI
+    global SESSION_INI, SETTINGS_INI
     global random_navigation_active
     global random_unique_active
     global random_unique_seen
@@ -2702,7 +2704,21 @@ writeRandomUniqueSessionProgress()
 
     unique_parent_seen_text := joinRandomUniquePaths(random_unique_parent_seen)
     writeIniValueOrDelete(unique_parent_seen_text, SESSION_INI, "Session", "RandomUniqueParentSeen")
+    writePersistentRandomUniqueParentProgress(unique_parent_seen_text)
     return true
+}
+
+/*
+Persist the completed-parent set even when it is empty. The explicit empty
+marker distinguishes a new round from a missing legacy setting.
+*/
+writePersistentRandomUniqueParentProgress(parent_seen_text)
+{
+    global SETTINGS_INI
+
+    persistent_text := parent_seen_text = "" ? "__EMPTY__" : parent_seen_text
+    IniWrite, %persistent_text%, %SETTINGS_INI%, Options, UniqueRandomParentSeen
+    return !ErrorLevel
 }
 
 /*
@@ -2711,7 +2727,7 @@ The current gallery becomes the first processed item of the new cycle.
 */
 setRandomUniqueMode(is_active)
 {
-    global SESSION_INI
+    global SESSION_INI, SETTINGS_INI
     global random_navigation_active
     global random_unique_active
     global random_unique_seen
@@ -2725,15 +2741,28 @@ setRandomUniqueMode(is_active)
 
     random_unique_active := random_navigation_active && is_active
     random_unique_seen := []
-    random_unique_parent_seen := []
     random_unique_skip_parent_completion_once := false
     random_unique_parent_round_reset_pending := false
     stored_random_gallery := ""
     stored_random_parent := ""
     stored_random_same_parent_gallery := ""
 
+    persistent_unique_value := random_unique_active ? 1 : 0
+    IniWrite, %persistent_unique_value%, %SETTINGS_INI%, Options, UniqueRandom
+
     if (random_unique_active)
     {
+        if (random_unique_parent_seen.Length() < 1)
+        {
+            IniRead, persistent_parent_seen_text, %SETTINGS_INI%, Options, UniqueRandomParentSeen, ERROR
+
+            if (persistent_parent_seen_text != "ERROR"
+                && persistent_parent_seen_text != "__EMPTY__")
+            {
+                random_unique_parent_seen := parseRandomUniquePaths(persistent_parent_seen_text)
+            }
+        }
+
         if (current_gallery != "")
         {
             markUniqueRandomGallerySeen(current_gallery)
@@ -2952,6 +2981,15 @@ joinRandomUniquePaths(path_list)
 
     for path_index, gallery_path in path_list
     {
+        gallery_path := normalizeFolderPath(gallery_path)
+
+        if (gallery_path = ""
+            || toLowerText(gallery_path) = "error"
+            || gallery_path = "__EMPTY__")
+        {
+            continue
+        }
+
         if (output_text != "")
         {
             output_text .= "|"
@@ -2974,7 +3012,9 @@ parseRandomUniquePaths(path_text)
     {
         gallery_path := normalizeFolderPath(A_LoopField)
 
-        if (gallery_path != "")
+        if (gallery_path != ""
+            && toLowerText(gallery_path) != "error"
+            && gallery_path != "__EMPTY__")
         {
             path_list.Push(gallery_path)
         }
@@ -4944,7 +4984,7 @@ Clear the running slideshow data used by the HTML RUNNING badge.
 */
 clearRunningSessionState()
 {
-    global SESSION_INI
+    global SESSION_INI, SETTINGS_INI
     global current_parent, current_gallery
     global current_video, current_irfan_pid
     global current_vlc_window_id, current_vlc_pid
@@ -4996,6 +5036,7 @@ clearRunningSessionState()
         IniWrite, 1, %SESSION_INI%, Session, RandomUnique
         unique_parent_seen_text := joinRandomUniquePaths(random_unique_parent_seen)
         writeIniValueOrDelete(unique_parent_seen_text, SESSION_INI, "Session", "RandomUniqueParentSeen")
+        writePersistentRandomUniqueParentProgress(unique_parent_seen_text)
     }
     else
     {
@@ -5269,7 +5310,7 @@ Read previous session paths after the bridge restarts.
 */
 readSessionState()
 {
-    global SESSION_INI
+    global SESSION_INI, SETTINGS_INI
     global current_parent, current_gallery, current_video
     global random_navigation_active
     global random_unique_active
@@ -5280,9 +5321,36 @@ readSessionState()
     IniRead, current_gallery, %SESSION_INI%, Session, CurrentGallery,
     IniRead, current_video, %SESSION_INI%, Session, CurrentVideo,
     IniRead, navigation_mode, %SESSION_INI%, Session, NavigationMode, random
-    IniRead, unique_value, %SESSION_INI%, Session, RandomUnique, 0
-    IniRead, unique_seen_text, %SESSION_INI%, Session, RandomUniqueSeen,
-    IniRead, unique_parent_seen_text, %SESSION_INI%, Session, RandomUniqueParentSeen,
+    IniRead, unique_value, %SESSION_INI%, Session, RandomUnique, ERROR
+    IniRead, unique_seen_text, %SESSION_INI%, Session, RandomUniqueSeen, ERROR
+    IniRead, unique_parent_seen_text, %SESSION_INI%, Session, RandomUniqueParentSeen, ERROR
+    IniRead, persistent_unique_value, %SETTINGS_INI%, Options, UniqueRandom, 0
+
+    if (unique_value = "ERROR" || (current_gallery = "" && persistent_unique_value = 1))
+    {
+        unique_value := persistent_unique_value
+    }
+
+    if (unique_seen_text = "ERROR")
+    {
+        unique_seen_text := ""
+    }
+
+    if (unique_parent_seen_text = "ERROR"
+        || (current_gallery = "" && persistent_unique_value = 1))
+    {
+        IniRead, unique_parent_seen_text, %SETTINGS_INI%, Options, UniqueRandomParentSeen, ERROR
+
+        if (unique_parent_seen_text = "ERROR")
+        {
+            unique_parent_seen_text := ""
+        }
+    }
+
+    if (unique_parent_seen_text = "__EMPTY__")
+    {
+        unique_parent_seen_text := ""
+    }
 
     current_parent := normalizeFolderPath(current_parent)
     current_gallery := normalizeFolderPath(current_gallery)
@@ -5290,7 +5358,9 @@ readSessionState()
     random_navigation_active := navigation_mode = "random"
     random_unique_active := random_navigation_active && unique_value = 1
     random_unique_seen := random_unique_active ? parseRandomUniquePaths(unique_seen_text) : []
-    random_unique_parent_seen := random_unique_active ? parseRandomUniquePaths(unique_parent_seen_text) : []
+    ; Keep completed-parent progress loaded while UNIQUE is temporarily off so
+    ; re-enabling the button resumes the same round instead of starting over.
+    random_unique_parent_seen := parseRandomUniquePaths(unique_parent_seen_text)
 
     if (random_unique_active)
     {
@@ -5299,6 +5369,7 @@ readSessionState()
             markUniqueRandomGallerySeen(current_gallery)
         }
 
+        writeRandomUniqueSessionProgress()
     }
 }
 

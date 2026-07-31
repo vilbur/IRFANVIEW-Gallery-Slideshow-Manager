@@ -1,4 +1,4 @@
-Gallery Slideshow Manager — HTML version 0.85
+Gallery Slideshow Manager — HTML version 0.88
 
 ================================================
 
@@ -996,3 +996,26 @@ Version 0.85
 - Previously completed parents remain hidden, while the last active parent
   remains available when random slideshow resumes.
 - Finishing the last remaining parent resets the parent display round.
+
+Version 0.86
+------------
+
+- Fixed rapid thumbnail blinking after a random UNIQUE slideshow was closed.
+- An enabled but idle UNIQUE session now settles after its first refresh.
+- Unchanged session polls no longer rebuild the parent thumbnail grid.
+
+Version 0.87
+------------
+
+- UNIQUE enabled state now persists across complete program restarts.
+- Completed UNIQUE parent galleries remain filtered on the next launch.
+- Durable settings recover the UNIQUE round if temporary session state is absent.
+
+Version 0.88
+------------
+
+- Refreshing UNIQUE no longer clears already shown parent thumbnails.
+- Turning UNIQUE off shows all parents temporarily; turning it back on restores
+  the same hidden-parent set.
+- Reopening the manager or starting another slideshow resumes that same round.
+- Empty UNIQUE rounds use an explicit durable marker instead of an `ERROR` value.

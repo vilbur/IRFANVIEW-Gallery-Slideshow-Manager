@@ -204,11 +204,49 @@ check(
         && isParentAvailableForRandom(state.parents[2]),
     "Escape must retain completed parents without marking the last active parent."
 );
+check(
+    !syncRandomUniqueAvailability({
+        Session: {
+            RandomUnique: "1",
+            RandomUniqueParentSeen: "X:\\library\\Beta"
+        }
+    }),
+    "An idle UNIQUE session should settle instead of refreshing every poll."
+);
 
 state.uniqueRandom = false;
 check(
     getVisibleParents().length === 3,
     "Disabling UNIQUE should restore every filtered parent."
+);
+
+state.uniqueRandom = true;
+state.randomUniqueParentSeenPaths = {};
+state.randomUniqueActiveParentPath = "";
+state.randomUniquePendingParentPath = "";
+state.persistentRandomUniqueParentSeenText =
+    "ERROR|X:\\library\\Alpha|X:\\library\\Beta";
+getPersistentRandomUniqueParentSeenText = function() {
+    return state.persistentRandomUniqueParentSeenText;
+};
+syncRandomUniqueAvailability({ Session: {} });
+check(
+    getVisibleParents().length === 1
+        && getVisibleParents()[0].name === "Gamma",
+    "A new program session must restore completed UNIQUE parents from durable settings."
+);
+
+state.uniqueRandom = false;
+pauseRandomUniqueAvailability();
+check(
+    getVisibleParents().length === 3,
+    "Pausing UNIQUE should show all parents without deleting round progress."
+);
+state.uniqueRandom = true;
+check(
+    getVisibleParents().length === 1
+        && getVisibleParents()[0].name === "Gamma",
+    "Re-enabling UNIQUE should restore the same completed-parent filter."
 );
 
 check(
@@ -234,6 +272,58 @@ check(
         bridgeText
     ),
     "Escape should preserve only the completed-parent round state."
+);
+check(
+    /writePersistentRandomUniqueParentProgress\(unique_parent_seen_text\)/.test(
+        bridgeText
+    )
+        && /IniWrite, %persistent_text%, %SETTINGS_INI%, Options, UniqueRandomParentSeen/.test(
+        bridgeText
+    ),
+    "The bridge must persist completed UNIQUE parents in durable settings."
+);
+check(
+    /IniRead, unique_parent_seen_text, %SETTINGS_INI%, Options, UniqueRandomParentSeen/.test(
+        bridgeText
+    ),
+    "Bridge startup must recover UNIQUE progress when session state is absent."
+);
+check(
+    /current_gallery\s*=\s*""\s*&&\s*persistent_unique_value\s*=\s*1/.test(
+        bridgeText
+    ),
+    "An idle restart must prefer the durable UNIQUE preference over stale session state."
+);
+check(
+    /if \(unique_seen_text = "ERROR"\)\s*\{\s*unique_seen_text := ""/.test(
+        bridgeText
+    ),
+    "Missing session history must not become a literal ERROR path."
+);
+const uniqueToggleFunctionStart = bridgeText.indexOf(
+    "setRandomUniqueMode(is_active)"
+);
+const uniqueToggleFunctionEnd = bridgeText.indexOf(
+    "/*\r\nReturn true when Unique mode is active",
+    uniqueToggleFunctionStart
+);
+const uniqueToggleFunctionText = bridgeText.substring(
+    uniqueToggleFunctionStart,
+    uniqueToggleFunctionEnd
+);
+check(
+    uniqueToggleFunctionStart >= 0
+        && uniqueToggleFunctionEnd > uniqueToggleFunctionStart
+        && uniqueToggleFunctionText.indexOf(
+            "random_unique_parent_seen := []"
+        ) < 0,
+    "Refreshing UNIQUE must not clear completed-parent progress."
+);
+check(
+    /persistent_text\s*:=\s*parent_seen_text\s*=\s*""\s*\?\s*"__EMPTY__"/.test(
+        bridgeText
+    ),
+    "An empty completed-parent round needs an explicit durable marker."
 );
 
 console.log("UNIQUE parent visibility: PASS");
