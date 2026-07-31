@@ -1,0 +1,1016 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta charset="utf-8" />
+<title>Keywords - Gallery Slideshow</title>
+<hta:application
+    id="keywordApp"
+    applicationname="Gallery Slideshow Keywords"
+    border="none"
+    caption="no"
+    contextmenu="no"
+    icon="Gallery-Slideshow-Manager.ico"
+    maximizebutton="no"
+    minimizebutton="no"
+    navigable="no"
+    scroll="no"
+    selection="no"
+    showintaskbar="no"
+    singleinstance="no"
+    sysmenu="no"
+    windowstate="normal"
+/>
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #1c2128;
+    color: #edf2f8;
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+* {
+    box-sizing: border-box;
+}
+#windowSurface {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border: 1px solid #526071;
+    border-radius: 9px;
+    background: #1c2128;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.52);
+}
+#windowHeader {
+    position: relative;
+    min-height: 47px;
+    padding: 8px 45px 7px 12px;
+    border-bottom: 1px solid #313844;
+    background: #20262e;
+}
+#headerLabel {
+    color: #7f8c9c;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.9px;
+    line-height: 13px;
+}
+#parentName {
+    overflow: hidden;
+    color: #edf2f8;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 18px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#closeButton {
+    position: absolute;
+    top: 7px;
+    right: 8px;
+    width: 31px;
+    height: 31px;
+    padding: 0;
+    border: 1px solid #3b4654;
+    border-radius: 7px;
+    background: #272e37;
+    color: #aeb9c8;
+    cursor: pointer;
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 20px;
+    line-height: 27px;
+}
+#closeButton:hover {
+    border-color: #87505a;
+    background: #542a31;
+    color: #ffffff;
+}
+#ratingRow {
+    display: flex;
+    align-items: center;
+    min-height: 43px;
+    padding: 6px 12px;
+    border-bottom: 1px solid #313844;
+    color: #aeb9c8;
+    font-size: 12px;
+    font-weight: 700;
+}
+#ratingStars {
+    margin-left: 8px;
+    color: #ffd24a;
+    font-size: 23px;
+    line-height: 24px;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 4px rgba(255,194,32,0.28);
+}
+#ratingCount {
+    margin-left: 8px;
+    color: #f8e7a3;
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 20px;
+}
+#keywordGroups {
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 9px;
+    scrollbar-base-color: #252c35;
+    scrollbar-arrow-color: #9aa6b6;
+    scrollbar-track-color: #171b20;
+}
+.keywordGroup {
+    margin: 0;
+}
+.keywordGroup + .keywordGroup {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #303946;
+}
+.keywordButtons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.keywordButton {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    box-sizing: border-box;
+    padding: 6px 10px 6px 7px;
+    border: 1px solid #394452;
+    border-radius: 7px;
+    background: #222830;
+    color: #d9e0e8;
+    cursor: pointer;
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+}
+.keywordButton:hover {
+    border-color: #66788f;
+    background: #2b333e;
+}
+.keywordButton.active {
+    border-color: #4d8fe9;
+    background: #255a9f;
+    color: #ffffff;
+}
+.keywordMark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    margin-right: 7px;
+    border: 2px solid #687486;
+    border-radius: 5px;
+    color: transparent;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 14px;
+}
+.keywordButton.active .keywordMark {
+    border-color: #dcecff;
+    background: #eaf4ff;
+    color: #24599b;
+}
+.emptyState {
+    padding: 13px 10px;
+    color: #7f8998;
+    font-size: 12px;
+}
+#saveStatus {
+    display: none;
+    padding: 6px 12px 8px 12px;
+    border-top: 1px solid #313844;
+    color: #8fa4bd;
+    font-size: 11px;
+}
+#saveStatus.error {
+    display: block;
+    color: #ff9ca8;
+}
+</style>
+<script type="text/javascript">
+var fso = new ActiveXObject("Scripting.FileSystemObject");
+var shell = new ActiveXObject("WScript.Shell");
+var APP_NAME = "Gallery-Slideshow-Manager";
+var appDir = getApplicationDirectory();
+var sharedDataDir = shell.ExpandEnvironmentStrings("%TEMP%") + "\\" + APP_NAME;
+var sessionPath = sharedDataDir + "\\" + APP_NAME + "-session.ini";
+var bridgePath = appDir + "\\Gallery-Slideshow-Manager-Bridge.ahk";
+var keywordIniName = "gallery-keywords.ini";
+var ratingIniName = "gallery-ratings.ini";
+var state = {
+    root: "",
+    parentPath: "",
+    parentName: "",
+    screenX: 0,
+    screenY: 0,
+    workLeft: 0,
+    workTop: 0,
+    workRight: 0,
+    workBottom: 0,
+    keywords: [],
+    assigned: {},
+    rating: 0
+};
+var blurCloseArmed = false;
+
+function getApplicationDirectory() {
+    var path = unescape(window.location.pathname).replace(/\//g, "\\");
+
+    if (/^\\[A-Za-z]:/.test(path)) {
+        path = path.substr(1);
+    }
+
+    return fso.GetParentFolderName(path);
+}
+
+function normalizePath(path) {
+    var result = String(path || "").replace(/^["\s]+|["\s]+$/g, "");
+
+    if (/^[A-Za-z]:\\$/.test(result)) {
+        return result;
+    }
+
+    return result.replace(/[\\\/]+$/, "");
+}
+
+function lower(text) {
+    return String(text || "").toLowerCase();
+}
+
+function waitForSharedFile(milliseconds) {
+    var deadline = new Date().getTime() + milliseconds;
+
+    while (new Date().getTime() < deadline) {
+    }
+}
+
+function readText(path) {
+    var attempt;
+    var file = null;
+
+    for (attempt = 0; attempt < 10; attempt++) {
+        try {
+            if (!fso.FileExists(path)) {
+                return "";
+            }
+
+            file = fso.OpenTextFile(path, 1, false, -2);
+            var text = file.ReadAll();
+            file.Close();
+            return text;
+        } catch (error) {
+            try {
+                if (file) {
+                    file.Close();
+                }
+            } catch (closeError) {
+            }
+
+            file = null;
+
+            if (attempt < 9) {
+                waitForSharedFile(15 + (attempt * 10));
+            }
+        }
+    }
+
+    return "";
+}
+
+function parseIni(text) {
+    var result = {};
+    var section = "";
+    var lines = String(text || "").replace(/\r/g, "").split("\n");
+    var i;
+
+    for (i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        var trimmed = line.replace(/^\s+|\s+$/g, "");
+
+        if (!trimmed || trimmed.charAt(0) === ";" || trimmed.charAt(0) === "#") {
+            continue;
+        }
+
+        if (trimmed.charAt(0) === "[" && trimmed.charAt(trimmed.length - 1) === "]") {
+            section = trimmed.substring(1, trimmed.length - 1);
+
+            if (!result[section]) {
+                result[section] = {};
+            }
+
+            continue;
+        }
+
+        var equals = line.indexOf("=");
+
+        if (equals < 0 || !section) {
+            continue;
+        }
+
+        var key = line.substring(0, equals).replace(/^\s+|\s+$/g, "");
+        result[section][key] = line.substring(equals + 1);
+    }
+
+    return result;
+}
+
+function serializeIni(data) {
+    var sections = [];
+    var sectionName;
+
+    for (sectionName in data) {
+        if (data.hasOwnProperty(sectionName)) {
+            sections.push(sectionName);
+        }
+    }
+
+    sections.sort(function(left, right) {
+        if (left === "Keywords") {
+            return -1;
+        }
+
+        if (right === "Keywords") {
+            return 1;
+        }
+
+        return lower(left) < lower(right) ? -1 : 1;
+    });
+
+    var output = [];
+    var i;
+
+    for (i = 0; i < sections.length; i++) {
+        sectionName = sections[i];
+        output.push("[" + sectionName + "]");
+
+        var keys = [];
+        var key;
+
+        for (key in data[sectionName]) {
+            if (data[sectionName].hasOwnProperty(key)) {
+                keys.push(key);
+            }
+        }
+
+        keys.sort();
+
+        var keyIndex;
+
+        for (keyIndex = 0; keyIndex < keys.length; keyIndex++) {
+            key = keys[keyIndex];
+            output.push(key + "=" + data[sectionName][key]);
+        }
+
+        output.push("");
+    }
+
+    return output.join("\r\n");
+}
+
+function readIni(path) {
+    return parseIni(readText(path));
+}
+
+function writeIniAtomically(path, data) {
+    var text = serializeIni(data);
+    var tempPath = path + ".keyword-window-" + new Date().getTime() + ".tmp";
+    var attempt;
+    var file = null;
+
+    try {
+        file = fso.OpenTextFile(tempPath, 2, true, -2);
+        file.Write(text);
+        file.Close();
+        file = null;
+    } catch (error) {
+        try {
+            if (file) {
+                file.Close();
+            }
+
+            if (fso.FileExists(tempPath)) {
+                fso.DeleteFile(tempPath, true);
+            }
+        } catch (cleanupError) {
+        }
+
+        return false;
+    }
+
+    for (attempt = 0; attempt < 10; attempt++) {
+        try {
+            if (fso.FileExists(path)) {
+                fso.DeleteFile(path, true);
+            }
+
+            fso.MoveFile(tempPath, path);
+            return true;
+        } catch (moveError) {
+            if (attempt < 9) {
+                waitForSharedFile(15 + (attempt * 10));
+            }
+        }
+    }
+
+    try {
+        if (fso.FileExists(tempPath)) {
+            fso.DeleteFile(tempPath, true);
+        }
+    } catch (cleanupError) {
+    }
+
+    return false;
+}
+
+function getIniValue(data, section, key, fallback) {
+    if (data[section] && typeof data[section][key] !== "undefined") {
+        return data[section][key];
+    }
+
+    return fallback;
+}
+
+function parseKeywordList(text) {
+    var parts = String(text || "").split("|");
+    var result = [];
+    var seen = {};
+    var i;
+
+    for (i = 0; i < parts.length; i++) {
+        var word = parts[i].replace(/^\s+|\s+$/g, "");
+        var key = lower(word);
+
+        if (word && !seen[key]) {
+            seen[key] = true;
+            result.push(word);
+        }
+    }
+
+    return result;
+}
+
+function joinKeywords(words) {
+    return words.join("|");
+}
+
+function encodeParentSection(parentPath) {
+    var root = normalizePath(state.root);
+    var parent = normalizePath(parentPath);
+    var relative = parent;
+
+    if (lower(parent).indexOf(lower(root + "\\")) === 0) {
+        relative = parent.substr(root.length + 1);
+    }
+
+    relative = relative.replace(/%/g, "%25");
+    relative = relative.replace(/\\/g, "%5C");
+    relative = relative.replace(/\//g, "%2F");
+    relative = relative.replace(/\[/g, "%5B");
+    relative = relative.replace(/\]/g, "%5D");
+    return "Parent." + relative;
+}
+
+function isCasedKeywordCharacter(character) {
+    return !!character && character.toUpperCase() !== character.toLowerCase();
+}
+
+function keywordHasCasedCharacter(word) {
+    var text = String(word || "");
+    var i;
+
+    for (i = 0; i < text.length; i++) {
+        if (isCasedKeywordCharacter(text.charAt(i))) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function firstCasedKeywordCharacter(word) {
+    var text = String(word || "");
+    var i;
+
+    for (i = 0; i < text.length; i++) {
+        if (isCasedKeywordCharacter(text.charAt(i))) {
+            return text.charAt(i);
+        }
+    }
+
+    return "";
+}
+
+function keywordCasePattern(word) {
+    var text = String(word || "");
+
+    if (keywordHasCasedCharacter(text) && text === text.toUpperCase()) {
+        return "uppercase";
+    }
+
+    if (keywordHasCasedCharacter(text) && text === text.toLowerCase()) {
+        return "lowercase";
+    }
+
+    var firstLetter = firstCasedKeywordCharacter(text);
+
+    if (firstLetter && firstLetter === firstLetter.toUpperCase()) {
+        return "capital";
+    }
+
+    return "other";
+}
+
+function keywordFormattingType(word) {
+    var text = String(word || "");
+    var firstCharacter = text.charAt(0);
+    var hasSpecialPrefix = firstCharacter
+        && !isCasedKeywordCharacter(firstCharacter)
+        && !/[0-9]/.test(firstCharacter);
+    var caseText = hasSpecialPrefix ? text.substring(1) : text;
+
+    return {
+        isSpecial: !!hasSpecialPrefix,
+        specialCharacter: hasSpecialPrefix ? firstCharacter : "",
+        casePattern: keywordCasePattern(caseText)
+    };
+}
+
+function keywordControlText(word) {
+    var text = String(word || "");
+    var formatting = keywordFormattingType(text);
+
+    return formatting.isSpecial
+        ? text.substring(1).replace(/^\s+/, "")
+        : text;
+}
+
+function sortKeywordWordsCaseInsensitive(words) {
+    words.sort(function(leftWord, rightWord) {
+        var leftKey = lower(leftWord);
+        var rightKey = lower(rightWord);
+
+        if (leftKey < rightKey) {
+            return -1;
+        }
+
+        if (leftKey > rightKey) {
+            return 1;
+        }
+
+        return leftWord < rightWord ? -1 : (leftWord > rightWord ? 1 : 0);
+    });
+
+    return words;
+}
+
+function sortSpecialKeywordCharacters(characters) {
+    var preferredOrder = "~@!#$%&";
+
+    characters.sort(function(leftCharacter, rightCharacter) {
+        var leftRank = preferredOrder.indexOf(leftCharacter);
+        var rightRank = preferredOrder.indexOf(rightCharacter);
+
+        if (leftRank >= 0 || rightRank >= 0) {
+            if (leftRank < 0) {
+                return 1;
+            }
+
+            if (rightRank < 0) {
+                return -1;
+            }
+
+            return leftRank - rightRank;
+        }
+
+        return leftCharacter < rightCharacter
+            ? -1
+            : (leftCharacter > rightCharacter ? 1 : 0);
+    });
+
+    return characters;
+}
+
+function groupedKeywords(words) {
+    var patternOrder = ["uppercase", "capital", "lowercase", "other"];
+    var specialGroups = {};
+    var specialCharacters = [];
+    var plainGroups = {};
+    var i;
+
+    for (i = 0; i < patternOrder.length; i++) {
+        plainGroups[patternOrder[i]] = {
+            isSpecial: false,
+            specialCharacter: "",
+            words: []
+        };
+    }
+
+    for (i = 0; i < words.length; i++) {
+        var word = words[i];
+        var formatting = keywordFormattingType(word);
+        var casePattern = formatting.casePattern;
+
+        if (formatting.isSpecial) {
+            var specialCharacter = formatting.specialCharacter;
+
+            if (!specialGroups[specialCharacter]) {
+                specialGroups[specialCharacter] = {};
+                specialCharacters.push(specialCharacter);
+            }
+
+            if (!specialGroups[specialCharacter][casePattern]) {
+                specialGroups[specialCharacter][casePattern] = [];
+            }
+
+            specialGroups[specialCharacter][casePattern].push(word);
+        } else {
+            plainGroups[casePattern].words.push(word);
+        }
+    }
+
+    var result = [];
+    sortSpecialKeywordCharacters(specialCharacters);
+
+    for (i = 0; i < specialCharacters.length; i++) {
+        var orderedCharacter = specialCharacters[i];
+        var combinedGroup = {
+            isSpecial: true,
+            specialCharacter: orderedCharacter,
+            words: []
+        };
+        var patternIndex;
+
+        for (patternIndex = 0; patternIndex < patternOrder.length; patternIndex++) {
+            var patternWords = specialGroups[orderedCharacter][patternOrder[patternIndex]];
+
+            if (patternWords && patternWords.length) {
+                sortKeywordWordsCaseInsensitive(patternWords);
+
+                var wordIndex;
+
+                for (wordIndex = 0; wordIndex < patternWords.length; wordIndex++) {
+                    combinedGroup.words.push(patternWords[wordIndex]);
+                }
+            }
+        }
+
+        result.push(combinedGroup);
+    }
+
+    for (i = 0; i < patternOrder.length; i++) {
+        var plainGroup = plainGroups[patternOrder[i]];
+
+        if (plainGroup.words.length) {
+            sortKeywordWordsCaseInsensitive(plainGroup.words);
+            result.push(plainGroup);
+        }
+    }
+
+    return result;
+}
+
+function assignedKeywordMap(words) {
+    var assigned = {};
+    var i;
+
+    for (i = 0; i < words.length; i++) {
+        assigned[lower(words[i])] = true;
+    }
+
+    return assigned;
+}
+
+function updateKeywordButton(button, active) {
+    button.className = "keywordButton" + (active ? " active" : "");
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+    button.title = (active ? "Remove keyword: " : "Assign keyword: ") + button._word;
+    button._mark.innerText = active ? "✓" : "";
+}
+
+function signalKeywordRevision() {
+    if (!fso.FileExists(bridgePath)) {
+        return false;
+    }
+
+    try {
+        shell.Run('"' + bridgePath.replace(/"/g, '""') + '" --keyword-revision', 0, false);
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+function showSaveError(message) {
+    var status = document.getElementById("saveStatus");
+    status.className = "error";
+    status.innerText = message;
+}
+
+function toggleKeyword(button) {
+    var keywordPath = state.root + "\\" + keywordIniName;
+    var data = readIni(keywordPath);
+    var section = encodeParentSection(state.parentPath);
+    var currentWords = parseKeywordList(getIniValue(data, section, "Keywords", ""));
+    var currentAssigned = assignedKeywordMap(currentWords);
+    var key = lower(button._word);
+    var shouldAssign = !currentAssigned[key];
+    var result = [];
+    var found = false;
+    var i;
+
+    for (i = 0; i < currentWords.length; i++) {
+        if (lower(currentWords[i]) === key) {
+            found = true;
+
+            if (!shouldAssign) {
+                continue;
+            }
+        }
+
+        result.push(currentWords[i]);
+    }
+
+    if (shouldAssign && !found) {
+        result.push(button._word);
+    }
+
+    result = parseKeywordList(joinKeywords(result));
+
+    if (!result.length) {
+        delete data[section];
+    } else {
+        if (!data[section]) {
+            data[section] = {};
+        }
+
+        data[section].Keywords = joinKeywords(result);
+    }
+
+    if (!writeIniAtomically(keywordPath, data)) {
+        showSaveError("The keyword file is busy. The change was not saved.");
+        return false;
+    }
+
+    state.assigned = assignedKeywordMap(result);
+    updateKeywordButton(button, !!state.assigned[key]);
+    document.getElementById("saveStatus").className = "";
+    document.getElementById("saveStatus").innerText = "";
+    signalKeywordRevision();
+    return false;
+}
+
+function createKeywordButton(word) {
+    var button = document.createElement("button");
+    var mark = document.createElement("span");
+    var label = document.createElement("span");
+
+    button.type = "button";
+    button._word = word;
+    button._mark = mark;
+    mark.className = "keywordMark";
+    label.innerText = keywordControlText(word);
+    button.appendChild(mark);
+    button.appendChild(label);
+    updateKeywordButton(button, !!state.assigned[lower(word)]);
+    button.onclick = function() {
+        window.event.cancelBubble = true;
+        window.event.returnValue = false;
+        return toggleKeyword(button);
+    };
+    return button;
+}
+
+function renderKeywords() {
+    var container = document.getElementById("keywordGroups");
+    container.innerHTML = "";
+
+    if (!state.keywords.length) {
+        var empty = document.createElement("div");
+        empty.className = "emptyState";
+        empty.innerText = "No keywords defined.";
+        container.appendChild(empty);
+        return;
+    }
+
+    var groups = groupedKeywords(state.keywords);
+    var groupIndex;
+
+    for (groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+        var groupElement = document.createElement("div");
+        var buttons = document.createElement("div");
+        var wordIndex;
+
+        groupElement.className = "keywordGroup";
+        buttons.className = "keywordButtons";
+
+        for (wordIndex = 0; wordIndex < groups[groupIndex].words.length; wordIndex++) {
+            buttons.appendChild(createKeywordButton(groups[groupIndex].words[wordIndex]));
+        }
+
+        groupElement.appendChild(buttons);
+        container.appendChild(groupElement);
+    }
+}
+
+function parseNumber(value, fallback) {
+    var number = parseInt(value, 10);
+    return isNaN(number) ? fallback : number;
+}
+
+function fitAndPlaceWindow() {
+    var margin = 8;
+    var gap = 7;
+    var workWidth = Math.max(240, state.workRight - state.workLeft);
+    var workHeight = Math.max(160, state.workBottom - state.workTop);
+    var clientWidth = Math.min(460, workWidth - (margin * 2));
+    var surface = document.getElementById("windowSurface");
+    var groups = document.getElementById("keywordGroups");
+
+    clientWidth = Math.max(240, clientWidth);
+    document.body.style.width = clientWidth + "px";
+    surface.style.width = clientWidth + "px";
+    groups.style.height = "auto";
+    groups.style.maxHeight = "none";
+
+    var maximumClientHeight = Math.max(150, workHeight - (margin * 2));
+    var naturalHeight = surface.scrollHeight;
+
+    if (naturalHeight > maximumClientHeight && workWidth >= 560) {
+        clientWidth = Math.min(720, workWidth - (margin * 2));
+        document.body.style.width = clientWidth + "px";
+        surface.style.width = clientWidth + "px";
+        naturalHeight = surface.scrollHeight;
+    }
+
+    if (naturalHeight > maximumClientHeight) {
+        var fixedHeight = document.getElementById("windowHeader").offsetHeight
+            + document.getElementById("ratingRow").offsetHeight
+            + document.getElementById("saveStatus").offsetHeight
+            + 2;
+        groups.style.height = Math.max(62, maximumClientHeight - fixedHeight) + "px";
+        naturalHeight = maximumClientHeight;
+    }
+
+    var clientHeight = Math.max(92, Math.min(naturalHeight, maximumClientHeight));
+    window.resizeTo(clientWidth, clientHeight);
+
+    var outerWidth = window.outerWidth || clientWidth;
+    var outerHeight = window.outerHeight || clientHeight;
+    var left = state.screenX + gap;
+    var top = state.screenY + gap;
+
+    if (left + outerWidth > state.workRight - margin) {
+        left = state.screenX - outerWidth - gap;
+    }
+
+    if (top + outerHeight > state.workBottom - margin) {
+        top = state.screenY - outerHeight - gap;
+    }
+
+    left = Math.max(state.workLeft + margin, Math.min(left, state.workRight - outerWidth - margin));
+    top = Math.max(state.workTop + margin, Math.min(top, state.workBottom - outerHeight - margin));
+    window.moveTo(left, top);
+    document.body.style.visibility = "visible";
+}
+
+function loadWindowState() {
+    var session = readIni(sessionPath);
+    state.root = normalizePath(getIniValue(session, "Session", "KeywordWindowRoot", ""));
+    state.parentPath = normalizePath(getIniValue(session, "Session", "KeywordWindowParent", ""));
+    state.screenX = parseNumber(getIniValue(session, "Session", "KeywordWindowScreenX", "0"), 0);
+    state.screenY = parseNumber(getIniValue(session, "Session", "KeywordWindowScreenY", "0"), 0);
+    state.workLeft = parseNumber(getIniValue(session, "Session", "KeywordWindowWorkLeft", "0"), 0);
+    state.workTop = parseNumber(getIniValue(session, "Session", "KeywordWindowWorkTop", "0"), 0);
+    state.workRight = parseNumber(getIniValue(session, "Session", "KeywordWindowWorkRight", "0"), 0);
+    state.workBottom = parseNumber(getIniValue(session, "Session", "KeywordWindowWorkBottom", "0"), 0);
+
+    if (state.workRight <= state.workLeft) {
+        state.workLeft = 0;
+        state.workRight = screen.availWidth;
+    }
+
+    if (state.workBottom <= state.workTop) {
+        state.workTop = 0;
+        state.workBottom = screen.availHeight;
+    }
+
+    if (!state.root || !state.parentPath) {
+        return false;
+    }
+
+    try {
+        state.parentName = fso.GetFileName(state.parentPath) || state.parentPath;
+    } catch (error) {
+        state.parentName = state.parentPath;
+    }
+
+    var keywordData = readIni(state.root + "\\" + keywordIniName);
+    state.keywords = parseKeywordList(getIniValue(keywordData, "Keywords", "List", ""));
+    state.assigned = assignedKeywordMap(parseKeywordList(getIniValue(
+        keywordData,
+        encodeParentSection(state.parentPath),
+        "Keywords",
+        ""
+    )));
+
+    var ratingData = readIni(state.root + "\\" + ratingIniName);
+    state.rating = parseNumber(getIniValue(
+        ratingData,
+        encodeParentSection(state.parentPath),
+        "Rating",
+        "0"
+    ), 0);
+
+    if (state.rating < 0 || state.rating > 9) {
+        state.rating = 0;
+    }
+
+    return true;
+}
+
+function closeKeywordWindow() {
+    blurCloseArmed = false;
+    window.close();
+    return false;
+}
+
+function initialize() {
+    document.body.style.visibility = "hidden";
+
+    if (!loadWindowState()) {
+        document.getElementById("parentName").innerText = "No current gallery";
+        document.getElementById("keywordGroups").innerHTML = '<div class="emptyState">The slideshow keyword data is unavailable.</div>';
+    } else {
+        document.getElementById("parentName").innerText = state.parentName;
+        document.getElementById("ratingStars").innerText = new Array(state.rating + 1).join("★");
+        document.getElementById("ratingCount").innerText = String(state.rating);
+        renderKeywords();
+    }
+
+    fitAndPlaceWindow();
+
+    window.setTimeout(function() {
+        blurCloseArmed = true;
+
+        try {
+            window.focus();
+        } catch (error) {
+        }
+    }, 250);
+
+    document.oncontextmenu = function() {
+        return closeKeywordWindow();
+    };
+
+    document.onkeydown = function() {
+        if (window.event.keyCode === 27) {
+            window.event.returnValue = false;
+            return closeKeywordWindow();
+        }
+
+        return true;
+    };
+
+    window.onblur = function() {
+        if (!blurCloseArmed) {
+            return;
+        }
+
+        window.setTimeout(function() {
+            try {
+                if (!document.hasFocus || !document.hasFocus()) {
+                    closeKeywordWindow();
+                }
+            } catch (error) {
+                closeKeywordWindow();
+            }
+        }, 80);
+    };
+}
+</script>
+</head>
+<body onload="initialize();">
+<div id="windowSurface">
+    <div id="windowHeader">
+        <div id="headerLabel">KEYWORDS</div>
+        <div id="parentName"></div>
+        <button id="closeButton" type="button" title="Close" onclick="return closeKeywordWindow();">&times;</button>
+    </div>
+    <div id="ratingRow">
+        <span>Rating:</span>
+        <span id="ratingStars"></span>
+        <span id="ratingCount">0</span>
+    </div>
+    <div id="keywordGroups"></div>
+    <div id="saveStatus"></div>
+</div>
+</body>
+</html>

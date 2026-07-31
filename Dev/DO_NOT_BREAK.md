@@ -142,7 +142,11 @@ Obsolete controls remain absent:
 - [ ] Filter and LMB/RMB helper labels stay absent; button tooltips retain that guidance.
 - [ ] Older include-only keyword-filter presets still load unchanged.
 - [ ] X shows the current slideshow gallery's parent keywords in a tray notification.
-- [ ] The slideshow keyword dialog opens without a browser address bar when supported.
+- [ ] IrfanView right-click opens a dedicated keyword HTA without activating or restoring the manager.
+- [ ] The dedicated keyword window is owned by and displayed above the active IrfanView viewer.
+- [ ] The keyword window starts beside the cursor and remains inside the cursor monitor's work area.
+- [ ] The keyword window matches the manager keyword menu's order, captions, assignment state and rating display.
+- [ ] Escape, focus loss and right-click dismissal close the slideshow keyword window.
 - [ ] Keyword filters affect random gallery matching.
 - [ ] No redundant `Keywords:` label.
 - [ ] Existing keyword data remains intact.
@@ -163,7 +167,7 @@ Obsolete controls remain absent:
 
 ## Package
 
-- [ ] Contains exactly EXE, HTA, Bridge AHK, Thumbnail PS1, ICO and README.
+- [ ] Contains exactly EXE, manager HTA, keyword HTA, Bridge AHK, Thumbnail PS1, ICO and README.
 - [ ] HTA version updated.
 - [ ] Bridge version updated.
 - [ ] Visible status version updated.

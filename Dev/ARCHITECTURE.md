@@ -6,6 +6,7 @@ Windows gallery manager built from:
 
 - `Gallery-Slideshow-Manager.exe` — launcher only.
 - `Gallery-Slideshow-Manager.hta` — manager UI.
+- `Gallery-Slideshow-Manager-Keywords.hta` — dedicated IrfanView keyword overlay.
 - `Gallery-Slideshow-Manager-Bridge.ahk` — AutoHotkey v1 slideshow controller.
 - `Gallery-Slideshow-Manager-Thumbnails.ps1` — thumbnail worker.
 - IrfanView — image slideshow engine.
@@ -29,6 +30,14 @@ Owns:
 
 Does not directly own IrfanView, VLC, slideshow hotkeys, Remote logic or random destination selection.
 
+### Slideshow keyword overlay
+
+Owns only the lightweight right-click assignment surface displayed during an
+IrfanView slideshow. It reads and writes the root library's keyword/rating INI
+files, mirrors the manager menu's grouping and styling, and notifies the bridge
+after a keyword change. It must not initialize, restore or activate the main
+manager window.
+
 ### AutoHotkey bridge
 
 Owns:
@@ -38,6 +47,7 @@ Owns:
 - fullscreen and monitor placement;
 - current gallery and parent state;
 - slideshow hotkeys;
+- launching, owning and closing the separate slideshow keyword overlay;
 - Remote window and timeout;
 - prepared next/previous destinations;
 - genuinely random parent/gallery selection;

@@ -5,7 +5,22 @@ const htaText = fs.readFileSync(
     "Gallery-Slideshow-Manager.hta",
     "utf8"
 );
+const keywordWindowText = fs.readFileSync(
+    "Gallery-Slideshow-Manager-Keywords.hta",
+    "utf8"
+);
+const bridgeText = fs.readFileSync(
+    "Gallery-Slideshow-Manager-Bridge.ahk",
+    "utf8"
+);
+const assistantText = fs.readFileSync(
+    "Slideshow-Assistant.ahk",
+    "utf8"
+);
 const scriptMatch = htaText.match(
+    /<script type="text\/javascript">([\s\S]*?)<\/script>/
+);
+const keywordWindowScriptMatch = keywordWindowText.match(
     /<script type="text\/javascript">([\s\S]*?)<\/script>/
 );
 
@@ -15,6 +30,13 @@ if (!scriptMatch) {
 
 new Function(scriptMatch[1]);
 console.log("HTA JavaScript syntax: PASS");
+
+if (!keywordWindowScriptMatch) {
+    throw new Error("Dedicated keyword-window JavaScript block not found.");
+}
+
+new Function(keywordWindowScriptMatch[1]);
+console.log("Keyword-window JavaScript syntax: PASS");
 
 global.window = {
     location: {
@@ -42,6 +64,39 @@ global.ActiveXObject = function(name) {
 };
 
 vm.runInThisContext(scriptMatch[1]);
+
+const keywordWindowContext = {
+    window: {
+        location: {
+            pathname: "/X:/test/Gallery-Slideshow-Manager-Keywords.hta"
+        }
+    },
+    screen: {
+        availWidth: 1920,
+        availHeight: 1080
+    },
+    ActiveXObject: function(name) {
+        if (name === "Scripting.FileSystemObject") {
+            return {
+                GetParentFolderName: function() {
+                    return "X:\\test";
+                }
+            };
+        }
+
+        if (name === "WScript.Shell") {
+            return {
+                ExpandEnvironmentStrings: function() {
+                    return "X:\\temp";
+                }
+            };
+        }
+
+        return {};
+    }
+};
+vm.createContext(keywordWindowContext);
+vm.runInContext(keywordWindowScriptMatch[1], keywordWindowContext);
 
 function check(value, message) {
     if (!value) {
@@ -557,6 +612,60 @@ check(
         && keywordIniPath() !== ratingIniPath()
         && keywordIniPath() !== settingsPath,
     "Keyword definitions and assignments should stay in their dedicated file."
+);
+check(
+    keywordWindowText.indexOf('applicationname="Gallery Slideshow Keywords"') >= 0
+        && keywordWindowText.indexOf('showintaskbar="no"') >= 0
+        && keywordWindowText.indexOf('singleinstance="no"') >= 0,
+    "The slideshow keyword UI should be a separate lightweight HTA window."
+);
+check(
+    keywordWindowText.indexOf("function fitAndPlaceWindow()") >= 0
+        && keywordWindowText.indexOf("state.screenX - outerWidth - gap") >= 0
+        && keywordWindowText.indexOf("state.screenY - outerHeight - gap") >= 0,
+    "The slideshow keyword window should flip around the cursor when space is limited."
+);
+check(
+    keywordWindowText.indexOf("label.innerText = keywordControlText(word);") >= 0
+        && keywordWindowText.indexOf('className = "keywordButton"') >= 0,
+    "The dedicated window should retain the main keyword-menu captions and styling."
+);
+const sharedOrderingInput = [
+    "lower",
+    "Capital",
+    "UPPER",
+    "~z",
+    "~ALPHA",
+    "@Beta",
+    "123"
+];
+const managerOrdering = groupedKeywords(sharedOrderingInput).map(function(group) {
+    return group.words.join("|");
+});
+const windowOrdering = keywordWindowContext
+    .groupedKeywords(sharedOrderingInput)
+    .map(function(group) {
+        return group.words.join("|");
+    });
+check(
+    managerOrdering.join("\n") === windowOrdering.join("\n"),
+    "Manager and slideshow keyword windows should use the same deterministic order."
+);
+keywordWindowContext.state.root = "X:\\root";
+check(
+    keywordWindowContext.encodeParentSection("X:\\root\\A\\Parent")
+        === encodeParentSection("X:\\root\\A\\Parent"),
+    "Manager and slideshow keyword windows should encode parent sections identically."
+);
+check(
+    bridgeText.indexOf("Gallery-Slideshow-Manager-Keywords.hta") >= 0
+        && bridgeText.indexOf('DllCall("SetWindowLongPtr"') >= 0
+        && bridgeText.indexOf("ensureHtmlManagerForKeywordPopup") < 0,
+    "IrfanView right-click should launch and own the dedicated window without activating the manager."
+);
+check(
+    assistantText.indexOf("Keywords - Gallery Slideshow ahk_exe mshta.exe") >= 0,
+    "Automatic slideshow navigation should pause for the dedicated keyword window."
 );
 
 console.log("Keyword filter behavior: PASS");

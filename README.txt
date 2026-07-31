@@ -1,4 +1,4 @@
-Gallery Slideshow Manager — HTML version 0.88
+Gallery Slideshow Manager — HTML version 0.89
 
 ================================================
 
@@ -13,6 +13,14 @@ Gallery-Slideshow-Manager.hta
     HTML tile interface. Parent galleries are displayed as image cards using
 
     each parent folder's direct folder.jpg.
+
+
+
+Gallery-Slideshow-Manager-Keywords.hta
+
+    Lightweight slideshow keyword overlay. It opens independently over
+
+    IrfanView and shares the manager's keyword data and styling.
 
 
 
@@ -86,7 +94,9 @@ Tile behavior
 
 - Ctrl+0 through Ctrl+9 assigns that rating to every selected parent; Ctrl+0 clears it.
 
-- Right-click during an active IrfanView slideshow to open that same keyword window at the mouse cursor for the current parent.
+- Right-click during an active IrfanView slideshow to open the dedicated
+  keyword overlay at the mouse cursor for the current parent. The overlay
+  remains above IrfanView without bringing the manager window forward.
 
 - Left-click a keyword filter to include it; included keyword text is green.
 - Right-click a keyword filter to exclude it; excluded keyword text is red.
@@ -1019,3 +1029,17 @@ Version 0.88
   the same hidden-parent set.
 - Reopening the manager or starting another slideshow resumes that same round.
 - Empty UNIQUE rounds use an explicit durable marker instead of an `ERROR` value.
+
+Version 0.89
+------------
+
+- IrfanView right-click now launches a dedicated lightweight keyword HTA
+  instead of asking the main manager process to create a child popup.
+- The manager stays in the background and IrfanView remains directly behind
+  the keyword overlay.
+- The overlay is placed beside the mouse cursor, flips left or upward near a
+  work-area edge, and uses a bounded scroll area only when it cannot fit.
+- Keyword grouping, captions, assignment styling and rating presentation match
+  the manager's right-click keyword menu.
+- Keyword changes are written to the same gallery-keywords.ini file and notify
+  an open manager to refresh.

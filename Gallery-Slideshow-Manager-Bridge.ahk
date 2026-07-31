@@ -10,7 +10,7 @@ SetWorkingDir, %A_ScriptDir%
 ; AutoHotkey v1.1.36 native bridge for the HTML tile interface.
 ; Handles IrfanView, VLC, global navigation, dynamic lists, and background preparation.
 
-SCRIPT_VERSION := "0.88"
+SCRIPT_VERSION := "0.89"
 APP_NAME := "Gallery-Slideshow-Manager"
 DATA_DIR := A_Temp . "\" . APP_NAME
 SETTINGS_INI := DATA_DIR . "\" . APP_NAME . ".ini"
@@ -60,6 +60,8 @@ remote_monitor_index := 0
 remote_return_window_id := ""
 remote_disabled_irfan_window_id := ""
 remote_disabled_vlc_window_id := ""
+keyword_window_id := ""
+keyword_window_pid := ""
 tab_press_pending := false
 tab_double_press_window_ms := 500
 temporary_vlc_mute_active := false
@@ -107,6 +109,13 @@ if (A_Args.Length() >= 1)
         thumbnail_queue_path := A_Args.Length() >= 2 ? A_Args[2] : ""
         thumbnail_done_path := A_Args.Length() >= 3 ? A_Args[3] : ""
         runThumbnailBatch(thumbnail_queue_path, thumbnail_done_path)
+        ExitApp
+    }
+    else if (first_arg = "--keyword-revision")
+    {
+        initializeSharedDataStorage()
+        keyword_revision := A_NowUTC . "-" . A_TickCount
+        IniWrite, %keyword_revision%, %SESSION_INI%, Session, KeywordRevision
         ExitApp
     }
     else if (first_arg = "--self-test")
@@ -227,10 +236,11 @@ return
 
 $RButton::
     CoordMode, Mouse, Screen
+    WinGet, keyword_owner_window_id, ID, A
     MouseGetPos, keyword_window_mouse_x, keyword_window_mouse_y
     getWorkAreaAtPoint(keyword_window_mouse_x, keyword_window_mouse_y, keyword_work_left, keyword_work_top, keyword_work_right, keyword_work_bottom)
     KeyWait, RButton
-    requestCurrentParentKeywordWindow(keyword_window_mouse_x, keyword_window_mouse_y, keyword_work_left, keyword_work_top, keyword_work_right, keyword_work_bottom)
+    requestCurrentParentKeywordWindow(keyword_window_mouse_x, keyword_window_mouse_y, keyword_work_left, keyword_work_top, keyword_work_right, keyword_work_bottom, keyword_owner_window_id)
 return
 
 $Esc::
@@ -294,6 +304,7 @@ handleBridgeExit:
 
     restoreTemporaryVlcSound()
     closeRemoteWindow(false)
+    closeSlideshowKeywordWindow()
     closeManagedIrfanView()
     closeAllVlcInstances()
     clearRunningSessionState()
@@ -851,10 +862,11 @@ showCurrentGalleryKeywords()
 }
 
 /*
-Ask the HTML manager to show its keyword window for the active slideshow
-parent. Keyword assignment now has one shared UI.
+Open the dedicated slideshow keyword window for the active parent.
+The separate HTA is owned by IrfanView, so the manager never enters the
+foreground while keywords are assigned.
 */
-requestCurrentParentKeywordWindow(mouse_x, mouse_y, work_left, work_top, work_right, work_bottom)
+requestCurrentParentKeywordWindow(mouse_x, mouse_y, work_left, work_top, work_right, work_bottom, owner_window_id)
 {
     global root_folder, current_parent, current_gallery, SESSION_INI
 
@@ -879,6 +891,8 @@ requestCurrentParentKeywordWindow(mouse_x, mouse_y, work_left, work_top, work_ri
     }
 
     keyword_window_request := A_NowUTC . "-" . A_TickCount
+    IniDelete, %SESSION_INI%, Session, KeywordWindowRequest
+    IniWrite, %root_folder%, %SESSION_INI%, Session, KeywordWindowRoot
     IniWrite, %current_parent%, %SESSION_INI%, Session, KeywordWindowParent
 
     if (ErrorLevel)
@@ -908,6 +922,9 @@ requestCurrentParentKeywordWindow(mouse_x, mouse_y, work_left, work_top, work_ri
     IniWrite, %work_right%, %SESSION_INI%, Session, KeywordWindowWorkRight
     IniWrite, %work_bottom%, %SESSION_INI%, Session, KeywordWindowWorkBottom
 
+    ; Mark the request handled before publishing it. An older open manager
+    ; therefore cannot race this bridge and create its legacy child popup.
+    IniWrite, %keyword_window_request%, %SESSION_INI%, Session, KeywordWindowHandled
     IniWrite, %keyword_window_request%, %SESSION_INI%, Session, KeywordWindowRequest
 
     if (ErrorLevel)
@@ -916,21 +933,90 @@ requestCurrentParentKeywordWindow(mouse_x, mouse_y, work_left, work_top, work_ri
         return false
     }
 
-    return ensureHtmlManagerForKeywordPopup()
+    return openSlideshowKeywordWindow(owner_window_id)
 }
 
 /*
-Use an existing manager without restoring or activating its full window.
-The manager session poll can create and focus the lightweight keyword popup.
+Launch one lightweight HTA, close any older copy and attach the new window to
+the active IrfanView viewer. The dedicated process shares only the keyword and
+rating INI files; it does not initialize or activate the manager application.
 */
-ensureHtmlManagerForKeywordPopup()
+openSlideshowKeywordWindow(owner_window_id)
 {
-    if (findGalleryManagerWindow() != "")
+    global keyword_window_id, keyword_window_pid
+
+    keyword_window_path := A_ScriptDir . "\Gallery-Slideshow-Manager-Keywords.hta"
+
+    if (!FileExist(keyword_window_path))
     {
-        return true
+        showTrayTip("Keywords", "The slideshow keyword window is missing.", 3)
+        return false
     }
 
-    return launchHtmlManager()
+    closeSlideshowKeywordWindow()
+
+    keyword_window_command := "mshta.exe " . quotePath(keyword_window_path)
+    Run, %keyword_window_command%, %A_ScriptDir%, UseErrorLevel, keyword_window_pid
+
+    if (ErrorLevel || keyword_window_pid = "")
+    {
+        keyword_window_pid := ""
+        showTrayTip("Keywords", "The slideshow keyword window could not be opened.", 3)
+        return false
+    }
+
+    keyword_window_id := waitForWindowByPid(keyword_window_pid, 3000)
+
+    if (keyword_window_id = "")
+    {
+        showTrayTip("Keywords", "The slideshow keyword window did not become available.", 3)
+        return false
+    }
+
+    if (owner_window_id != ""
+        && DllCall("IsWindow", "Ptr", owner_window_id))
+    {
+        if (A_PtrSize = 8)
+        {
+            DllCall("SetWindowLongPtr", "Ptr", keyword_window_id, "Int", -8, "Ptr", owner_window_id, "Ptr")
+        }
+        else
+        {
+            DllCall("SetWindowLong", "Ptr", keyword_window_id, "Int", -8, "Ptr", owner_window_id, "Ptr")
+        }
+    }
+
+    WinSet, AlwaysOnTop, On, ahk_id %keyword_window_id%
+    WinShow, ahk_id %keyword_window_id%
+    WinActivate, ahk_id %keyword_window_id%
+    return true
+}
+
+/*
+Close the tracked slideshow keyword window and any stale copy left by an older
+bridge process. The fixed HTA title does not overlap the manager title.
+*/
+closeSlideshowKeywordWindow()
+{
+    global keyword_window_id, keyword_window_pid
+
+    if (keyword_window_id != ""
+        && DllCall("IsWindow", "Ptr", keyword_window_id))
+    {
+        WinClose, ahk_id %keyword_window_id%
+    }
+
+    WinGet, keyword_window_list, List, Keywords - Gallery Slideshow ahk_exe mshta.exe
+
+    Loop, %keyword_window_list%
+    {
+        stale_keyword_window_id := keyword_window_list%A_Index%
+        WinClose, ahk_id %stale_keyword_window_id%
+    }
+
+    keyword_window_id := ""
+    keyword_window_pid := ""
+    return true
 }
 
 /*

@@ -2,6 +2,26 @@
 
 This records design milestones and trusted baselines, not every code edit.
 
+## 0.89
+
+Dedicated slideshow Keywords window:
+
+- IrfanView right-click launches a separate lightweight HTA instead of asking
+  the manager process to create its popup;
+- the new window is owned by IrfanView and kept above it without restoring or
+  activating the manager;
+- cursor placement flips and clamps against the active monitor work area, with
+  a bounded scroll region for keyword sets that still cannot fit;
+- the overlay mirrors the manager keyword menu's dark controls, deterministic
+  groups, prefix-free captions, assigned states and numeric/star rating;
+- assignments update the existing gallery-keywords.ini and publish a revision
+  so an open manager refreshes;
+- Escape, right-click and focus loss dismiss the overlay, while slideshow
+  auto-navigation remains paused until it closes.
+
+Status: JavaScript syntax/behavior, AutoHotkey v1 syntax-load, static regression
+and package checks required; live IrfanView focus/placement requires user confirmation.
+
 ## 0.88
 
 UNIQUE pause/resume persistence:

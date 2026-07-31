@@ -277,7 +277,14 @@ These must remain removed:
 - Display plain keywords without redundant `Keywords:` label.
 - Empty keyword state displays nothing.
 - `X` shows the current slideshow gallery's parent keywords in a tray notification.
-- The slideshow keyword window uses a browser-chrome-free app-style dialog when supported.
+- IrfanView right-click opens a separate browser-chrome-free keyword HTA owned
+  by the slideshow window; it never activates the main manager.
+- The slideshow keyword window opens beside the mouse cursor and flips or
+  clamps within the cursor monitor's available work area.
+- The separate window shares the manager menu's dark styling, keyword order,
+  prefix-free captions, assignment state and parent-rating presentation.
+- Closing, right-clicking outside its controls, pressing Escape or changing
+  focus dismisses the slideshow keyword window.
 - Keyword filters affect normal and random gallery matching.
 - Preserve existing keyword data.
 

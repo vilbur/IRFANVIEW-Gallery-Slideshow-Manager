@@ -1016,11 +1016,20 @@ testIrfanViewWindowSnapshotData()
 }
 
 
-/*  CHECK WHETHER THE SHARED HTML KEYWORD WINDOW IS OPEN
+/*  CHECK WHETHER A SLIDESHOW KEYWORD WINDOW IS OPEN
     Automatic navigation remains paused without toggling IrfanView pause state.
  */
 isGalleryKeywordWindowOpen()
 {
+    keyword_window_id := WinExist("Keywords - Gallery Slideshow ahk_exe mshta.exe")
+
+    if (keyword_window_id != ""
+        && DllCall("IsWindowVisible", "Ptr", keyword_window_id))
+    {
+        return true
+    }
+
+    ; Keep the older manager-owned popup detectable during a live upgrade.
     keyword_window_id := WinExist("Keywords - ahk_exe mshta.exe")
     return keyword_window_id != ""
         && DllCall("IsWindowVisible", "Ptr", keyword_window_id)
