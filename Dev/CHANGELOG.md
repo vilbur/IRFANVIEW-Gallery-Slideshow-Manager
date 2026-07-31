@@ -2,6 +2,19 @@
 
 This records design milestones and trusted baselines, not every code edit.
 
+## 0.73
+
+Direct keyword include/exclude controls:
+
+- keyword filter buttons no longer display checkboxes;
+- left-click toggles the green include state;
+- right-click toggles the red exclude state;
+- clicking with the opposite mouse button switches directly between states;
+- include OR matching, exclusion vetoes and compatible presets remain intact.
+
+Status: JavaScript syntax/behavior, AHK v1 syntax-load, static regression and
+package checks pass; live Windows interaction requires user confirmation.
+
 ## 0.72
 
 Keyword include/exclude filtering:

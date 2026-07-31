@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta charset="utf-8" />
-<title>Gallery Slideshow Manager 0.72</title>
+<title>Gallery Slideshow Manager 0.73</title>
 <hta:application
     id="galleryApp"
     applicationname="Gallery Slideshow Manager"
@@ -228,7 +228,7 @@ input:disabled {
     align-items: center;
     min-height: 38px;
     box-sizing: border-box;
-    padding: 7px 12px 7px 8px;
+    padding: 7px 12px;
     border: 1px solid #3a4350;
     border-radius: 8px;
     background: #20252d;
@@ -244,42 +244,25 @@ input:disabled {
     border-color: #60738d;
     background: #29313c;
 }
-.keywordFilterButton.active {
-    border-color: #4d8fe9;
-    background: #255a9f;
-    color: #ffffff;
-    box-shadow: 0 0 0 1px rgba(77,143,233,0.18);
+.keywordFilterButton.include {
+    border-color: #4ab978;
+    background: #202b26;
+    color: #6fe09b;
+    box-shadow: 0 0 0 1px rgba(74,185,120,0.18);
 }
 .keywordFilterButton.exclude {
     border-color: #d66b75;
-    background: #7c2d38;
-    color: #ffffff;
+    background: #302226;
+    color: #ff7f8d;
     box-shadow: 0 0 0 1px rgba(214,107,117,0.18);
 }
-.keywordFilterMark {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 19px;
-    height: 19px;
-    min-width: 19px;
-    margin-right: 8px;
-    border: 2px solid #657183;
-    border-radius: 5px;
-    color: transparent;
-    font-size: 14px;
-    font-weight: 800;
-    line-height: 15px;
+.keywordFilterButton.include:hover {
+    border-color: #65d28f;
+    background: #26352d;
 }
-.keywordFilterButton.active .keywordFilterMark {
-    border-color: #dcecff;
-    background: #eaf4ff;
-    color: #24599b;
-}
-.keywordFilterButton.exclude .keywordFilterMark {
-    border-color: #ffe2e5;
-    background: #fff0f2;
-    color: #8a2633;
+.keywordFilterButton.exclude:hover {
+    border-color: #ed7d88;
+    background: #3a282d;
 }
 .keywordFilterWord {
     white-space: nowrap;
@@ -966,7 +949,7 @@ var fso = new ActiveXObject("Scripting.FileSystemObject");
 var shell = new ActiveXObject("WScript.Shell");
 var shellApp = new ActiveXObject("Shell.Application");
 
-var APP_VERSION = "0.72";
+var APP_VERSION = "0.73";
 var APP_NAME = "Gallery-Slideshow-Manager";
 var appDir = getApplicationDirectory();
 var tempDir = shell.ExpandEnvironmentStrings("%TEMP%");
@@ -3789,30 +3772,21 @@ function createKeywordFilterButton(word) {
     );
     var button = document.createElement("button");
     var clickTimer = 0;
-    var nextMode =
-        mode === "include"
-        ? "exclude"
-        : (mode === "exclude" ? "" : "include");
-    var mark =
-        mode === "include"
-        ? "✓"
-        : (mode === "exclude" ? "−" : "");
+    var leftClickMode = mode === "include" ? "" : "include";
+    var rightClickMode = mode === "exclude" ? "" : "exclude";
 
     button.type = "button";
     button.className =
         "keywordFilterButton"
-        + (mode ? " active " + mode : "");
+        + (mode ? " " + mode : "");
     button.title =
         mode === "include"
-        ? "Included. Click to exclude; double-click to edit: " + word
+        ? "Included. Left-click to clear; right-click to exclude; double-click to edit: " + word
         : (mode === "exclude"
-            ? "Excluded. Click to clear; double-click to edit: " + word
-            : "Click to include; double-click to edit: " + word);
+            ? "Excluded. Right-click to clear; left-click to include; double-click to edit: " + word
+            : "Left-click to include; right-click to exclude; double-click to edit: " + word);
     button.innerHTML =
-        '<span class="keywordFilterMark">'
-        + mark
-        + '</span>'
-        + '<span class="keywordFilterWord">'
+        '<span class="keywordFilterWord">'
         + escapeHtml(word)
         + '</span>';
 
@@ -3823,8 +3797,21 @@ function createKeywordFilterButton(word) {
 
         clickTimer = window.setTimeout(function() {
             clickTimer = 0;
-            setKeywordFilterState(word, nextMode);
+            setKeywordFilterState(word, leftClickMode);
         }, 260);
+
+        window.event.cancelBubble = true;
+        window.event.returnValue = false;
+        return false;
+    };
+
+    button.oncontextmenu = function() {
+        if (clickTimer) {
+            window.clearTimeout(clickTimer);
+            clickTimer = 0;
+        }
+
+        setKeywordFilterState(word, rightClickMode);
 
         window.event.cancelBubble = true;
         window.event.returnValue = false;
@@ -7539,8 +7526,8 @@ function initialize() {
         </div>
         <div class="row">
             <span class="label">Filter</span>
-            <div id="keywordFilters" class="grow" title="Click each keyword to cycle through include, exclude and clear."></div>
-            <span id="keywordFilterHint">✓ include · − exclude</span>
+            <div id="keywordFilters" class="grow" title="Left-click a keyword to include it. Right-click it to exclude it."></div>
+            <span id="keywordFilterHint">LMB include · RMB exclude</span>
         </div>
         <div class="row">
             <span class="label">Rating</span>
@@ -7585,7 +7572,7 @@ function initialize() {
         <div id="emptyState">No parent galleries match the current filters.</div>
     </div>
 
-    <div id="statusBar">v0.72 | Ready.</div>
+    <div id="statusBar">v0.73 | Ready.</div>
 </div>
 
 <div id="galleryOverlay" onclick="if (window.event.srcElement === this) closeGalleryDialog();">

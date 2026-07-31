@@ -247,7 +247,9 @@ These must remain removed:
 
 - Assign keywords to selected parent gallery.
 - Sort keywords alphabetically on startup.
-- Keyword filters cycle through include, exclude and clear states.
+- Keyword filter buttons do not display checkboxes.
+- Left-click toggles a green include state; right-click toggles a red exclude state.
+- Using the opposite mouse button switches directly between include and exclude.
 - Multiple included keywords use OR matching.
 - Any matching excluded keyword vetoes a parent that would otherwise match.
 - Saved filter presets preserve included and excluded keyword states and load

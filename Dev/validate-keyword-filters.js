@@ -253,4 +253,70 @@ check(
     "Renaming should update the in-memory parent assignment."
 );
 
+global.document.createElement = function() {
+    return {};
+};
+global.window.setTimeout = function(callback) {
+    callback();
+    return 1;
+};
+global.window.clearTimeout = function() {};
+global.window.event = {};
+
+state.activeFilters = {};
+let filterButton = createKeywordFilterButton("green");
+check(
+    filterButton.innerHTML.indexOf("keywordFilterMark") < 0,
+    "Keyword filter buttons should not contain a checkbox or mark."
+);
+filterButton.onclick();
+check(
+    state.activeFilters.green === "include",
+    "Left-click should include a neutral keyword."
+);
+
+filterButton = createKeywordFilterButton("green");
+check(
+    filterButton.className.indexOf("include") >= 0,
+    "An included keyword should receive the green include class."
+);
+filterButton.onclick();
+check(
+    !state.activeFilters.green,
+    "Left-click should clear an already included keyword."
+);
+
+filterButton = createKeywordFilterButton("red");
+filterButton.oncontextmenu();
+check(
+    state.activeFilters.red === "exclude",
+    "Right-click should exclude a neutral keyword."
+);
+
+filterButton = createKeywordFilterButton("red");
+check(
+    filterButton.className.indexOf("exclude") >= 0,
+    "An excluded keyword should receive the red exclude class."
+);
+filterButton.oncontextmenu();
+check(
+    !state.activeFilters.red,
+    "Right-click should clear an already excluded keyword."
+);
+
+state.activeFilters.switcher = "exclude";
+filterButton = createKeywordFilterButton("switcher");
+filterButton.onclick();
+check(
+    state.activeFilters.switcher === "include",
+    "Left-click should switch an excluded keyword to include."
+);
+
+filterButton = createKeywordFilterButton("switcher");
+filterButton.oncontextmenu();
+check(
+    state.activeFilters.switcher === "exclude",
+    "Right-click should switch an included keyword to exclude."
+);
+
 console.log("Keyword filter behavior: PASS");

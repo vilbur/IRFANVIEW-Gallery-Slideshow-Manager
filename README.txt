@@ -1,4 +1,4 @@
-Gallery Slideshow Manager — HTML version 0.72
+Gallery Slideshow Manager — HTML version 0.73
 
 ================================================
 
@@ -84,7 +84,9 @@ Tile behavior
 
 - Right-click during an active IrfanView slideshow to open that same keyword window at the mouse cursor for the current parent.
 
-- Click a keyword filter to cycle through include, exclude and clear.
+- Left-click a keyword filter to include it; included keyword text is green.
+- Right-click a keyword filter to exclude it; excluded keyword text is red.
+- Repeat the same click on an included or excluded keyword to clear that filter.
 - Included keywords use OR matching; any matching excluded keyword removes the parent.
 - Saved keyword-filter presets retain both included and excluded keywords.
 
@@ -864,3 +866,11 @@ Version 0.72
 - Included keywords retain OR matching; excluded keywords veto matching parents.
 - Keyword-filter presets save and restore both states while remaining compatible with older include-only presets.
 - Renaming a keyword updates its included or excluded state in saved presets.
+
+Version 0.73
+------------
+
+- Removed checkboxes from keyword filter buttons.
+- Left-click now includes a keyword and displays its text in green.
+- Right-click now excludes a keyword and displays its text in red.
+- Repeating the same mouse-button action clears that keyword filter.
