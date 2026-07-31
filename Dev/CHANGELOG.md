@@ -2,6 +2,31 @@
 
 This records design milestones and trusted baselines, not every code edit.
 
+## 0.75
+
+Stable special-prefix keyword order:
+
+- all keyword surfaces use one symbol-first grouping function;
+- the fixed preferred sequence is `~`, `@`, `!`, `#`, `$`, `%`, `&`;
+- any other leading symbols follow in deterministic character order;
+- case priority and case-insensitive sorting remain stable inside each exact
+  symbol group.
+
+Status: JavaScript syntax/behavior, keyword and rating regression, AHK v1
+syntax-load and package checks pass; live Windows interaction requires user confirmation.
+
+## 0.74
+
+Manager parent-rating shortcuts:
+
+- Ctrl-click adds or removes parent thumbnails from a multi-selection;
+- Ctrl+0 through Ctrl+9 assign one rating to every selected parent;
+- Ctrl+0 clears the saved rating for every selected parent;
+- normal click, double-click, remembered selection and slideshow behavior remain single-parent operations.
+
+Status: JavaScript syntax/behavior, existing keyword regression and package checks pass;
+live Windows interaction requires user confirmation.
+
 ## 0.73
 
 Direct keyword include/exclude controls:

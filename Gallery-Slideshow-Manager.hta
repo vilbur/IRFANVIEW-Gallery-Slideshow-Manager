@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta charset="utf-8" />
-<title>Gallery Slideshow Manager 0.73</title>
+<title>Gallery Slideshow Manager 0.75</title>
 <hta:application
     id="galleryApp"
     applicationname="Gallery Slideshow Manager"
@@ -949,7 +949,7 @@ var fso = new ActiveXObject("Scripting.FileSystemObject");
 var shell = new ActiveXObject("WScript.Shell");
 var shellApp = new ActiveXObject("Shell.Application");
 
-var APP_VERSION = "0.73";
+var APP_VERSION = "0.75";
 var APP_NAME = "Gallery-Slideshow-Manager";
 var appDir = getApplicationDirectory();
 var tempDir = shell.ExpandEnvironmentStrings("%TEMP%");
@@ -992,6 +992,7 @@ var state = {
     displayMode: "section",
     expandedLetter: "",
     selectedParent: null,
+    selectedParentPaths: {},
     selectedGallery: null,
     activeSlideshowType: "random",
     filteredQueueSignature: null,
@@ -2059,6 +2060,90 @@ function refreshParentRatings() {
     renderParents();
 }
 
+function assignSelectedParentRating(rating) {
+    var value = parseInt(rating, 10);
+    var selectedParents = getSelectedParents();
+    var path = ratingIniPath();
+    var data;
+    var i;
+
+    if (isNaN(value) || value < 0 || value > 9) {
+        return false;
+    }
+
+    if (!path || !selectedParents.length) {
+        setStatus("Select a parent thumbnail before assigning a rating.");
+        return false;
+    }
+
+    data = readIni(path);
+
+    for (i = 0; i < selectedParents.length; i++) {
+        var section = encodeParentSection(selectedParents[i].path);
+
+        if (value === 0) {
+            if (data[section]) {
+                delete data[section].Rating;
+
+                var hasSectionValues = false;
+                var sectionKey;
+                for (sectionKey in data[section]) {
+                    if (data[section].hasOwnProperty(sectionKey)) {
+                        hasSectionValues = true;
+                        break;
+                    }
+                }
+
+                if (!hasSectionValues) {
+                    delete data[section];
+                }
+            }
+        } else {
+            if (!data[section]) {
+                data[section] = {};
+            }
+            data[section].Rating = String(value);
+        }
+    }
+
+    if (!writeIni(path, data)) {
+        setStatus("The selected parent rating could not be saved.");
+        return false;
+    }
+
+    for (i = 0; i < selectedParents.length; i++) {
+        selectedParents[i].rating = value;
+    }
+
+    var revision = String(new Date().getTime());
+    var sessionData = readIni(sessionPath);
+    if (!sessionData.Session) {
+        sessionData.Session = {};
+    }
+    sessionData.Session.RatingRevision = revision;
+
+    for (i = 0; i < selectedParents.length; i++) {
+        if (
+            lower(normalizePath(selectedParents[i].path))
+            === lower(normalizePath(state.currentParentPath))
+        ) {
+            sessionData.Session.CurrentParentRating = String(value);
+            break;
+        }
+    }
+
+    writeIni(sessionPath, sessionData);
+    state.ratingRevision = revision;
+    renderParents();
+
+    setStatus(
+        (value === 0 ? "Rating cleared for " : value + "★ assigned to ")
+        + selectedParents.length
+        + (selectedParents.length === 1 ? " selected parent." : " selected parents.")
+    );
+    return true;
+}
+
 function ratingStarsText(rating) {
     var value = parseInt(rating, 10) || 0;
     var result = "";
@@ -2724,6 +2809,7 @@ function revertFromBackups() {
     closeGalleryDialog();
     state.parents = [];
     state.selectedParent = null;
+    state.selectedParentPaths = {};
     state.activeFilters = {};
     loadSettings();
     loadKeywords();
@@ -3659,6 +3745,39 @@ function sortKeywordWordsCaseInsensitive(words) {
     return words;
 }
 
+function sortSpecialKeywordCharacters(characters) {
+    var preferredOrder = "~@!#$%&";
+
+    characters.sort(function(leftCharacter, rightCharacter) {
+        var leftRank = preferredOrder.indexOf(leftCharacter);
+        var rightRank = preferredOrder.indexOf(rightCharacter);
+
+        if (leftRank >= 0 || rightRank >= 0) {
+            if (leftRank < 0) {
+                return 1;
+            }
+
+            if (rightRank < 0) {
+                return -1;
+            }
+
+            return leftRank - rightRank;
+        }
+
+        if (leftCharacter < rightCharacter) {
+            return -1;
+        }
+
+        if (leftCharacter > rightCharacter) {
+            return 1;
+        }
+
+        return 0;
+    });
+
+    return characters;
+}
+
 function groupedKeywords(words) {
     var patternOrder = [
         "uppercase",
@@ -3667,15 +3786,13 @@ function groupedKeywords(words) {
         "other"
     ];
     var specialGroups = {};
-    var specialCharacterOrder = {};
+    var specialCharacters = [];
     var plainGroups = {};
     var i;
 
     for (i = 0; i < patternOrder.length; i++) {
         var patternName = patternOrder[i];
 
-        specialGroups[patternName] = {};
-        specialCharacterOrder[patternName] = [];
         plainGroups[patternName] = {
             key: "plain:" + patternName,
             words: []
@@ -3690,13 +3807,14 @@ function groupedKeywords(words) {
         if (formatting.isSpecial) {
             var specialCharacter =
                 formatting.specialCharacter;
-            var patternGroups =
-                specialGroups[casePattern];
-            var characterOrder =
-                specialCharacterOrder[casePattern];
 
-            if (!patternGroups[specialCharacter]) {
-                patternGroups[specialCharacter] = {
+            if (!specialGroups[specialCharacter]) {
+                specialGroups[specialCharacter] = {};
+                specialCharacters.push(specialCharacter);
+            }
+
+            if (!specialGroups[specialCharacter][casePattern]) {
+                specialGroups[specialCharacter][casePattern] = {
                     key:
                         "special:"
                         + casePattern
@@ -3704,10 +3822,9 @@ function groupedKeywords(words) {
                         + specialCharacter,
                     words: []
                 };
-                characterOrder.push(specialCharacter);
             }
 
-            patternGroups[specialCharacter].words.push(word);
+            specialGroups[specialCharacter][casePattern].words.push(word);
         } else {
             plainGroups[casePattern].words.push(word);
         }
@@ -3715,27 +3832,29 @@ function groupedKeywords(words) {
 
     var result = [];
 
-    // First special-prefix patterns:
-    // @UPPERCASE, !Capital, #lowercase, then special Other.
-    for (i = 0; i < patternOrder.length; i++) {
-        var specialPattern = patternOrder[i];
-        var orderedCharacters =
-            specialCharacterOrder[specialPattern];
-        var characterIndex;
+    // Keep every special prefix in one stable symbol-first sequence.
+    // Inside each symbol, retain UPPERCASE, Capital, lowercase, Other.
+    sortSpecialKeywordCharacters(specialCharacters);
+
+    for (i = 0; i < specialCharacters.length; i++) {
+        var orderedCharacter = specialCharacters[i];
+        var specialPatternIndex;
 
         for (
-            characterIndex = 0;
-            characterIndex < orderedCharacters.length;
-            characterIndex++
+            specialPatternIndex = 0;
+            specialPatternIndex < patternOrder.length;
+            specialPatternIndex++
         ) {
+            var specialPattern = patternOrder[specialPatternIndex];
             var specialGroup =
-                specialGroups[specialPattern][
-                    orderedCharacters[characterIndex]
-                ];
-            sortKeywordWordsCaseInsensitive(
-                specialGroup.words
-            );
-            result.push(specialGroup);
+                specialGroups[orderedCharacter][specialPattern];
+
+            if (specialGroup && specialGroup.words.length) {
+                sortKeywordWordsCaseInsensitive(
+                    specialGroup.words
+                );
+                result.push(specialGroup);
+            }
         }
     }
 
@@ -4512,6 +4631,7 @@ function loadLibraryCache() {
 
     state.parents = cachedParents;
     state.selectedParent = null;
+    state.selectedParentPaths = {};
     restoreRememberedParentSelection();
 
     var missingParentThumbnailCount = collectMissingParentThumbnails();
@@ -4535,6 +4655,7 @@ function scanLibrary() {
     closeGalleryDialog();
     state.parents = [];
     state.selectedParent = null;
+    state.selectedParentPaths = {};
     resetThumbnailQueue();
     state.thumbnailQueueScope = "main";
 
@@ -5327,7 +5448,7 @@ function toggleLetterRollout(letter) {
 
 function createParentTile(parent) {
     var tile = document.createElement("div");
-    var selected = state.selectedParent && lower(state.selectedParent.path) === lower(parent.path);
+    var selected = isParentSelected(parent);
     var running = lower(state.currentParentPath) === lower(parent.path);
     tile.className = "parentTile" + (selected ? " selected" : "") + (running ? " running" : "");
     tile.title = parent.path;
@@ -5374,6 +5495,7 @@ function createParentTile(parent) {
 
     tile.onclick = function() {
         var eventObject = window.event;
+        var preserveSelection = !!(eventObject && eventObject.ctrlKey);
 
         // In legacy IE events left can be 1; in standards mode it is 0.
         if (eventObject
@@ -5390,7 +5512,11 @@ function createParentTile(parent) {
 
         state.parentClickTimer = window.setTimeout(function() {
             state.parentClickTimer = 0;
-            selectParent(parent);
+            if (preserveSelection) {
+                toggleParentSelection(parent);
+            } else {
+                selectParent(parent);
+            }
         }, 260);
 
         return true;
@@ -5411,7 +5537,7 @@ function createParentTile(parent) {
             state.parentClickTimer = 0;
         }
 
-        state.selectedParent = parent;
+        setOnlyParentSelected(parent);
         rememberParentSelection(parent);
         state.expandedLetter = parent.letter
             ? String(parent.letter).toUpperCase()
@@ -5427,17 +5553,16 @@ function createParentTile(parent) {
             state.parentClickTimer = 0;
         }
 
-        var previousTile = state.selectedParent
-            ? findParentTileByPath(state.selectedParent.path)
-            : null;
-
-        state.selectedParent = parent;
+        if (!isParentSelected(parent)) {
+            setOnlyParentSelected(parent);
+            renderParents();
+        } else {
+            state.selectedParent = parent;
+        }
         rememberParentSelection(parent);
         state.expandedLetter = parent.letter
             ? String(parent.letter).toUpperCase()
             : state.expandedLetter;
-        setParentTileSelectedFast(previousTile, false);
-        setParentTileSelectedFast(tile, true);
         showKeywordContext(parent, window.event.clientX, window.event.clientY);
         window.event.cancelBubble = true;
         window.event.returnValue = false;
@@ -5470,6 +5595,78 @@ function rememberParentSelection(parent) {
     return true;
 }
 
+function parentSelectionKey(parentOrPath) {
+    var path = typeof parentOrPath === "string"
+        ? parentOrPath
+        : (parentOrPath && parentOrPath.path ? parentOrPath.path : "");
+    return lower(normalizePath(path));
+}
+
+function isParentSelected(parent) {
+    return !!state.selectedParentPaths[parentSelectionKey(parent)];
+}
+
+function setOnlyParentSelected(parent) {
+    state.selectedParentPaths = {};
+
+    if (!parent) {
+        state.selectedParent = null;
+        return false;
+    }
+
+    state.selectedParentPaths[parentSelectionKey(parent)] = true;
+    state.selectedParent = parent;
+    return true;
+}
+
+function getSelectedParents() {
+    var selected = [];
+    var i;
+
+    for (i = 0; i < state.parents.length; i++) {
+        if (isParentSelected(state.parents[i])) {
+            selected.push(state.parents[i]);
+        }
+    }
+
+    if (!selected.length && state.selectedParent) {
+        setOnlyParentSelected(state.selectedParent);
+        selected.push(state.selectedParent);
+    }
+
+    return selected;
+}
+
+function toggleParentSelection(parent) {
+    var key = parentSelectionKey(parent);
+
+    if (state.selectedParentPaths[key]) {
+        delete state.selectedParentPaths[key];
+
+        if (
+            state.selectedParent
+            && parentSelectionKey(state.selectedParent) === key
+        ) {
+            state.selectedParent = null;
+            var remaining = getSelectedParents();
+            state.selectedParent = remaining.length
+                ? remaining[remaining.length - 1]
+                : null;
+        }
+    } else {
+        state.selectedParentPaths[key] = true;
+        state.selectedParent = parent;
+        rememberParentSelection(parent);
+    }
+
+    renderParents();
+    setStatus(
+        getSelectedParents().length
+        + " parent thumbnail(s) selected. Ctrl+0–9 assigns a rating."
+    );
+    return true;
+}
+
 function restoreRememberedParentSelection() {
     var rememberedPath = lower(
         normalizePath(state.rememberedParentPath)
@@ -5486,6 +5683,10 @@ function restoreRememberedParentSelection() {
             === rememberedPath
         ) {
             state.selectedParent = state.parents[i];
+            state.selectedParentPaths = {};
+            state.selectedParentPaths[
+                parentSelectionKey(state.parents[i])
+            ] = true;
             state.expandedLetter = state.parents[i].letter
                 ? String(state.parents[i].letter).toUpperCase()
                 : state.expandedLetter;
@@ -5503,7 +5704,7 @@ function restoreRememberedParentSelection() {
 }
 
 function selectParent(parent) {
-    state.selectedParent = parent;
+    setOnlyParentSelected(parent);
     rememberParentSelection(parent);
     state.expandedLetter = parent.letter
         ? String(parent.letter).toUpperCase()
@@ -5795,7 +5996,7 @@ function focusRunningGalleryThumbnail(galleryPath) {
         return false;
     }
 
-    state.selectedParent = entry.parent;
+    setOnlyParentSelected(entry.parent);
     rememberParentSelection(entry.parent);
     state.expandedLetter = entry.parent.letter
         ? String(entry.parent.letter).toUpperCase()
@@ -6178,7 +6379,7 @@ function startMainSlideshow() {
         return false;
     }
 
-    state.selectedParent = parent;
+    setOnlyParentSelected(parent);
     state.expandedLetter = parent.letter
         ? String(parent.letter).toUpperCase()
         : state.expandedLetter;
@@ -6268,7 +6469,7 @@ function startRandom() {
         return false;
     }
 
-    state.selectedParent = firstEntry.parent;
+    setOnlyParentSelected(firstEntry.parent);
     state.expandedLetter = firstEntry.parent.letter
         ? String(firstEntry.parent.letter).toUpperCase()
         : state.expandedLetter;
@@ -7451,8 +7652,27 @@ function initialize() {
     galleryGrid.onscroll = scheduleVisibleThumbnailRefresh;
 
     document.onkeydown = function() {
-        if (window.event.keyCode === 27) {
-            window.event.returnValue = false;
+        var eventObject = window.event;
+        var keyCode = eventObject.keyCode;
+
+        if (
+            eventObject.ctrlKey
+            && !eventObject.altKey
+            && !eventObject.shiftKey
+            && (
+                (keyCode >= 48 && keyCode <= 57)
+                || (keyCode >= 96 && keyCode <= 105)
+            )
+        ) {
+            eventObject.returnValue = false;
+            assignSelectedParentRating(
+                keyCode >= 96 ? keyCode - 96 : keyCode - 48
+            );
+            return false;
+        }
+
+        if (keyCode === 27) {
+            eventObject.returnValue = false;
 
             if (isGalleryDialogOpen()) {
                 closeGalleryDialog();
@@ -7572,7 +7792,7 @@ function initialize() {
         <div id="emptyState">No parent galleries match the current filters.</div>
     </div>
 
-    <div id="statusBar">v0.73 | Ready.</div>
+    <div id="statusBar">v0.75 | Ready.</div>
 </div>
 
 <div id="galleryOverlay" onclick="if (window.event.srcElement === this) closeGalleryDialog();">

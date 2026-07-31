@@ -7,6 +7,7 @@ This is the functional source of truth.
 ### Gallery item controls
 
 - Left click: select only, focus and scroll thumbnail into view.
+- Ctrl-click: add or remove a parent thumbnail from the current multi-selection.
 - Double click: start slideshow.
 - Right click: open context menu.
 - Do not automatically open detail view on single click.
@@ -240,6 +241,7 @@ These must remain removed:
 - Rating belongs to the parent gallery.
 - Range: 0–9.
 - `Ctrl+0` through `Ctrl+9` assign rating in the valid slideshow context.
+- In the manager, Ctrl-click selects multiple parent thumbnails and Ctrl+0 through Ctrl+9 rates the complete selection.
 - Rating persists and is visible in manager/Remote where applicable.
 - Rating shortcuts must not conflict with Remote controls.
 
@@ -247,6 +249,9 @@ These must remain removed:
 
 - Assign keywords to selected parent gallery.
 - Sort keywords alphabetically on startup.
+- Special-prefix groups always use `~`, `@`, `!`, `#`, `$`, `%`, `&`, then
+  any remaining symbols in deterministic character order.
+- Filters and both right-click keyword menus share this exact ordering.
 - Keyword filter buttons do not display checkboxes.
 - Left-click toggles a green include state; right-click toggles a red exclude state.
 - Using the opposite mouse button switches directly between include and exclude.

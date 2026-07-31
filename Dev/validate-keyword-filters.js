@@ -319,4 +319,66 @@ check(
     "Right-click should switch an included keyword to exclude."
 );
 
+function flattenKeywordGroups(groups) {
+    var flattened = [];
+    var groupIndex;
+    var wordIndex;
+
+    for (groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+        for (
+            wordIndex = 0;
+            wordIndex < groups[groupIndex].words.length;
+            wordIndex++
+        ) {
+            flattened.push(groups[groupIndex].words[wordIndex]);
+        }
+    }
+
+    return flattened;
+}
+
+const symbolKeywords = [
+    "?later",
+    "&Other",
+    "@beta",
+    "#lower",
+    "~z",
+    "+more",
+    "$money",
+    "plain",
+    "!UPPER",
+    "@Capital",
+    "%rate",
+    "~ALPHA"
+];
+const expectedKeywordOrder = [
+    "~ALPHA",
+    "~z",
+    "@Capital",
+    "@beta",
+    "!UPPER",
+    "#lower",
+    "$money",
+    "%rate",
+    "&Other",
+    "+more",
+    "?later",
+    "plain"
+];
+const orderedKeywords = flattenKeywordGroups(
+    groupedKeywords(symbolKeywords)
+);
+const reverseSourceOrder = flattenKeywordGroups(
+    groupedKeywords(symbolKeywords.slice(0).reverse())
+);
+
+check(
+    orderedKeywords.join("|") === expectedKeywordOrder.join("|"),
+    "Special-prefix keywords should follow the fixed symbol-first order."
+);
+check(
+    reverseSourceOrder.join("|") === expectedKeywordOrder.join("|"),
+    "Special-prefix order should not depend on source-list order."
+);
+
 console.log("Keyword filter behavior: PASS");

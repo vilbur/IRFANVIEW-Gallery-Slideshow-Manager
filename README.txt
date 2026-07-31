@@ -1,4 +1,4 @@
-Gallery Slideshow Manager — HTML version 0.73
+Gallery Slideshow Manager — HTML version 0.75
 
 ================================================
 
@@ -82,6 +82,10 @@ Tile behavior
 
 - Right-click a parent tile to assign keywords.
 
+- Ctrl-click parent tiles to select more than one parent.
+
+- Ctrl+0 through Ctrl+9 assigns that rating to every selected parent; Ctrl+0 clears it.
+
 - Right-click during an active IrfanView slideshow to open that same keyword window at the mouse cursor for the current parent.
 
 - Left-click a keyword filter to include it; included keyword text is green.
@@ -89,6 +93,7 @@ Tile behavior
 - Repeat the same click on an included or excluded keyword to clear that filter.
 - Included keywords use OR matching; any matching excluded keyword removes the parent.
 - Saved keyword-filter presets retain both included and excluded keywords.
+- Special-prefix keywords always use the same symbol order: ~, @, !, #, $, %, &, then all other symbols in character order.
 
 - Random slideshow respects search and keyword filters.
 - Random Gallery is the default slideshow mode. The selected gallery still
@@ -874,3 +879,17 @@ Version 0.73
 - Left-click now includes a keyword and displays its text in green.
 - Right-click now excludes a keyword and displays its text in red.
 - Repeating the same mouse-button action clears that keyword filter.
+
+Version 0.74
+------------
+
+- Ctrl-click parent thumbnails to add or remove them from a multi-selection.
+- Ctrl+0 through Ctrl+9 assigns that rating to all selected parent thumbnails.
+- Ctrl+0 clears the saved rating for the selection.
+
+Version 0.75
+------------
+
+- Special-prefix keyword groups now use one deterministic symbol-first order everywhere.
+- The preferred prefix sequence is ~, @, !, #, $, %, &, followed by all remaining symbols in character order.
+- Filter buttons, manager right-click menus and slideshow keyword menus share the same ordering function.

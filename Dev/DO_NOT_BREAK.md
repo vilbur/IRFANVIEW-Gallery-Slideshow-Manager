@@ -110,9 +110,11 @@ Obsolete controls remain absent:
 
 ## Ratings and keywords
 
+- [ ] Manager Ctrl-click preserves a multi-selection and Ctrl+0…Ctrl+9 rates every selected parent.
 - [ ] Ctrl+0…Ctrl+9 assign parent rating.
 - [ ] Rating persists and displays.
 - [ ] Keywords remain alphabetically sorted.
+- [ ] Special-prefix keywords keep the same deterministic order on every keyword surface.
 - [ ] Assignment affects selected parent only.
 - [ ] Included keyword filters retain OR matching.
 - [ ] Excluded keyword filters veto matching parents.
