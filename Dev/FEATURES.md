@@ -253,10 +253,21 @@ These must remain removed:
   any remaining symbols in deterministic character order.
 - Filters and both right-click keyword menus share this exact ordering.
 - The main filter UI shows a special prefix once as a left-side row label.
+- Every main keyword row reserves that same prefix width so all buttons share
+  one left alignment.
 - Main and keyword-window button captions omit the prefix.
 - Rename editing uses the complete prefix-bound keyword and permits changing
   the prefix together with its name.
+- Rename editing inserts one visual space after a special prefix and removes
+  that separator when the keyword is saved.
 - Keyword filter buttons do not display checkboxes.
+- An `ALL \ ANY` button is prepended to the keyword controls row.
+- `ANY` matches at least one included keyword; `ALL` requires every included
+  keyword, and exclusions veto in both modes.
+- Match mode persists globally and in named filter presets; older presets
+  default to `ANY`.
+- Keyword filters have no separate `Filter` or mouse-help labels; each button
+  exposes LMB include, RMB exclude and rename guidance in its tooltip.
 - Left-click toggles a green include state; right-click toggles a red exclude state.
 - Using the opposite mouse button switches directly between include and exclude.
 - Multiple included keywords use OR matching.
@@ -276,6 +287,22 @@ These must remain removed:
 - Affect both normal and random mode.
 - Do not make random mode alphabetical.
 - Keep current-gallery tracking valid.
+- In random UNIQUE mode, keep the active parent visible; mark the previous
+  parent shown only after a different next parent actually becomes active.
+- While UNIQUE is enabled, display only unshown parent galleries in the main
+  manager; do not filter child galleries inside a visible parent.
+- Keep each shown parent hidden until every other matching parent has been
+  used and the bridge resets the parent round.
+- Child-gallery history must not remove an otherwise matching parent from the
+  UNIQUE parent round.
+- Keep the bridge's published filtered-navigation pool complete; visibility
+  must not remove shown parents needed to detect and reset a full round.
+- Publish any round reset made while preparing the next destination so the
+  manager immediately displays the new round's unshown parents.
+- Closing the slideshow without activating a different parent must not mark
+  the last active parent shown.
+- Escape preserves previously completed parents so the same parent round can
+  resume with the unfinished last parent still available.
 
 ## Prepared navigation
 

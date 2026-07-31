@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta charset="utf-8" />
-<title>Gallery Slideshow Manager 0.76</title>
+<title>Gallery Slideshow Manager 0.85</title>
 <hta:application
     id="galleryApp"
     applicationname="Gallery Slideshow Manager"
@@ -276,12 +276,6 @@ input:disabled {
     background: #3a282d;
 }
 .keywordFilterWord {
-    white-space: nowrap;
-}
-#keywordFilterHint {
-    margin-left: 8px;
-    color: #8e9aaa;
-    font-size: 11px;
     white-space: nowrap;
 }
 #ratingFilters {
@@ -590,14 +584,21 @@ input:disabled {
     transform: translateY(-1px);
 }
 .parentTile.selected {
-    border-color: #4b90f2;
-    box-shadow: 0 0 0 2px rgba(75,144,242,0.22), 0 7px 17px rgba(0,0,0,0.28);
+    border-color: #46c879;
+    background: #183d2a;
+    box-shadow: 0 0 0 2px rgba(70,200,121,0.28), 0 7px 17px rgba(0,0,0,0.28);
 }
 .parentTile:focus {
     outline: none;
     border-color: #7eb6ff;
     box-shadow:
         0 0 0 3px rgba(83,154,247,0.34),
+        0 8px 20px rgba(0,0,0,0.34);
+}
+.parentTile.selected:focus {
+    border-color: #70e39b;
+    box-shadow:
+        0 0 0 3px rgba(70,200,121,0.38),
         0 8px 20px rgba(0,0,0,0.34);
 }
 .parentTile.running:after {
@@ -643,7 +644,7 @@ input:disabled {
     font-weight: 700;
 }
 .parentBody {
-    padding: 11px 12px 12px 12px;
+    padding: 11px 12px 14px 12px;
 }
 .parentName {
     font-size: 15px;
@@ -677,8 +678,28 @@ input:disabled {
 .keywordBadges {
     margin-top: 8px;
     min-height: 22px;
-    max-height: 46px;
+    max-height: 48px;
     overflow: hidden;
+}
+.keywordMatchModeButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 94px;
+    white-space: nowrap;
+}
+.keywordMatchModeChoice {
+    opacity: 0.38;
+    transition: opacity 0.12s ease, color 0.12s ease;
+}
+.keywordMatchModeSeparator {
+    margin: 0 6px;
+    color: #697586;
+}
+.keywordMatchModeButton.matchAll .matchAll,
+.keywordMatchModeButton.matchAny .matchAny {
+    color: #6fe09b;
+    opacity: 1;
 }
 .keywordBadge {
     display: inline-block;
@@ -960,7 +981,7 @@ var fso = new ActiveXObject("Scripting.FileSystemObject");
 var shell = new ActiveXObject("WScript.Shell");
 var shellApp = new ActiveXObject("Shell.Application");
 
-var APP_VERSION = "0.76";
+var APP_VERSION = "0.85";
 var APP_NAME = "Gallery-Slideshow-Manager";
 var appDir = getApplicationDirectory();
 var tempDir = shell.ExpandEnvironmentStrings("%TEMP%");
@@ -992,6 +1013,7 @@ var state = {
     parents: [],
     keywords: [],
     activeFilters: {},
+    keywordMatchMode: "any",
     filterPresets: [],
     matchedFilterPresetId: "",
     searchText: "",
@@ -1011,6 +1033,11 @@ var state = {
     randomMembershipSignature: "",
     randomParentOrder: [],
     randomGalleryOrders: {},
+    randomUniqueSessionActive: false,
+    randomUniqueParentSeenPaths: {},
+    randomUniqueParentSeenSignature: "",
+    randomUniqueActiveParentPath: "",
+    randomUniquePendingParentPath: "",
     currentParentPath: "",
     currentGalleryPath: "",
     keywordRevision: "",
@@ -1729,6 +1756,10 @@ function normalizeKeywordFilterMode(value) {
     return value ? "include" : "";
 }
 
+function normalizeKeywordMatchMode(value) {
+    return lower(value) === "all" ? "all" : "any";
+}
+
 function getActiveFilterWords(mode) {
     var words = [];
     var requestedMode = mode || "include";
@@ -1765,8 +1796,10 @@ function normalizedKeywordSignature(words) {
     return normalized.join("|");
 }
 
-function filterSignature(includeWords, excludeWords) {
-    return "include:"
+function filterSignature(includeWords, excludeWords, matchMode) {
+    return "mode:"
+        + normalizeKeywordMatchMode(matchMode)
+        + "||include:"
         + normalizedKeywordSignature(includeWords || [])
         + "||exclude:"
         + normalizedKeywordSignature(excludeWords || []);
@@ -1778,6 +1811,10 @@ function presetIniKey(presetName) {
 
 function presetExcludeIniKey(presetName) {
     return "PresetExclude." + encodeURIComponent(presetName);
+}
+
+function presetMatchModeIniKey(presetName) {
+    return "PresetMatchMode." + encodeURIComponent(presetName);
 }
 
 function presetNameFromIniKey(keyName) {
@@ -1813,12 +1850,20 @@ function loadFilterPresets() {
         var excludeWords = parseKeywordList(
             section["PresetExclude." + key.substr(7)] || ""
         );
+        var matchMode = normalizeKeywordMatchMode(
+            section["PresetMatchMode." + key.substr(7)] || "any"
+        );
         presets.push({
             id: key,
             name: name,
             includeKeywords: includeWords,
             excludeKeywords: excludeWords,
-            signature: filterSignature(includeWords, excludeWords)
+            matchMode: matchMode,
+            signature: filterSignature(
+                includeWords,
+                excludeWords,
+                matchMode
+            )
         });
     }
 
@@ -1834,7 +1879,8 @@ function loadFilterPresets() {
 function findMatchingFilterPreset() {
     var signature = filterSignature(
         getActiveFilterWords("include"),
-        getActiveFilterWords("exclude")
+        getActiveFilterWords("exclude"),
+        state.keywordMatchMode
     );
     var i;
 
@@ -1904,7 +1950,7 @@ function updateFilterPresetControls() {
         hint.innerText = "Select include or exclude filters to create a named preset.";
     } else {
         select.value = "__custom__";
-        hint.innerText = "This include/exclude combination is not saved.";
+        hint.innerText = "This ALL/ANY filter combination is not saved.";
     }
 
     var canSave = activeCount > 0 && !matchedPreset;
@@ -1930,6 +1976,9 @@ function loadSelectedFilterPreset() {
         var preset = findFilterPresetById(presetId);
 
         if (preset) {
+            state.keywordMatchMode = normalizeKeywordMatchMode(
+                preset.matchMode
+            );
             var available = {};
             var i;
 
@@ -1955,6 +2004,13 @@ function loadSelectedFilterPreset() {
         }
     }
 
+    updateKeywordMatchModeButton();
+    setIniValue(
+        settingsPath,
+        "Options",
+        "KeywordMatchMode",
+        state.keywordMatchMode
+    );
     renderKeywordFilters();
     renderParents();
     updateFilterPresetControls();
@@ -2001,12 +2057,19 @@ function saveCurrentFilterPreset() {
 
     var key = presetIniKey(presetName);
     var excludeKey = presetExcludeIniKey(presetName);
+    var matchModeKey = presetMatchModeIniKey(presetName);
     data.KeywordFilterPresets[key] = joinKeywords(includeWords);
 
     if (excludeWords.length) {
         data.KeywordFilterPresets[excludeKey] = joinKeywords(excludeWords);
     } else {
         delete data.KeywordFilterPresets[excludeKey];
+    }
+
+    if (state.keywordMatchMode === "all") {
+        data.KeywordFilterPresets[matchModeKey] = "all";
+    } else {
+        delete data.KeywordFilterPresets[matchModeKey];
     }
 
     writeIni(settingsPath, data);
@@ -2215,6 +2278,9 @@ function loadSettings() {
         10
     );
     state.uniqueRandom = String(getIniValue(data, "Options", "UniqueRandom", "0")) !== "0";
+    state.keywordMatchMode = normalizeKeywordMatchMode(
+        getIniValue(data, "Options", "KeywordMatchMode", "any")
+    );
     state.displayMode = lower(
         getIniValue(data, "Options", "DisplayMode", "section")
     );
@@ -2299,6 +2365,7 @@ function loadSettings() {
     updateRemoteTimeoutOption();
     updateAutoVlcButton();
     updateUniqueRandomButton();
+    updateKeywordMatchModeButton();
     updateDisplayModeButton();
     updateSlideshowModeButtons();
     loadFilterPresets();
@@ -2969,8 +3036,8 @@ function updateUniqueRandomButton() {
         state.uniqueRandom ? "true" : "false"
     );
     button.title = state.uniqueRandom
-        ? "Each gallery matching the rating/mask is shown once before the random cycle resets."
-        : "Random galleries may repeat before every gallery has been shown.";
+        ? "Only parent galleries not yet used in this random round are displayed."
+        : "Random parent galleries may repeat before every parent has been used.";
     return true;
 }
 
@@ -2984,7 +3051,24 @@ function toggleUniqueRandom() {
         state.uniqueRandom ? "1" : "0"
     );
 
+    // Toggling UNIQUE starts a fresh round in the bridge.
+    clearRandomUniqueAvailability();
+
     if (state.activeSlideshowType === "random") {
+        state.randomUniqueSessionActive =
+            state.uniqueRandom;
+
+        if (state.uniqueRandom) {
+            var currentParentKey =
+                uniqueParentPathKey(
+                    state.currentParentPath
+                );
+            state.randomUniqueActiveParentPath =
+                currentParentKey;
+            state.randomUniquePendingParentPath =
+                currentParentKey;
+        }
+
         ensureBridge();
         sendCommand(
             state.uniqueRandom
@@ -2993,6 +3077,8 @@ function toggleUniqueRandom() {
             ""
         );
     }
+
+    refreshUniqueAvailabilityPresentation();
 
     setStatus(
         "Unique random "
@@ -3341,7 +3427,7 @@ function saveParentKeywords(parentPath, words) {
 
 function addKeyword() {
     var input = document.getElementById("keywordName");
-    var word = input.value.replace(/^\s+|\s+$/g, "");
+    var word = keywordFromEditText(input.value);
     if (!state.root) {
         alert("Select a galleries root first.");
         return;
@@ -3356,7 +3442,10 @@ function addKeyword() {
     }
     var i;
     for (i = 0; i < state.keywords.length; i++) {
-        if (lower(state.keywords[i]) === lower(word)) {
+        if (
+            lower(keywordFromEditText(state.keywords[i]))
+            === lower(word)
+        ) {
             alert("This keyword already exists.");
             return;
         }
@@ -3406,9 +3495,7 @@ function renameKeyword() {
     }
 
     var input = document.getElementById("keywordName");
-    var requestedWord =
-        String(input.value || "")
-        .replace(/^\s+|\s+$/g, "");
+    var requestedWord = keywordFromEditText(input.value);
 
     if (!requestedWord) {
         alert("Enter the current keyword in the Keyword field.");
@@ -3420,7 +3507,10 @@ function renameKeyword() {
     var i;
 
     for (i = 0; i < state.keywords.length; i++) {
-        if (lower(state.keywords[i]) === lower(requestedWord)) {
+        if (
+            lower(keywordFromEditText(state.keywords[i]))
+            === lower(requestedWord)
+        ) {
             existingIndex = i;
             break;
         }
@@ -3432,16 +3522,17 @@ function renameKeyword() {
     }
 
     var oldWord = state.keywords[existingIndex];
+    var oldEditText = keywordEditText(oldWord);
     var newWord = prompt(
-        "Rename keyword \"" + oldWord + "\" to:",
-        oldWord
+        "Rename keyword \"" + oldEditText + "\" to:",
+        oldEditText
     );
 
     if (newWord === null) {
         return false;
     }
 
-    newWord = newWord.replace(/^\s+|\s+$/g, "");
+    newWord = keywordFromEditText(newWord);
 
     if (!newWord) {
         alert("Enter a new keyword name.");
@@ -3461,7 +3552,8 @@ function renameKeyword() {
     for (i = 0; i < state.keywords.length; i++) {
         if (
             i !== existingIndex
-            && lower(state.keywords[i]) === lower(newWord)
+            && lower(keywordFromEditText(state.keywords[i]))
+                === lower(newWord)
         ) {
             alert("This keyword already exists.");
             return false;
@@ -3734,8 +3826,33 @@ function keywordControlText(word) {
     var formatting = keywordFormattingType(text);
 
     return formatting.isSpecial
-        ? text.substring(1)
+        ? text.substring(1).replace(/^\s+/, "")
         : text;
+}
+
+function keywordEditText(word) {
+    var text = String(word || "").replace(/^\s+|\s+$/g, "");
+    var formatting = keywordFormattingType(text);
+
+    if (!formatting.isSpecial) {
+        return text;
+    }
+
+    var name = keywordControlText(text);
+    return formatting.specialCharacter
+        + (name ? " " + name : "");
+}
+
+function keywordFromEditText(value) {
+    var text = String(value || "").replace(/^\s+|\s+$/g, "");
+    var formatting = keywordFormattingType(text);
+
+    if (!formatting.isSpecial) {
+        return text;
+    }
+
+    return formatting.specialCharacter
+        + text.substring(1).replace(/^\s+/, "");
 }
 
 function sortKeywordWordsCaseInsensitive(words) {
@@ -3925,6 +4042,46 @@ function setKeywordFilterState(word, mode) {
     renderParents();
 }
 
+function updateKeywordMatchModeButton() {
+    var button = document.getElementById("keywordMatchModeButton");
+
+    if (!button) {
+        return;
+    }
+
+    state.keywordMatchMode = normalizeKeywordMatchMode(
+        state.keywordMatchMode
+    );
+    button.className =
+        "keywordMatchModeButton "
+        + (state.keywordMatchMode === "all"
+            ? "matchAll"
+            : "matchAny");
+    button.title = state.keywordMatchMode === "all"
+        ? "ALL: every included keyword must match. Click for ANY."
+        : "ANY: at least one included keyword must match. Click for ALL.";
+}
+
+function toggleKeywordMatchMode() {
+    state.keywordMatchMode = state.keywordMatchMode === "all"
+        ? "any"
+        : "all";
+    setIniValue(
+        settingsPath,
+        "Options",
+        "KeywordMatchMode",
+        state.keywordMatchMode
+    );
+    updateKeywordMatchModeButton();
+    updateFilterPresetControls();
+    renderParents();
+    setStatus(
+        "Keyword matching: "
+        + state.keywordMatchMode.toUpperCase()
+    );
+    return false;
+}
+
 function createKeywordFilterButton(word) {
     var mode = normalizeKeywordFilterMode(
         state.activeFilters[lower(word)]
@@ -3939,11 +4096,8 @@ function createKeywordFilterButton(word) {
         "keywordFilterButton"
         + (mode ? " " + mode : "");
     button.title =
-        mode === "include"
-        ? "Included. Left-click to clear; right-click to exclude; double-click to edit: " + word
-        : (mode === "exclude"
-            ? "Excluded. Right-click to clear; left-click to include; double-click to edit: " + word
-            : "Left-click to include; right-click to exclude; double-click to edit: " + word);
+        "LMB include · RMB exclude · Double-click rename: "
+        + keywordEditText(word);
     button.innerHTML =
         '<span class="keywordFilterWord">'
         + escapeHtml(keywordControlText(word))
@@ -3984,7 +4138,7 @@ function createKeywordFilterButton(word) {
         }
 
         var input = document.getElementById("keywordName");
-        input.value = word;
+        input.value = keywordEditText(word);
         input.focus();
         input.select();
         setStatus(
@@ -4020,12 +4174,12 @@ function renderKeywordFilters() {
         var groupElement = document.createElement("div");
         groupElement.className = "keywordFilterGroup";
 
-        if (group.isSpecial) {
-            var prefix = document.createElement("div");
-            prefix.className = "keywordFilterPrefix";
-            prefix.innerText = group.specialCharacter;
-            groupElement.appendChild(prefix);
-        }
+        var prefix = document.createElement("div");
+        prefix.className = "keywordFilterPrefix";
+        prefix.innerText = group.isSpecial
+            ? group.specialCharacter
+            : "";
+        groupElement.appendChild(prefix);
 
         var buttons = document.createElement("div");
         buttons.className = "keywordFilterButtons";
@@ -4791,13 +4945,256 @@ function scanLibrary() {
     }
 }
 
-function getVisibleParents() {
-    var visibleParents = [];
+function uniqueParentPathKey(parentPath) {
+    return lower(normalizePath(parentPath || ""));
+}
+
+function clearRandomUniqueAvailability() {
+    state.randomUniqueSessionActive = false;
+    state.randomUniqueParentSeenPaths = {};
+    state.randomUniqueParentSeenSignature = "";
+    state.randomUniqueActiveParentPath = "";
+    state.randomUniquePendingParentPath = "";
+    return true;
+}
+
+function randomUniqueAvailabilityIsActive() {
+    return !!state.uniqueRandom;
+}
+
+function randomUniqueParentSeenMap(pathText) {
+    var seenPaths = {};
+    var paths = String(pathText || "").split("|");
+    var i;
+
+    for (i = 0; i < paths.length; i++) {
+        var pathKey = uniqueParentPathKey(paths[i]);
+
+        if (pathKey) {
+            seenPaths[pathKey] = true;
+        }
+    }
+
+    return seenPaths;
+}
+
+function randomUniqueParentSeenSignature(seenPaths) {
+    var paths = [];
+    var pathKey;
+
+    for (pathKey in seenPaths) {
+        if (seenPaths.hasOwnProperty(pathKey)) {
+            paths.push(pathKey);
+        }
+    }
+
+    paths.sort();
+    return paths.join("|");
+}
+
+function resetCompletedUniqueParentsIfRoundFinished() {
+    var filteredParents = getFilteredParents();
+    var shownCount = 0;
+    var i;
+
+    if (!filteredParents.length) {
+        return false;
+    }
+
+    for (i = 0; i < filteredParents.length; i++) {
+        if (state.randomUniqueParentSeenPaths[
+            uniqueParentPathKey(filteredParents[i].path)
+        ]) {
+            shownCount++;
+        }
+    }
+
+    if (shownCount < filteredParents.length) {
+        return false;
+    }
+
+    state.randomUniqueParentSeenPaths = {};
+    state.randomUniqueParentSeenSignature = "";
+    return true;
+}
+
+function completeUniqueParent(parentPath) {
+    if (!markUniqueParentSeenLocally(parentPath)) {
+        return false;
+    }
+
+    resetCompletedUniqueParentsIfRoundFinished();
+    return true;
+}
+
+function syncRandomUniqueAvailability(sessionData) {
+    var sessionActive = String(
+        getIniValue(
+            sessionData,
+            "Session",
+            "RandomUnique",
+            "0"
+        )
+    ) === "1";
+    var currentParentKey = uniqueParentPathKey(
+        getIniValue(
+            sessionData,
+            "Session",
+            "CurrentParent",
+            ""
+        )
+    );
+    var pendingParentKey =
+        state.randomUniquePendingParentPath;
+    var previousSignature =
+        state.randomUniqueParentSeenSignature;
+    var previousActiveParent =
+        state.randomUniqueActiveParentPath;
+
+    if (pendingParentKey) {
+        if (
+            sessionActive
+            && currentParentKey === pendingParentKey
+        ) {
+            state.randomUniqueActiveParentPath =
+                currentParentKey;
+            state.randomUniquePendingParentPath = "";
+        }
+    } else if (sessionActive && currentParentKey) {
+        if (!previousActiveParent) {
+            var restoredSeenPaths =
+                randomUniqueParentSeenMap(
+                    getIniValue(
+                        sessionData,
+                        "Session",
+                        "RandomUniqueParentSeen",
+                        ""
+                    )
+                );
+
+            if (restoredSeenPaths[currentParentKey]) {
+                delete restoredSeenPaths[currentParentKey];
+            }
+
+            state.randomUniqueParentSeenPaths =
+                restoredSeenPaths;
+        } else if (previousActiveParent !== currentParentKey) {
+            completeUniqueParent(previousActiveParent);
+        }
+
+        state.randomUniqueActiveParentPath =
+            currentParentKey;
+    } else if (sessionActive && !currentParentKey) {
+        // Escape is not a parent transition. Keep completed parents hidden,
+        // but leave the last active parent unmarked and available next time.
+        state.randomUniqueParentSeenPaths =
+            randomUniqueParentSeenMap(
+                getIniValue(
+                    sessionData,
+                    "Session",
+                    "RandomUniqueParentSeen",
+                    ""
+                )
+            );
+        state.randomUniqueActiveParentPath = "";
+        state.randomUniquePendingParentPath = "";
+    } else if (!sessionActive) {
+        clearRandomUniqueAvailability();
+    }
+
+    state.randomUniqueParentSeenSignature =
+        randomUniqueParentSeenSignature(
+            state.randomUniqueParentSeenPaths
+        );
+
+    var changed =
+        sessionActive
+            !== state.randomUniqueSessionActive
+        || previousSignature
+            !== state.randomUniqueParentSeenSignature
+        || previousActiveParent
+            !== state.randomUniqueActiveParentPath;
+
+    state.randomUniqueSessionActive = !!(
+        sessionActive && currentParentKey
+    );
+    return changed;
+}
+
+function markUniqueParentSeenLocally(parentPath) {
+    var pathKey = uniqueParentPathKey(parentPath);
+
+    if (!pathKey) {
+        return false;
+    }
+
+    state.randomUniqueParentSeenPaths[pathKey] = true;
+    state.randomUniqueParentSeenSignature =
+        randomUniqueParentSeenSignature(
+            state.randomUniqueParentSeenPaths
+        );
+    return true;
+}
+
+function isGalleryAvailableForRandom(gallery) {
+    return !!(gallery && gallery.path);
+}
+
+function isParentAvailableForRandom(parent) {
+    if (!parent || !parent.path) {
+        return false;
+    }
+
+    return !randomUniqueAvailabilityIsActive()
+        || !state.randomUniqueParentSeenPaths[
+            uniqueParentPathKey(parent.path)
+        ];
+}
+
+function getAvailableParentGalleries(parent) {
+    var galleries = [];
+    var i;
+
+    if (!parent || !parent.galleries) {
+        return galleries;
+    }
+
+    for (i = 0; i < parent.galleries.length; i++) {
+        galleries.push(parent.galleries[i]);
+    }
+
+    return galleries;
+}
+
+function firstAvailableParentGallery(parent) {
+    var galleries = getAvailableParentGalleries(
+        parent
+    );
+    return galleries.length ? galleries[0] : null;
+}
+
+function getFilteredParents() {
+    var filteredParents = [];
     var i;
 
     for (i = 0; i < state.parents.length; i++) {
         if (parentMatches(state.parents[i])) {
-            visibleParents.push(state.parents[i]);
+            filteredParents.push(state.parents[i]);
+        }
+    }
+
+    return filteredParents;
+}
+
+function getVisibleParents(filteredParents) {
+    var candidates = filteredParents
+        || getFilteredParents();
+    var visibleParents = [];
+    var i;
+
+    for (i = 0; i < candidates.length; i++) {
+        if (isParentAvailableForRandom(candidates[i])) {
+            visibleParents.push(candidates[i]);
         }
     }
 
@@ -5307,8 +5704,8 @@ function parentMatches(parent) {
         parentKeywordSet[lower(parent.keywords[i])] = true;
     }
 
-    var hasIncludeFilter = false;
-    var matchesIncludeFilter = false;
+    var includeFilterCount = 0;
+    var matchedIncludeFilterCount = 0;
     var key;
 
     for (key in state.activeFilters) {
@@ -5322,23 +5719,30 @@ function parentMatches(parent) {
             }
 
             if (filterMode === "include") {
-                hasIncludeFilter = true;
+                includeFilterCount++;
 
                 if (parentKeywordSet[key]) {
-                    matchesIncludeFilter = true;
+                    matchedIncludeFilterCount++;
                 }
             }
         }
     }
 
-    return !hasIncludeFilter || matchesIncludeFilter;
+    if (!includeFilterCount) {
+        return true;
+    }
+
+    return normalizeKeywordMatchMode(state.keywordMatchMode) === "all"
+        ? matchedIncludeFilterCount === includeFilterCount
+        : matchedIncludeFilterCount > 0;
 }
 
 function renderParents() {
     var grid = document.getElementById("parentGrid");
     grid.innerHTML = "";
 
-    var visible = getVisibleParents();
+    var filtered = getFilteredParents();
+    var visible = getVisibleParents(filtered);
     var groups = {};
     var letters = [];
     var i;
@@ -5358,11 +5762,20 @@ function renderParents() {
         groups[letter].push(parent);
     }
 
-    updateFilteredNavigationQueue(visible);
+    // UNIQUE availability changes only the presentation. The bridge needs
+    // the complete filtered pool so it can detect and reset a full round.
+    updateFilteredNavigationQueue(filtered);
 
     document.getElementById("summaryTitle").innerText = "Parent galleries";
-    document.getElementById("emptyState").style.display =
+    var emptyState = document.getElementById(
+        "emptyState"
+    );
+    emptyState.style.display =
         visible.length ? "none" : "block";
+    emptyState.innerText =
+        randomUniqueAvailabilityIsActive()
+        ? "No unshown parent galleries remain in the current UNIQUE round."
+        : "No parent galleries match the current filters.";
 
     if (state.displayMode === "tile") {
         grid.className = "tileView";
@@ -5517,10 +5930,12 @@ function createParentTile(parent) {
 
     var body = document.createElement("div");
     body.className = "parentBody";
+    var availableGalleries =
+        getAvailableParentGalleries(parent);
     var videoCount = 0;
     var i;
-    for (i = 0; i < parent.galleries.length; i++) {
-        if (parent.galleries[i].video) {
+    for (i = 0; i < availableGalleries.length; i++) {
+        if (availableGalleries[i].video) {
             videoCount++;
         }
     }
@@ -5529,7 +5944,7 @@ function createParentTile(parent) {
     body.innerHTML =
         '<div class="parentName">' + escapeHtml(parent.name) + '</div>' +
         '<div class="parentMeta">' +
-            '<span>' + parent.galleries.length + ' galleries · ' + videoCount + ' videos</span>' +
+            '<span>' + availableGalleries.length + ' galleries · ' + videoCount + ' videos</span>' +
             '<span class="ratingBadge' + (parentRating === 0 ? ' zero' : '') + '"' +
                 ' title="' + escapeHtml(ratingText(parentRating)) + '">' +
                 parentRating + '★' +
@@ -5622,7 +6037,10 @@ function keywordBadgeHtml(words) {
     var html = "";
     var i;
     for (i = 0; i < words.length; i++) {
-        html += '<span class="keywordBadge">' + escapeHtml(words[i]) + '</span>';
+        html +=
+            '<span class="keywordBadge">'
+            + escapeHtml(keywordControlText(words[i]))
+            + '</span>';
     }
     return html;
 }
@@ -6060,6 +6478,51 @@ function focusRunningGalleryThumbnail(galleryPath) {
     return true;
 }
 
+function refreshUniqueAvailabilityPresentation() {
+    var dialogWasOpen = isGalleryDialogOpen();
+    var dialogParent = state.selectedParent;
+    var selectedGalleryPath = state.selectedGallery
+        ? state.selectedGallery.path
+        : "";
+
+    renderParents();
+
+    if (!dialogWasOpen || !dialogParent) {
+        return true;
+    }
+
+    if (
+        randomUniqueAvailabilityIsActive()
+        && state.randomUniqueParentSeenPaths[
+            uniqueParentPathKey(dialogParent.path)
+        ]
+    ) {
+        closeGalleryDialog();
+        return true;
+    }
+
+    openGalleryDialog(
+        dialogParent,
+        selectedGalleryPath
+    );
+    return true;
+}
+
+function startFirstAvailableGallery() {
+    var gallery = firstAvailableParentGallery(
+        state.selectedParent
+    );
+
+    if (!gallery) {
+        setStatus(
+            "This parent has no available galleries."
+        );
+        return false;
+    }
+
+    return startGallery(gallery);
+}
+
 function openGalleryDialog(parent, focusGalleryPath) {
     state.selectedGallery = null;
     document.getElementById("galleryTitle").innerText =
@@ -6079,10 +6542,12 @@ function openGalleryDialog(parent, focusGalleryPath) {
     );
     var focusGallery = null;
     var focusCard = null;
+    var availableGalleries =
+        getAvailableParentGalleries(parent);
     var i;
 
-    for (i = 0; i < parent.galleries.length; i++) {
-        var gallery = parent.galleries[i];
+    for (i = 0; i < availableGalleries.length; i++) {
+        var gallery = availableGalleries[i];
         var card = createGalleryCard(gallery);
         grid.appendChild(card);
 
@@ -6096,7 +6561,7 @@ function openGalleryDialog(parent, focusGalleryPath) {
         }
     }
 
-    sizeGalleryDialog(parent.galleries.length);
+    sizeGalleryDialog(availableGalleries.length);
     document.getElementById(
         "galleryOverlay"
     ).style.display = "block";
@@ -6146,8 +6611,9 @@ function updateSelectedGalleryButton() {
 
     var hasParentGalleries = !!(
         state.selectedParent
-        && state.selectedParent.galleries
-        && state.selectedParent.galleries.length
+        && getAvailableParentGalleries(
+            state.selectedParent
+        ).length
     );
 
     button.disabled = !hasParentGalleries;
@@ -6226,11 +6692,12 @@ function selectGalleryCard(
 
 function startRandomFromSelectedGallery() {
     var parent = state.selectedParent;
+    var availableGalleries =
+        getAvailableParentGalleries(parent);
 
     if (
         !parent
-        || !parent.galleries
-        || !parent.galleries.length
+        || !availableGalleries.length
     ) {
         setStatus(
             "This parent has no available galleries."
@@ -6240,18 +6707,25 @@ function startRandomFromSelectedGallery() {
 
     var gallery = state.selectedGallery;
 
-    if (!gallery || !gallery.path) {
-        gallery = parent.galleries[
+    if (
+        !gallery
+        || !gallery.path
+        || !isGalleryAvailableForRandom(gallery)
+    ) {
+        gallery = availableGalleries[
             Math.floor(
                 Math.random()
-                * parent.galleries.length
+                * availableGalleries.length
             )
         ];
     }
 
-    var candidates = getVisibleParents();
+    var filteredParents = getFilteredParents();
 
-    if (!parentMatches(parent)) {
+    if (
+        !parentMatches(parent)
+        || !isParentAvailableForRandom(parent)
+    ) {
         setStatus(
             "The selected parent does not match "
             + "the current filters."
@@ -6260,7 +6734,7 @@ function startRandomFromSelectedGallery() {
     }
 
     var shuffledPaths = activateRandomNavigation(
-        candidates,
+        filteredParents,
         parent.path,
         gallery.path
     );
@@ -6335,9 +6809,10 @@ function startGallery(gallery, slideshowMode) {
 
     if (slideshowMode === "normal") {
         activateNormalNavigation(
-            getVisibleParents()
+            getFilteredParents()
         );
         setActiveSlideshowType("normal");
+        clearRandomUniqueAvailability();
     } else if (slideshowMode === "random") {
         var galleryEntry = findGalleryEntryByPath(
             gallery.path
@@ -6347,7 +6822,7 @@ function startGallery(gallery, slideshowMode) {
             : fso.GetParentFolderName(gallery.path);
 
         activateRandomNavigation(
-            getVisibleParents(),
+            getFilteredParents(),
             preferredParentPath,
             gallery.path
         );
@@ -6369,6 +6844,31 @@ function startGallery(gallery, slideshowMode) {
     state.currentGalleryPath = gallery.path;
     state.currentParentPath =
         fso.GetParentFolderName(gallery.path);
+
+    if (
+        state.activeSlideshowType === "random"
+        && state.uniqueRandom
+    ) {
+        // An explicit manager start begins a new parent round. The active
+        // parent remains visible until a different parent actually opens.
+        // After Escape, retain the completed set and resume the same round.
+        if (state.randomUniqueActiveParentPath) {
+            clearRandomUniqueAvailability();
+        }
+        state.randomUniqueSessionActive = true;
+        state.randomUniqueActiveParentPath =
+            uniqueParentPathKey(
+                state.currentParentPath
+            );
+        state.randomUniquePendingParentPath =
+            uniqueParentPathKey(
+                state.currentParentPath
+            );
+    } else {
+        clearRandomUniqueAvailability();
+    }
+
+    refreshUniqueAvailabilityPresentation();
     focusRunningGalleryThumbnail(gallery.path);
     setStatus("Starting: " + gallery.name);
     return true;
@@ -6380,11 +6880,18 @@ function firstFilteredParentGallery() {
     for (i = 0; i < state.parents.length; i++) {
         if (
             parentMatches(state.parents[i])
-            && state.parents[i].galleries.length
+            && isParentAvailableForRandom(
+                state.parents[i]
+            )
+            && getAvailableParentGalleries(
+                state.parents[i]
+            ).length
         ) {
             return {
                 parent: state.parents[i],
-                gallery: state.parents[i].galleries[0]
+                gallery: firstAvailableParentGallery(
+                    state.parents[i]
+                )
             };
         }
     }
@@ -6400,16 +6907,29 @@ function startMainSlideshow() {
         state.selectedGallery
         && state.selectedParent
         && parentMatches(state.selectedParent)
+        && isParentAvailableForRandom(
+            state.selectedParent
+        )
+        && isGalleryAvailableForRandom(
+            state.selectedGallery
+        )
     ) {
         parent = state.selectedParent;
         gallery = state.selectedGallery;
     } else if (
         state.selectedParent
         && parentMatches(state.selectedParent)
-        && state.selectedParent.galleries.length
+        && isParentAvailableForRandom(
+            state.selectedParent
+        )
+        && getAvailableParentGalleries(
+            state.selectedParent
+        ).length
     ) {
         parent = state.selectedParent;
-        gallery = state.selectedParent.galleries[0];
+        gallery = firstAvailableParentGallery(
+            state.selectedParent
+        );
     } else {
         var firstMatch = firstFilteredParentGallery();
 
@@ -6441,6 +6961,7 @@ function startMainSlideshow() {
 
 function startRandom() {
     var candidates = getVisibleParents();
+    var filteredParents = getFilteredParents();
 
     if (!candidates.length) {
         alert(
@@ -6462,6 +6983,12 @@ function startRandom() {
         if (
             selectedEntry
             && parentMatches(selectedEntry.parent)
+            && isParentAvailableForRandom(
+                selectedEntry.parent
+            )
+            && isGalleryAvailableForRandom(
+                selectedEntry.gallery
+            )
         ) {
             preferredEntry = selectedEntry;
         }
@@ -6471,16 +6998,23 @@ function startRandom() {
         !preferredEntry
         && state.selectedParent
         && parentMatches(state.selectedParent)
-        && state.selectedParent.galleries.length
+        && isParentAvailableForRandom(
+            state.selectedParent
+        )
+        && getAvailableParentGalleries(
+            state.selectedParent
+        ).length
     ) {
         preferredEntry = {
             parent: state.selectedParent,
-            gallery: state.selectedParent.galleries[0]
+            gallery: firstAvailableParentGallery(
+                state.selectedParent
+            )
         };
     }
 
     var shuffledPaths = activateRandomNavigation(
-        candidates,
+        filteredParents,
         preferredEntry
             ? preferredEntry.parent.path
             : "",
@@ -6496,13 +7030,18 @@ function startRandom() {
             Math.floor(Math.random() * candidates.length)
         ];
 
-        if (randomParent.galleries.length) {
+        var randomParentGalleries =
+            getAvailableParentGalleries(
+                randomParent
+            );
+
+        if (randomParentGalleries.length) {
             firstEntry = {
                 parent: randomParent,
-                gallery: randomParent.galleries[
+                gallery: randomParentGalleries[
                     Math.floor(
                         Math.random()
-                        * randomParent.galleries.length
+                        * randomParentGalleries.length
                     )
                 ]
             };
@@ -7386,6 +7925,8 @@ function pollSession() {
         || lower(currentGallery) !== lower(state.currentGalleryPath);
     var keywordsChanged = keywordRevision !== state.keywordRevision;
     var ratingsChanged = ratingRevision !== state.ratingRevision;
+    var uniqueAvailabilityChanged =
+        syncRandomUniqueAvailability(data);
 
     state.currentParentPath = currentParent;
     state.currentGalleryPath = currentGallery;
@@ -7401,6 +7942,10 @@ function pollSession() {
     }
 
     processKeywordWindowRequest(data, currentParent);
+
+    if (uniqueAvailabilityChanged) {
+        refreshUniqueAvailabilityPresentation();
+    }
 
     if (changed && currentGallery) {
         focusRunningGalleryThumbnail(
@@ -7646,6 +8191,9 @@ function initialize() {
     restoreWindowPlacement();
     loadSettings();
     restoreActiveSlideshowType();
+    syncRandomUniqueAvailability(
+        readIni(sessionPath)
+    );
     ensureBridge();
     renderKeywordFilters();
     renderRatingFilters();
@@ -7688,7 +8236,11 @@ function initialize() {
         updateFixedControlsLayout();
 
         if (isGalleryDialogOpen() && state.selectedParent) {
-            sizeGalleryDialog(state.selectedParent.galleries.length);
+            sizeGalleryDialog(
+                getAvailableParentGalleries(
+                    state.selectedParent
+                ).length
+            );
         }
     };
 
@@ -7783,6 +8335,7 @@ function initialize() {
             </div>
         </div>
         <div class="row">
+            <button id="keywordMatchModeButton" class="keywordMatchModeButton matchAny" type="button" onclick="return toggleKeywordMatchMode();"><span class="keywordMatchModeChoice matchAll">ALL</span><span class="keywordMatchModeSeparator">\</span><span class="keywordMatchModeChoice matchAny">ANY</span></button>
             <span class="label">Keyword</span>
             <input id="keywordName" type="text" />
             <button onclick="addKeyword()">Add keyword</button>
@@ -7792,9 +8345,7 @@ function initialize() {
             <input id="searchInput" type="text" onkeyup="searchChanged()" />
         </div>
         <div class="row">
-            <span class="label">Filter</span>
-            <div id="keywordFilters" class="grow" title="Left-click a keyword to include it. Right-click it to exclude it."></div>
-            <span id="keywordFilterHint">LMB include · RMB exclude</span>
+            <div id="keywordFilters" class="grow"></div>
         </div>
         <div class="row">
             <span class="label">Rating</span>
@@ -7839,7 +8390,7 @@ function initialize() {
         <div id="emptyState">No parent galleries match the current filters.</div>
     </div>
 
-    <div id="statusBar">v0.76 | Ready.</div>
+    <div id="statusBar">v0.85 | Ready.</div>
 </div>
 
 <div id="galleryOverlay" onclick="if (window.event.srcElement === this) closeGalleryDialog();">
@@ -7850,7 +8401,7 @@ function initialize() {
                 <div id="galleryKeywords"></div>
             </div>
             <button onclick="openCurrentParent()">Open folder</button>
-            <button class="primary" onclick="if(state.selectedParent && state.selectedParent.galleries.length) startGallery(state.selectedParent.galleries[0]);">Start first gallery</button>
+            <button class="primary" onclick="return startFirstAvailableGallery();">Start first gallery</button>
             <button id="startSelectedRandomButton" class="primary" onclick="startRandomFromSelectedGallery()">Start random slideshow</button>
             <button onclick="closeGalleryDialog()">Close</button>
         </div>

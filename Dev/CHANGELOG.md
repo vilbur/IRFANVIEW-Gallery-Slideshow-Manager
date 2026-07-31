@@ -2,6 +2,134 @@
 
 This records design milestones and trusted baselines, not every code edit.
 
+## 0.85
+
+Completed-parent UNIQUE lifecycle:
+
+- the active parent stays visible for the duration of its slideshow;
+- only a confirmed transition to a different parent marks and hides the
+  previous parent;
+- Escape preserves completed parents without marking the last active parent,
+  allowing the same parent round to resume;
+- completing every filtered parent clears the completed set for the next round.
+
+This supersedes the start-time hiding behavior in 0.83 and 0.84.
+
+Status: JavaScript syntax/behavior, AutoHotkey v1 syntax-load, static regression
+and package checks pass; live Windows interaction requires user confirmation.
+
+## 0.84
+
+UNIQUE parent refresh-race fix:
+
+- a parent hidden immediately at random-slideshow start is retained as a
+  pending local mark;
+- stale session snapshots cannot restore it during the next one-second poll;
+- the pending mark is released only when the bridge reports the same current
+  parent in its shown-parent round list.
+
+Status: JavaScript syntax/behavior, AutoHotkey v1 syntax-load, static regression
+and package checks pass; live Windows interaction requires user confirmation.
+
+## 0.83
+
+Parent-only UNIQUE display semantics:
+
+- random UNIQUE visits mark the current parent gallery as shown;
+- the main manager displays only unshown parent tiles;
+- child galleries inside a visible parent are not filtered;
+- shown parents remain hidden until the bridge resets its parent round after
+  every other matching parent has been used;
+- child-gallery history cannot prematurely remove a parent from that round;
+- the main shown count now decreases directly with parent visits.
+
+This replaces the child-gallery interpretation attempted in 0.81 and 0.82.
+
+Status: JavaScript syntax/behavior, AutoHotkey v1 syntax-load, static regression
+and package checks pass; live Windows interaction requires user confirmation.
+
+## 0.82
+
+Live UNIQUE progress correction:
+
+- the main summary reports remaining child galleries instead of only the
+  parent-tile count;
+- current-gallery observations are accumulated within the active UNIQUE round,
+  preventing a recent-only bridge snapshot from restoring already shown cards;
+- the bridge publishes a persistent full-cycle identifier;
+- a genuine full-cycle reset changes that identifier so the manager starts the
+  new round with the correct availability set.
+
+Status: JavaScript syntax/behavior, AutoHotkey v1 syntax-load, static regression
+and package checks pass; live Windows interaction requires user confirmation.
+
+## 0.81
+
+UNIQUE round availability in the manager:
+
+- the manager reads the bridge's persisted `RandomUniqueSeen` paths;
+- only unseen child galleries are displayed during an active random UNIQUE
+  round, and parents disappear after their last unseen child is shown;
+- parent and detail-window counts use the remaining child-gallery pool;
+- direct and random starts choose only galleries still available this round;
+- the bridge retains the complete filtered pool for cycle detection and
+  republishes UNIQUE progress after next-destination preparation resets a round.
+
+Status: JavaScript syntax/behavior, AutoHotkey v1 syntax-load, static regression
+and package checks pass; live Windows interaction requires user confirmation.
+
+## 0.80
+
+ALL/ANY included-keyword matching:
+
+- prepended one `ALL \ ANY` toggle to the keyword controls row;
+- `ANY` preserves OR matching across green included keywords;
+- `ALL` requires every green included keyword;
+- red exclusions remain vetoes in either mode;
+- the global setting persists and named presets retain their own mode while
+  older presets continue to load as `ANY`.
+
+Status: JavaScript syntax/behavior, keyword and rating regression, AHK v1
+syntax-load and package checks pass; live Windows interaction requires user confirmation.
+
+## 0.79
+
+Main keyword-row alignment:
+
+- every keyword group reserves the same fixed-width prefix column;
+- special groups display their prefix there while ordinary groups use a blank
+  placeholder;
+- all keyword button rows now begin on one consistent left-aligned edge.
+
+Status: JavaScript syntax/behavior, keyword and rating regression, AHK v1
+syntax-load and package checks pass; live Windows interaction requires user confirmation.
+
+## 0.78
+
+Keyword-filter guidance cleanup:
+
+- removed the visible `Filter` label;
+- removed the visible `LMB include · RMB exclude` helper;
+- each keyword filter button now carries that guidance in its tooltip;
+- readable prefix-bound rename text remains included in the same tooltip.
+
+Status: JavaScript syntax/behavior, keyword and rating regression, AHK v1
+syntax-load and package checks pass; live Windows interaction requires user confirmation.
+
+## 0.77
+
+Readable prefix-bound rename editing:
+
+- special-prefix keywords display one separator space while being edited;
+- stored `~Travel` is presented as `~ Travel` in the keyword field and rename
+  prompt;
+- the separator is removed on save, preserving canonical keyword identities;
+- changing both prefix and name in one rename remains supported and migrates
+  assignments, active filters and saved presets.
+
+Status: JavaScript syntax/behavior, keyword and rating regression, AHK v1
+syntax-load and package checks pass; live Windows interaction requires user confirmation.
+
 ## 0.76
 
 Prefix labels and bound keyword names:
@@ -15,7 +143,8 @@ Prefix labels and bound keyword names:
 - double-click rename exposes the full prefix-bound name so both parts can be
   changed together.
 
-Status: syntax and static regression validation required; live Windows interaction requires user confirmation.
+Status: JavaScript syntax/behavior, keyword and rating regression, AHK v1
+syntax-load and package checks pass; live Windows interaction requires user confirmation.
 
 ## 0.75
 

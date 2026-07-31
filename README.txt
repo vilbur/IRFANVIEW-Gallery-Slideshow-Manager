@@ -1,4 +1,4 @@
-Gallery Slideshow Manager — HTML version 0.76
+Gallery Slideshow Manager — HTML version 0.85
 
 ================================================
 
@@ -91,12 +91,19 @@ Tile behavior
 - Left-click a keyword filter to include it; included keyword text is green.
 - Right-click a keyword filter to exclude it; excluded keyword text is red.
 - Repeat the same click on an included or excluded keyword to clear that filter.
+- Keyword filter buttons provide the LMB/RMB instructions in their hover tooltip; no separate Filter or mouse-help labels are displayed.
+- The `ALL \ ANY` button is prepended to the keyword controls row and highlights the active include-matching mode.
+- `ANY` accepts a parent matching at least one green keyword; `ALL` requires every green keyword.
+- Red excluded keywords veto matching parents in both modes.
+- The selected mode is saved globally and with named keyword-filter presets.
 - Included keywords use OR matching; any matching excluded keyword removes the parent.
 - Saved keyword-filter presets retain both included and excluded keywords.
 - Special-prefix keywords always use the same symbol order: ~, @, !, #, $, %, &, then all other symbols in character order.
 - In the main filter UI, a special prefix appears once as the label at the left of its keyword row; button captions omit the prefix.
+- Every main keyword row reserves the same prefix column, keeping all keyword buttons aligned to one left edge.
 - Keyword-window buttons also omit the prefix, without displaying a separate prefix label.
-- Double-click rename loads the complete prefix-bound keyword name, so the prefix can be edited with the name.
+- Double-click rename loads the complete prefix-bound keyword with one editing space, for example `~ Travel`.
+- Saving removes that editing separator (`~ Travel` becomes `~Travel`) while allowing the prefix and name to change together.
 
 - Random slideshow respects search and keyword filters.
 - Random Gallery is the default slideshow mode. The selected gallery still
@@ -904,3 +911,88 @@ Version 0.76
 - Special characters are removed from keyword button captions in the main UI and keyword popup.
 - Each special character now produces one row while preserving case-priority order inside it.
 - Renaming still uses the complete stored keyword, allowing the bound prefix to be changed with the name.
+
+Version 0.77
+------------
+
+- Rename editing inserts one space between a special prefix and its keyword name.
+- For example, stored `~Travel` is edited as `~ Travel`.
+- The separator is removed when saving, so filters, assignments and presets retain the canonical bound name.
+- Prefix changes entered with the separator, such as `~ Travel` to `@ Trips`, remain supported.
+
+Version 0.78
+------------
+
+- Removed the redundant `Filter` label above the keyword controls.
+- Removed the visible `LMB include · RMB exclude` helper text.
+- Every keyword filter button now provides those instructions in its hover tooltip together with double-click rename guidance.
+
+Version 0.79
+------------
+
+- Every main keyword row now reserves the same fixed-width prefix column.
+- Special rows display their prefix in that column; ordinary rows keep it blank.
+- All keyword-button rows therefore share one consistent left alignment.
+
+Version 0.80
+------------
+
+- Added an `ALL \ ANY` toggle before the keyword-management controls.
+- `ANY` retains the existing OR behavior for included keywords.
+- `ALL` requires a parent to contain every included keyword.
+- Excluded keywords still remove matching parents in both modes.
+- Match mode persists in settings and is saved with compatible filter presets.
+
+Version 0.81
+------------
+
+- When UNIQUE is active for a random slideshow, the manager displays only
+  child galleries not yet shown in the current round.
+- Parent tiles disappear when all of their child galleries have been shown.
+- Parent and detail-window counts describe only the remaining galleries.
+- The complete filtered queue stays available to the bridge so a completed
+  UNIQUE round can reset without losing the filter pool.
+- Post-reset UNIQUE progress is published immediately to the manager.
+
+Version 0.82
+------------
+
+- The main summary now shows the number of child galleries remaining in the
+  active UNIQUE round, rather than only the unchanged parent-tile count.
+- Each newly observed current gallery is accumulated by the manager during
+  the same UNIQUE round, even if a bridge snapshot contains only recent paths.
+- The bridge publishes an explicit UNIQUE cycle identifier.
+- A real full-cycle reset changes that identifier, allowing the manager to
+  clear the old history and display the new round correctly.
+
+Version 0.83
+------------
+
+- UNIQUE display tracking now applies only to parent-gallery tiles.
+- Starting or visiting a parent in random UNIQUE mode marks that parent shown.
+- Shown parents disappear from the main manager while every child gallery
+  inside each still-visible parent remains available in its detail window.
+- A shown parent returns only when the bridge starts the next parent round,
+  after the other matching parent galleries have been used.
+- Child-gallery history cannot remove a matching parent from the parent round.
+- The main shown count therefore decreases by one parent per random parent visit.
+
+Version 0.84
+------------
+
+- A parent marked locally at random-slideshow start remains hidden while the
+  manager waits for the bridge to acknowledge the same current parent.
+- The one-second session refresh can no longer restore that parent from a stale
+  pre-start snapshot.
+- Once acknowledged, the bridge's parent-round list remains authoritative.
+
+Version 0.85
+------------
+
+- The currently running parent thumbnail remains visible.
+- A parent is marked shown and hidden only after a different next parent has
+  actually become active.
+- Closing the slideshow with Escape is not treated as a parent transition.
+- Previously completed parents remain hidden, while the last active parent
+  remains available when random slideshow resumes.
+- Finishing the last remaining parent resets the parent display round.

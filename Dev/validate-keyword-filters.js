@@ -53,6 +53,7 @@ state.searchText = "";
 state.ratingFilterMode = "all";
 state.ratingFilterValue = -1;
 state.ratingFilterValues = {};
+state.keywordMatchMode = "any";
 
 const includedParent = {
     name: "included",
@@ -68,6 +69,16 @@ const vetoedParent = {
     name: "vetoed",
     rating: 0,
     keywords: ["red", "blocked"]
+};
+const allIncludedParent = {
+    name: "all-included",
+    rating: 0,
+    keywords: ["red", "blue"]
+};
+const allIncludedVetoedParent = {
+    name: "all-included-vetoed",
+    rating: 0,
+    keywords: ["red", "blue", "blocked"]
 };
 
 state.activeFilters = {
@@ -98,10 +109,34 @@ check(
     "Legacy boolean filter state should remain an include filter."
 );
 
+state.activeFilters = {
+    red: "include",
+    blue: "include",
+    blocked: "exclude"
+};
+state.keywordMatchMode = "any";
+check(
+    parentMatches(includedParent) && parentMatches(unmatchedParent),
+    "ANY mode should accept a parent matching either included keyword."
+);
+state.keywordMatchMode = "all";
+check(
+    !parentMatches(includedParent)
+        && parentMatches(allIncludedParent)
+        && !parentMatches(allIncludedVetoedParent),
+    "ALL mode should require every include while exclusions still veto."
+);
+state.keywordMatchMode = "any";
+
 check(
     filterSignature(["Blue", "red"], ["bad"])
         === filterSignature(["RED", "blue"], ["BAD"]),
     "Filter signatures should be case-insensitive and order-independent."
+);
+check(
+    filterSignature(["red"], [], "all")
+        !== filterSignature(["red"], [], "any"),
+    "ALL and ANY combinations should have distinct preset signatures."
 );
 
 readIni = function() {
@@ -109,7 +144,8 @@ readIni = function() {
         KeywordFilterPresets: {
             "Preset.Legacy": "red|blue",
             "Preset.Mixed": "red",
-            "PresetExclude.Mixed": "blocked"
+            "PresetExclude.Mixed": "blocked",
+            "PresetMatchMode.Mixed": "all"
         }
     };
 };
@@ -122,12 +158,14 @@ const mixedPreset = findFilterPresetById("Preset.Mixed");
 check(state.filterPresets.length === 2, "Both presets should load.");
 check(
     legacyPreset.includeKeywords.length === 2
-        && legacyPreset.excludeKeywords.length === 0,
+        && legacyPreset.excludeKeywords.length === 0
+        && legacyPreset.matchMode === "any",
     "An older include-only preset should load unchanged."
 );
 check(
     mixedPreset.includeKeywords[0] === "red"
-        && mixedPreset.excludeKeywords[0] === "blocked",
+        && mixedPreset.excludeKeywords[0] === "blocked"
+        && mixedPreset.matchMode === "all",
     "An include/exclude preset should load both states."
 );
 
@@ -138,6 +176,10 @@ const controls = {
     },
     filterPresetSelect: {
         value: ""
+    },
+    keywordMatchModeButton: {
+        className: "",
+        title: ""
     }
 };
 let savedSettings = {
@@ -162,6 +204,7 @@ state.activeFilters = {
     red: "include",
     blocked: "exclude"
 };
+state.keywordMatchMode = "all";
 state.filterPresets = [];
 
 check(saveCurrentFilterPreset(), "A mixed filter preset should save.");
@@ -175,9 +218,20 @@ check(
     ] === "blocked",
     "The excluded half of a preset should use its companion key."
 );
+check(
+    savedSettings.KeywordFilterPresets[
+        "PresetMatchMode.Mixed%20filters"
+    ] === "all",
+    "A saved preset should retain ALL matching mode."
+);
+updateKeywordMatchModeButton();
+check(
+    controls.keywordMatchModeButton.className.indexOf("matchAll") >= 0,
+    "The ALL/ANY button should visibly identify ALL mode."
+);
 
 const keywordInput = {
-    value: "blocked",
+    value: "~ blocked",
     focus: function() {},
     select: function() {}
 };
@@ -186,16 +240,16 @@ const galleryKeywords = {
 };
 const keywordData = {
     Keywords: {
-        List: "red|blocked"
+        List: "red|~blocked"
     },
     "Parent.A": {
-        Keywords: "red|blocked"
+        Keywords: "red|~blocked"
     }
 };
 savedSettings = {
     KeywordFilterPresets: {
         "Preset.Mixed": "red",
-        "PresetExclude.Mixed": "blocked"
+        "PresetExclude.Mixed": "~blocked"
     }
 };
 global.document.getElementById = function(id) {
@@ -209,20 +263,22 @@ global.document.getElementById = function(id) {
 
     return controls[id];
 };
-global.prompt = function() {
-    return "hidden";
+let renamePromptDefault = "";
+global.prompt = function(message, defaultValue) {
+    renamePromptDefault = defaultValue;
+    return "@ hidden";
 };
 global.alert = function(message) {
     throw new Error("Unexpected alert: " + message);
 };
 state.root = "X:\\root";
-state.keywords = ["red", "blocked"];
+state.keywords = ["red", "~blocked"];
 state.activeFilters = {
-    blocked: "exclude"
+    "~blocked": "exclude"
 };
 state.parents = [{
     path: "X:\\root\\A",
-    keywords: ["red", "blocked"]
+    keywords: ["red", "~blocked"]
 }];
 state.selectedParent = state.parents[0];
 readIni = function(path) {
@@ -239,19 +295,37 @@ renderKeywordFilters = function() {};
 renderParents = function() {};
 saveLibraryCache = function() {};
 
+state.keywordMatchMode = "all";
+toggleKeywordMatchMode();
+check(
+    state.keywordMatchMode === "any"
+        && savedSettings.Options.KeywordMatchMode === "any",
+    "The ALL/ANY toggle should persist ANY mode."
+);
+toggleKeywordMatchMode();
+check(
+    state.keywordMatchMode === "all"
+        && savedSettings.Options.KeywordMatchMode === "all",
+    "The ALL/ANY toggle should persist ALL mode."
+);
+
 check(renameKeyword(), "An excluded keyword should rename.");
 check(
-    savedSettings.KeywordFilterPresets["PresetExclude.Mixed"] === "hidden",
-    "Renaming should update excluded preset keywords."
+    renamePromptDefault === "~ blocked",
+    "The rename prompt should separate the prefix from the keyword name."
 );
 check(
-    state.activeFilters.hidden === "exclude"
-        && !state.activeFilters.blocked,
-    "Renaming should preserve the active excluded state."
+    savedSettings.KeywordFilterPresets["PresetExclude.Mixed"] === "@hidden",
+    "Renaming should update excluded preset keywords and their prefix."
 );
 check(
-    state.parents[0].keywords[1] === "hidden",
-    "Renaming should update the in-memory parent assignment."
+    state.activeFilters["@hidden"] === "exclude"
+        && !state.activeFilters["~blocked"],
+    "Renaming should preserve the active excluded state under the new prefix."
+);
+check(
+    state.parents[0].keywords[1] === "@hidden",
+    "Renaming should update the prefix-bound in-memory parent assignment."
 );
 
 global.document.createElement = function() {
@@ -269,6 +343,21 @@ let filterButton = createKeywordFilterButton("green");
 check(
     filterButton.innerHTML.indexOf("keywordFilterMark") < 0,
     "Keyword filter buttons should not contain a checkbox or mark."
+);
+check(
+    filterButton.title.indexOf("LMB include · RMB exclude") >= 0,
+    "Each keyword button should expose include/exclude help in its tooltip."
+);
+check(
+    htaText.indexOf('id="keywordFilterHint"') < 0
+        && htaText.indexOf('<span class="label">Filter</span>') < 0,
+    "The visible Filter and mouse-help labels should be removed."
+);
+check(
+    htaText.indexOf('id="keywordMatchModeButton"') >= 0
+        && htaText.indexOf('id="keywordMatchModeButton"')
+            < htaText.indexOf('<span class="label">Keyword</span>'),
+    "The ALL/ANY button should be prepended to the keyword controls row."
 );
 filterButton.onclick();
 check(
@@ -387,9 +476,44 @@ check(
     "Each special character should produce one labeled keyword row."
 );
 check(
+    htaText.indexOf("prefix.innerText = group.isSpecial") >= 0,
+    "Every main keyword row should reserve the shared prefix column."
+);
+check(
     keywordControlText("~ALPHA") === "ALPHA"
         && keywordControlText("plain") === "plain",
     "Control captions should omit a special prefix only."
+);
+check(
+    keywordEditText("~ALPHA") === "~ ALPHA"
+        && keywordFromEditText(" @  Changed ") === "@Changed",
+    "Keyword edit text should add one separator and remove it when saved."
+);
+const prefixedBadgeWords = [
+    "~ TILDE",
+    "@ AT",
+    "! BANG",
+    "# HASH",
+    "$ DOLLAR",
+    "% PERCENT",
+    "& AMPERSAND",
+    "+ PLUS"
+];
+const prefixedBadgeHtml = keywordBadgeHtml(prefixedBadgeWords);
+check(
+    prefixedBadgeHtml === [
+        "TILDE",
+        "AT",
+        "BANG",
+        "HASH",
+        "DOLLAR",
+        "PERCENT",
+        "AMPERSAND",
+        "PLUS"
+    ].map(function(word) {
+        return '<span class="keywordBadge">' + word + '</span>';
+    }).join(""),
+    "Thumbnail keyword badges should hide every special-character prefix."
 );
 check(
     htaText.indexOf("label.innerText = keywordControlText(word);") >= 0,
@@ -402,10 +526,37 @@ check(
         && filterButton.innerHTML.indexOf("green") >= 0,
     "Main keyword buttons should hide the special prefix."
 );
+check(
+    filterButton.title.indexOf("~ green") >= 0,
+    "The keyword tooltip should retain the readable prefix-bound name."
+);
 filterButton.ondblclick();
 check(
-    keywordInput.value === "~green",
+    keywordInput.value === "~ green",
     "Renaming should receive the complete prefix-bound keyword name."
+);
+
+check(
+    htaText.indexOf(
+        'id="contextMenu" class="keywordMenuSurface" '
+        + 'onclick="window.event.cancelBubble=true;"'
+    ) >= 0
+        && htaText.indexOf("clickEvent.cancelBubble = true;") >= 0,
+    "Keyword clicks should stay inside the open right-click menu."
+);
+check(
+    htaText.indexOf('ratingCount.className = "contextRatingCount";') >= 0
+        && htaText.indexOf(
+            "menu._keywordRatingCount.innerText = String(parentRating);"
+        ) >= 0,
+    "The right-click keyword menu should display the numeric parent rating."
+);
+check(
+    keywordIniName === "gallery-keywords.ini"
+        && keywordIniPath() === "X:\\root\\gallery-keywords.ini"
+        && keywordIniPath() !== ratingIniPath()
+        && keywordIniPath() !== settingsPath,
+    "Keyword definitions and assignments should stay in their dedicated file."
 );
 
 console.log("Keyword filter behavior: PASS");

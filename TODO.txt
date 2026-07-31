@@ -1,6 +1,4 @@
-sort keywords by priority
-
-keep open rc keyword menu
-rating count in rc memnu
-
-keep keywords in extra file.
+[x] Sort keywords by priority.
+[x] Keep the right-click keyword menu open while assigning multiple keywords.
+[x] Show the numeric rating in the right-click keyword menu.
+[x] Keep keyword definitions and assignments in gallery-keywords.ini.

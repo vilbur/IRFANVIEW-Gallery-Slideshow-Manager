@@ -10,7 +10,7 @@ SetWorkingDir, %A_ScriptDir%
 ; AutoHotkey v1.1.36 native bridge for the HTML tile interface.
 ; Handles IrfanView, VLC, global navigation, dynamic lists, and background preparation.
 
-SCRIPT_VERSION := "0.76"
+SCRIPT_VERSION := "0.85"
 APP_NAME := "Gallery-Slideshow-Manager"
 DATA_DIR := A_Temp . "\" . APP_NAME
 SETTINGS_INI := DATA_DIR . "\" . APP_NAME . ".ini"
@@ -70,6 +70,8 @@ random_navigation_active := true
 random_unique_active := false
 random_unique_seen := []
 random_unique_parent_seen := []
+random_unique_skip_parent_completion_once := false
+random_unique_parent_round_reset_pending := false
 random_gallery_history := []
 random_gallery_history_limit := 12
 stored_random_gallery := ""
@@ -1238,6 +1240,11 @@ launchPreparedSlot(slot_prefix)
 {
     global root_folder, current_parent, current_gallery
     global current_video, switching_slideshow, auto_vlc_enabled
+    global random_unique_skip_parent_completion_once
+    global random_unique_parent_round_reset_pending
+    global random_unique_parent_seen
+
+    previous_parent := normalizeFolderPath(current_parent)
 
     ready_path := slot_prefix . ".ready"
     list_path := slot_prefix . ".list.txt"
@@ -1271,6 +1278,28 @@ launchPreparedSlot(slot_prefix)
     current_parent := normalizeFolderPath(parent_folder)
     current_video := video_path
     recordRandomGalleryVisit(current_gallery)
+
+    if (isUniqueRandomMode())
+    {
+        if (random_unique_skip_parent_completion_once)
+        {
+            random_unique_skip_parent_completion_once := false
+        }
+        else if (previous_parent != ""
+            && toLowerText(previous_parent) != toLowerText(current_parent))
+        {
+            if (random_unique_parent_round_reset_pending)
+            {
+                random_unique_parent_seen := []
+                random_unique_parent_round_reset_pending := false
+            }
+            else
+            {
+                markUniqueRandomParentSeen(previous_parent)
+            }
+        }
+    }
+
     consumeStoredRandomSameParentDestination(current_gallery)
     consumeStoredRandomDestination(current_gallery)
 
@@ -1694,6 +1723,7 @@ prepareNextNavigationSlots()
     {
         random_same_parent_gallery := ensureStoredRandomSameParentDestination()
         random_next_parent_gallery := ensureStoredRandomDestination()
+        writeRandomUniqueSessionProgress()
         startPreparationWorker(NEXT_GALLERY_PREFIX, random_same_parent_gallery)
         startPreparationWorker(NEXT_PARENT_PREFIX, random_next_parent_gallery)
         startPreparationWorker(PREVIOUS_PARENT_PREFIX, random_next_parent_gallery)
@@ -2626,18 +2656,52 @@ setRandomNavigationMode(is_active, unique_active := false)
     global random_unique_active
     global random_unique_seen
     global random_unique_parent_seen
+    global current_gallery
     global random_gallery_history
     global stored_random_gallery, stored_random_parent
     global stored_random_same_parent_gallery
 
+    continue_parent_round := is_active && unique_active && random_unique_active && current_gallery = ""
+
     random_navigation_active := is_active ? true : false
     random_unique_active := random_navigation_active && unique_active
     random_unique_seen := []
-    random_unique_parent_seen := []
+
+    if (!continue_parent_round)
+    {
+        random_unique_parent_seen := []
+    }
+
+    random_unique_skip_parent_completion_once := true
+    random_unique_parent_round_reset_pending := false
     random_gallery_history := []
     stored_random_gallery := ""
     stored_random_parent := ""
     stored_random_same_parent_gallery := ""
+    return true
+}
+
+/*
+Publish UNIQUE progress after candidate preparation. Preparing the next
+destination can reset a completed round, so the manager must receive the
+post-reset seen list rather than the list from just before preparation.
+*/
+writeRandomUniqueSessionProgress()
+{
+    global SESSION_INI
+    global random_navigation_active
+    global random_unique_active
+    global random_unique_seen
+    global random_unique_parent_seen
+
+    unique_value := random_navigation_active && random_unique_active ? 1 : 0
+    IniWrite, %unique_value%, %SESSION_INI%, Session, RandomUnique
+
+    unique_seen_text := joinRandomUniquePaths(random_unique_seen)
+    writeIniValueOrDelete(unique_seen_text, SESSION_INI, "Session", "RandomUniqueSeen")
+
+    unique_parent_seen_text := joinRandomUniquePaths(random_unique_parent_seen)
+    writeIniValueOrDelete(unique_parent_seen_text, SESSION_INI, "Session", "RandomUniqueParentSeen")
     return true
 }
 
@@ -2652,6 +2716,8 @@ setRandomUniqueMode(is_active)
     global random_unique_active
     global random_unique_seen
     global random_unique_parent_seen
+    global random_unique_skip_parent_completion_once
+    global random_unique_parent_round_reset_pending
     global current_gallery
     global current_parent
     global stored_random_gallery, stored_random_parent
@@ -2660,6 +2726,8 @@ setRandomUniqueMode(is_active)
     random_unique_active := random_navigation_active && is_active
     random_unique_seen := []
     random_unique_parent_seen := []
+    random_unique_skip_parent_completion_once := false
+    random_unique_parent_round_reset_pending := false
     stored_random_gallery := ""
     stored_random_parent := ""
     stored_random_same_parent_gallery := ""
@@ -2671,20 +2739,9 @@ setRandomUniqueMode(is_active)
             markUniqueRandomGallerySeen(current_gallery)
         }
 
-        if (current_parent != "")
-        {
-            markUniqueRandomParentSeen(current_parent)
-        }
     }
 
-    unique_value := random_unique_active ? 1 : 0
-    IniWrite, %unique_value%, %SESSION_INI%, Session, RandomUnique
-
-    unique_seen_text := joinRandomUniquePaths(random_unique_seen)
-    writeIniValueOrDelete(unique_seen_text, SESSION_INI, "Session", "RandomUniqueSeen")
-
-    unique_parent_seen_text := joinRandomUniquePaths(random_unique_parent_seen)
-    writeIniValueOrDelete(unique_parent_seen_text, SESSION_INI, "Session", "RandomUniqueParentSeen")
+    writeRandomUniqueSessionProgress()
 
     if (current_gallery != "")
     {
@@ -2821,14 +2878,11 @@ Start a new parent round without resetting child-gallery progress.
 */
 resetUniqueRandomParentRound(current_parent)
 {
-    global random_unique_parent_seen
+    global random_unique_parent_round_reset_pending
 
-    random_unique_parent_seen := []
-
-    if (current_parent != "")
-    {
-        markUniqueRandomParentSeen(current_parent)
-    }
+    ; Candidate preparation may choose from the next round, but the current
+    ; parent is not completed until that prepared parent actually opens.
+    random_unique_parent_round_reset_pending := true
 
     return true
 }
@@ -2974,14 +3028,6 @@ recordRandomGalleryVisit(gallery_path)
     if (isUniqueRandomMode())
     {
         markUniqueRandomGallerySeen(gallery_path)
-
-        SplitPath, gallery_path,, parent_path
-        parent_path := normalizeFolderPath(parent_path)
-
-        if (parent_path != "")
-        {
-            markUniqueRandomParentSeen(parent_path)
-        }
     }
 
     return true
@@ -3494,9 +3540,15 @@ getRandomDifferentParentGalleryPath(current_parent, allow_unique_reset := true)
     {
         allowed_galleries := getAllowedRandomGalleries(parent_group.galleries)
 
+        ; Parent UNIQUE rounds include every matching parent. Child history
+        ; may choose a fresh child when available, but it must not remove the
+        ; parent itself from the parent round.
         if (allowed_galleries.Length() < 1)
         {
-            continue
+            for gallery_index, gallery_path in parent_group.galleries
+            {
+                allowed_galleries.Push(gallery_path)
+            }
         }
 
         candidate_group := {}
@@ -4900,9 +4952,13 @@ clearRunningSessionState()
     global random_unique_active
     global random_unique_seen
     global random_unique_parent_seen
+    global random_unique_skip_parent_completion_once
+    global random_unique_parent_round_reset_pending
     global random_gallery_history
     global stored_random_gallery, stored_random_parent
     global stored_random_same_parent_gallery
+
+    preserve_unique_parent_round := random_navigation_active && random_unique_active
 
     current_parent := ""
     current_gallery := ""
@@ -4911,9 +4967,16 @@ clearRunningSessionState()
     current_vlc_window_id := ""
     current_vlc_pid := ""
     random_navigation_active := true
-    random_unique_active := false
+    random_unique_active := preserve_unique_parent_round ? true : false
     random_unique_seen := []
-    random_unique_parent_seen := []
+
+    if (!preserve_unique_parent_round)
+    {
+        random_unique_parent_seen := []
+    }
+
+    random_unique_skip_parent_completion_once := false
+    random_unique_parent_round_reset_pending := false
     random_gallery_history := []
     stored_random_gallery := ""
     stored_random_parent := ""
@@ -4925,10 +4988,21 @@ clearRunningSessionState()
     IniDelete, %SESSION_INI%, Session, CurrentParentRating
     IniDelete, %SESSION_INI%, Session, ImageCount
     IniDelete, %SESSION_INI%, Session, IrfanViewPid
-    IniDelete, %SESSION_INI%, Session, NavigationMode
-    IniDelete, %SESSION_INI%, Session, RandomUnique
     IniDelete, %SESSION_INI%, Session, RandomUniqueSeen
-    IniDelete, %SESSION_INI%, Session, RandomUniqueParentSeen
+
+    if (preserve_unique_parent_round)
+    {
+        IniWrite, random, %SESSION_INI%, Session, NavigationMode
+        IniWrite, 1, %SESSION_INI%, Session, RandomUnique
+        unique_parent_seen_text := joinRandomUniquePaths(random_unique_parent_seen)
+        writeIniValueOrDelete(unique_parent_seen_text, SESSION_INI, "Session", "RandomUniqueParentSeen")
+    }
+    else
+    {
+        IniDelete, %SESSION_INI%, Session, NavigationMode
+        IniDelete, %SESSION_INI%, Session, RandomUnique
+        IniDelete, %SESSION_INI%, Session, RandomUniqueParentSeen
+    }
     return true
 }
 
@@ -5225,10 +5299,6 @@ readSessionState()
             markUniqueRandomGallerySeen(current_gallery)
         }
 
-        if (current_parent != "" && !isUniqueRandomParentSeen(current_parent))
-        {
-            markUniqueRandomParentSeen(current_parent)
-        }
     }
 }
 

@@ -52,6 +52,15 @@ Review this before every release.
 - [ ] Recent-history prevention remains active.
 - [ ] Filters and exclusions are respected.
 - [ ] UNIQUE is respected.
+- [ ] Active UNIQUE rounds display only unshown parent galleries.
+- [ ] UNIQUE never filters child galleries inside a visible parent.
+- [ ] UNIQUE display filtering does not shrink the bridge's full filtered queue.
+- [ ] The main UNIQUE count decreases for each newly shown parent gallery.
+- [ ] A shown parent returns only after the other matching parents have been used.
+- [ ] Child-gallery history never removes a matching parent from the parent round.
+- [ ] The active random parent remains visible until a different parent becomes active.
+- [ ] Escape never marks the last active parent shown.
+- [ ] Escape preserves earlier completed parents and leaves the last parent available.
 - [ ] Preview and execution always refer to the same gallery.
 - [ ] Filtered-navigation queue is never published as a partially written file.
 - [ ] Missing/empty/corrupt queue falls back to direct library discovery.
@@ -116,11 +125,16 @@ Obsolete controls remain absent:
 - [ ] Keywords remain alphabetically sorted.
 - [ ] Special-prefix keywords keep the same deterministic order on every keyword surface.
 - [ ] Main special-prefix rows have left labels; keyword-window rows do not.
+- [ ] All main keyword rows reserve the same prefix column and remain left-aligned.
 - [ ] Keyword button captions omit prefixes while rename retains the complete bound name.
+- [ ] Rename editing shows one prefix separator but saves the canonical bound name without it.
 - [ ] Assignment affects selected parent only.
 - [ ] Included keyword filters retain OR matching.
+- [ ] ALL mode requires every included keyword; ANY mode retains OR matching.
 - [ ] Excluded keyword filters veto matching parents.
+- [ ] ALL/ANY mode persists and older presets default to ANY.
 - [ ] Filter buttons have no checkbox: LMB is green include and RMB is red exclude.
+- [ ] Filter and LMB/RMB helper labels stay absent; button tooltips retain that guidance.
 - [ ] Older include-only keyword-filter presets still load unchanged.
 - [ ] X shows the current slideshow gallery's parent keywords in a tray notification.
 - [ ] The slideshow keyword dialog opens without a browser address bar when supported.
