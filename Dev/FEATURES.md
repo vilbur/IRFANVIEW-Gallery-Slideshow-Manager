@@ -247,6 +247,11 @@ These must remain removed:
 
 - Assign keywords to selected parent gallery.
 - Sort keywords alphabetically on startup.
+- Keyword filters cycle through include, exclude and clear states.
+- Multiple included keywords use OR matching.
+- Any matching excluded keyword vetoes a parent that would otherwise match.
+- Saved filter presets preserve included and excluded keyword states and load
+  older include-only presets unchanged.
 - Display plain keywords without redundant `Keywords:` label.
 - Empty keyword state displays nothing.
 - `X` shows the current slideshow gallery's parent keywords in a tray notification.

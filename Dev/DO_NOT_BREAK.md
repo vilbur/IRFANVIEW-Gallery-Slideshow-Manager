@@ -114,6 +114,9 @@ Obsolete controls remain absent:
 - [ ] Rating persists and displays.
 - [ ] Keywords remain alphabetically sorted.
 - [ ] Assignment affects selected parent only.
+- [ ] Included keyword filters retain OR matching.
+- [ ] Excluded keyword filters veto matching parents.
+- [ ] Older include-only keyword-filter presets still load unchanged.
 - [ ] X shows the current slideshow gallery's parent keywords in a tray notification.
 - [ ] The slideshow keyword dialog opens without a browser address bar when supported.
 - [ ] Keyword filters affect random gallery matching.

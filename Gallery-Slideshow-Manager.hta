@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta charset="utf-8" />
-<title>Gallery Slideshow Manager 0.71</title>
+<title>Gallery Slideshow Manager 0.72</title>
 <hta:application
     id="galleryApp"
     applicationname="Gallery Slideshow Manager"
@@ -250,6 +250,12 @@ input:disabled {
     color: #ffffff;
     box-shadow: 0 0 0 1px rgba(77,143,233,0.18);
 }
+.keywordFilterButton.exclude {
+    border-color: #d66b75;
+    background: #7c2d38;
+    color: #ffffff;
+    box-shadow: 0 0 0 1px rgba(214,107,117,0.18);
+}
 .keywordFilterMark {
     display: inline-flex;
     align-items: center;
@@ -270,7 +276,18 @@ input:disabled {
     background: #eaf4ff;
     color: #24599b;
 }
+.keywordFilterButton.exclude .keywordFilterMark {
+    border-color: #ffe2e5;
+    background: #fff0f2;
+    color: #8a2633;
+}
 .keywordFilterWord {
+    white-space: nowrap;
+}
+#keywordFilterHint {
+    margin-left: 8px;
+    color: #8e9aaa;
+    font-size: 11px;
     white-space: nowrap;
 }
 #ratingFilters {
@@ -949,7 +966,7 @@ var fso = new ActiveXObject("Scripting.FileSystemObject");
 var shell = new ActiveXObject("WScript.Shell");
 var shellApp = new ActiveXObject("Shell.Application");
 
-var APP_VERSION = "0.71";
+var APP_VERSION = "0.72";
 var APP_NAME = "Gallery-Slideshow-Manager";
 var appDir = getApplicationDirectory();
 var tempDir = shell.ExpandEnvironmentStrings("%TEMP%");
@@ -1709,12 +1726,25 @@ function joinKeywords(words) {
     return words.join("|");
 }
 
-function getActiveFilterWords() {
+function normalizeKeywordFilterMode(value) {
+    if (value === "exclude") {
+        return "exclude";
+    }
+
+    return value ? "include" : "";
+}
+
+function getActiveFilterWords(mode) {
     var words = [];
+    var requestedMode = mode || "include";
     var i;
 
     for (i = 0; i < state.keywords.length; i++) {
-        if (state.activeFilters[lower(state.keywords[i])]) {
+        if (
+            normalizeKeywordFilterMode(
+                state.activeFilters[lower(state.keywords[i])]
+            ) === requestedMode
+        ) {
             words.push(state.keywords[i]);
         }
     }
@@ -1722,7 +1752,7 @@ function getActiveFilterWords() {
     return words;
 }
 
-function filterSignature(words) {
+function normalizedKeywordSignature(words) {
     var normalized = [];
     var seen = {};
     var i;
@@ -1740,8 +1770,19 @@ function filterSignature(words) {
     return normalized.join("|");
 }
 
+function filterSignature(includeWords, excludeWords) {
+    return "include:"
+        + normalizedKeywordSignature(includeWords || [])
+        + "||exclude:"
+        + normalizedKeywordSignature(excludeWords || []);
+}
+
 function presetIniKey(presetName) {
     return "Preset." + encodeURIComponent(presetName);
+}
+
+function presetExcludeIniKey(presetName) {
+    return "PresetExclude." + encodeURIComponent(presetName);
 }
 
 function presetNameFromIniKey(keyName) {
@@ -1773,12 +1814,16 @@ function loadFilterPresets() {
             continue;
         }
 
-        var words = parseKeywordList(section[key]);
+        var includeWords = parseKeywordList(section[key]);
+        var excludeWords = parseKeywordList(
+            section["PresetExclude." + key.substr(7)] || ""
+        );
         presets.push({
             id: key,
             name: name,
-            keywords: words,
-            signature: filterSignature(words)
+            includeKeywords: includeWords,
+            excludeKeywords: excludeWords,
+            signature: filterSignature(includeWords, excludeWords)
         });
     }
 
@@ -1792,7 +1837,10 @@ function loadFilterPresets() {
 }
 
 function findMatchingFilterPreset() {
-    var signature = filterSignature(getActiveFilterWords());
+    var signature = filterSignature(
+        getActiveFilterWords("include"),
+        getActiveFilterWords("exclude")
+    );
     var i;
 
     for (i = 0; i < state.filterPresets.length; i++) {
@@ -1847,22 +1895,24 @@ function updateFilterPresetControls() {
         select.appendChild(option);
     }
 
-    var activeWords = getActiveFilterWords();
+    var includeWords = getActiveFilterWords("include");
+    var excludeWords = getActiveFilterWords("exclude");
+    var activeCount = includeWords.length + excludeWords.length;
     var matchedPreset = findMatchingFilterPreset();
     state.matchedFilterPresetId = matchedPreset ? matchedPreset.id : "";
 
     if (matchedPreset) {
         select.value = matchedPreset.id;
         hint.innerText = "Matches saved preset: " + matchedPreset.name;
-    } else if (!activeWords.length) {
+    } else if (!activeCount) {
         select.value = "__none__";
-        hint.innerText = "Select keywords to create a named preset.";
+        hint.innerText = "Select include or exclude filters to create a named preset.";
     } else {
         select.value = "__custom__";
-        hint.innerText = "This keyword combination is not saved.";
+        hint.innerText = "This include/exclude combination is not saved.";
     }
 
-    var canSave = activeWords.length > 0 && !matchedPreset;
+    var canSave = activeCount > 0 && !matchedPreset;
     nameInput.disabled = !canSave;
     saveButton.disabled = !canSave;
 
@@ -1892,11 +1942,19 @@ function loadSelectedFilterPreset() {
                 available[lower(state.keywords[i])] = state.keywords[i];
             }
 
-            for (i = 0; i < preset.keywords.length; i++) {
-                var key = lower(preset.keywords[i]);
+            for (i = 0; i < preset.includeKeywords.length; i++) {
+                var key = lower(preset.includeKeywords[i]);
 
                 if (available[key]) {
-                    state.activeFilters[key] = true;
+                    state.activeFilters[key] = "include";
+                }
+            }
+
+            for (i = 0; i < preset.excludeKeywords.length; i++) {
+                key = lower(preset.excludeKeywords[i]);
+
+                if (available[key]) {
+                    state.activeFilters[key] = "exclude";
                 }
             }
         }
@@ -1908,16 +1966,17 @@ function loadSelectedFilterPreset() {
 }
 
 function saveCurrentFilterPreset() {
-    var activeWords = getActiveFilterWords();
+    var includeWords = getActiveFilterWords("include");
+    var excludeWords = getActiveFilterWords("exclude");
     var matchedPreset = findMatchingFilterPreset();
 
-    if (!activeWords.length) {
+    if (!includeWords.length && !excludeWords.length) {
         alert("Select at least one keyword before creating a preset.");
         return false;
     }
 
     if (matchedPreset) {
-        alert("This keyword combination already matches preset: " + matchedPreset.name);
+        alert("This filter combination already matches preset: " + matchedPreset.name);
         updateFilterPresetControls();
         return false;
     }
@@ -1946,7 +2005,15 @@ function saveCurrentFilterPreset() {
     }
 
     var key = presetIniKey(presetName);
-    data.KeywordFilterPresets[key] = joinKeywords(activeWords);
+    var excludeKey = presetExcludeIniKey(presetName);
+    data.KeywordFilterPresets[key] = joinKeywords(includeWords);
+
+    if (excludeWords.length) {
+        data.KeywordFilterPresets[excludeKey] = joinKeywords(excludeWords);
+    } else {
+        delete data.KeywordFilterPresets[excludeKey];
+    }
+
     writeIni(settingsPath, data);
 
     input.value = "";
@@ -3368,7 +3435,10 @@ function renameKeyword() {
     for (presetKey in presetSection) {
         if (
             presetSection.hasOwnProperty(presetKey)
-            && presetKey.indexOf("Preset.") === 0
+            && (
+                presetKey.indexOf("Preset.") === 0
+                || presetKey.indexOf("PresetExclude.") === 0
+            )
         ) {
             var presetWords = parseKeywordList(
                 presetSection[presetKey]
@@ -3393,11 +3463,13 @@ function renameKeyword() {
         writeIni(settingsPath, settingsData);
     }
 
-    var wasActive = !!state.activeFilters[oldKey];
+    var activeMode = normalizeKeywordFilterMode(
+        state.activeFilters[oldKey]
+    );
     delete state.activeFilters[oldKey];
 
-    if (wasActive) {
-        state.activeFilters[newKey] = true;
+    if (activeMode) {
+        state.activeFilters[newKey] = activeMode;
     }
 
     for (i = 0; i < state.parents.length; i++) {
@@ -3486,7 +3558,13 @@ function pruneActiveFilters() {
     var key;
     for (key in state.activeFilters) {
         if (state.activeFilters.hasOwnProperty(key) && available[key]) {
-            clean[key] = true;
+            var mode = normalizeKeywordFilterMode(
+                state.activeFilters[key]
+            );
+
+            if (mode) {
+                clean[key] = mode;
+            }
         }
     }
     state.activeFilters = clean;
@@ -3694,9 +3772,9 @@ function groupedKeywords(words) {
     return result;
 }
 
-function setKeywordFilterState(word, enabled) {
-    if (enabled) {
-        state.activeFilters[lower(word)] = true;
+function setKeywordFilterState(word, mode) {
+    if (mode === "include" || mode === "exclude") {
+        state.activeFilters[lower(word)] = mode;
     } else {
         delete state.activeFilters[lower(word)];
     }
@@ -3706,21 +3784,33 @@ function setKeywordFilterState(word, enabled) {
 }
 
 function createKeywordFilterButton(word) {
-    var active = !!state.activeFilters[lower(word)];
+    var mode = normalizeKeywordFilterMode(
+        state.activeFilters[lower(word)]
+    );
     var button = document.createElement("button");
     var clickTimer = 0;
+    var nextMode =
+        mode === "include"
+        ? "exclude"
+        : (mode === "exclude" ? "" : "include");
+    var mark =
+        mode === "include"
+        ? "✓"
+        : (mode === "exclude" ? "−" : "");
 
     button.type = "button";
     button.className =
         "keywordFilterButton"
-        + (active ? " active" : "");
+        + (mode ? " active " + mode : "");
     button.title =
-        active
-        ? "Click to disable filter; double-click to edit: " + word
-        : "Click to enable filter; double-click to edit: " + word;
+        mode === "include"
+        ? "Included. Click to exclude; double-click to edit: " + word
+        : (mode === "exclude"
+            ? "Excluded. Click to clear; double-click to edit: " + word
+            : "Click to include; double-click to edit: " + word);
     button.innerHTML =
         '<span class="keywordFilterMark">'
-        + (active ? "✓" : "")
+        + mark
         + '</span>'
         + '<span class="keywordFilterWord">'
         + escapeHtml(word)
@@ -3733,7 +3823,7 @@ function createKeywordFilterButton(word) {
 
         clickTimer = window.setTimeout(function() {
             clickTimer = 0;
-            setKeywordFilterState(word, !active);
+            setKeywordFilterState(word, nextMode);
         }, 260);
 
         window.event.cancelBubble = true;
@@ -5055,24 +5145,38 @@ function parentMatches(parent) {
         return false;
     }
 
-    var hasFilter = false;
+    var parentKeywordSet = {};
+    var i;
+
+    for (i = 0; i < parent.keywords.length; i++) {
+        parentKeywordSet[lower(parent.keywords[i])] = true;
+    }
+
+    var hasIncludeFilter = false;
+    var matchesIncludeFilter = false;
     var key;
+
     for (key in state.activeFilters) {
         if (state.activeFilters.hasOwnProperty(key)) {
-            hasFilter = true;
-            break;
+            var filterMode = normalizeKeywordFilterMode(
+                state.activeFilters[key]
+            );
+
+            if (filterMode === "exclude" && parentKeywordSet[key]) {
+                return false;
+            }
+
+            if (filterMode === "include") {
+                hasIncludeFilter = true;
+
+                if (parentKeywordSet[key]) {
+                    matchesIncludeFilter = true;
+                }
+            }
         }
     }
-    if (!hasFilter) {
-        return true;
-    }
-    var i;
-    for (i = 0; i < parent.keywords.length; i++) {
-        if (state.activeFilters[lower(parent.keywords[i])]) {
-            return true;
-        }
-    }
-    return false;
+
+    return !hasIncludeFilter || matchesIncludeFilter;
 }
 
 function renderParents() {
@@ -7435,7 +7539,8 @@ function initialize() {
         </div>
         <div class="row">
             <span class="label">Filter</span>
-            <div id="keywordFilters" class="grow"></div>
+            <div id="keywordFilters" class="grow" title="Click each keyword to cycle through include, exclude and clear."></div>
+            <span id="keywordFilterHint">✓ include · − exclude</span>
         </div>
         <div class="row">
             <span class="label">Rating</span>
@@ -7480,7 +7585,7 @@ function initialize() {
         <div id="emptyState">No parent galleries match the current filters.</div>
     </div>
 
-    <div id="statusBar">v0.71 | Ready.</div>
+    <div id="statusBar">v0.72 | Ready.</div>
 </div>
 
 <div id="galleryOverlay" onclick="if (window.event.srcElement === this) closeGalleryDialog();">

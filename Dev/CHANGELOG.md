@@ -2,6 +2,20 @@
 
 This records design milestones and trusted baselines, not every code edit.
 
+## 0.72
+
+Keyword include/exclude filtering:
+
+- keyword filter buttons cycle through include, exclude and clear states;
+- included keywords use the existing OR behavior, while any excluded keyword
+  vetoes a parent;
+- filter presets preserve both included and excluded keywords without changing
+  the existing include-only preset format;
+- keyword renames update both halves of saved presets.
+
+Status: JavaScript syntax/behavior, AHK v1 syntax-load, static regression and
+package checks pass; live Windows interaction requires user confirmation.
+
 ## 0.71
 
 Backup layout cleanup:

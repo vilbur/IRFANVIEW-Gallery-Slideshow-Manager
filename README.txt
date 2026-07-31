@@ -1,4 +1,4 @@
-Gallery Slideshow Manager — HTML version 0.71
+Gallery Slideshow Manager — HTML version 0.72
 
 ================================================
 
@@ -84,7 +84,9 @@ Tile behavior
 
 - Right-click during an active IrfanView slideshow to open that same keyword window at the mouse cursor for the current parent.
 
-- Keyword filters use OR matching.
+- Click a keyword filter to cycle through include, exclude and clear.
+- Included keywords use OR matching; any matching excluded keyword removes the parent.
+- Saved keyword-filter presets retain both included and excluded keywords.
 
 - Random slideshow respects search and keyword filters.
 - Random Gallery is the default slideshow mode. The selected gallery still
@@ -854,3 +856,11 @@ Version 0.68
 - Fixed stale random queues that could loop through only the last two successfully published parent galleries.
 - Restored single-Tab next-gallery and double-Tab Remote behavior.
 - Ctrl+Tab continues to select the next parent; Tab and Ctrl+Tab inside Remote update its offer.
+
+Version 0.72
+------------
+
+- Keyword filters now cycle through include, exclude and clear states.
+- Included keywords retain OR matching; excluded keywords veto matching parents.
+- Keyword-filter presets save and restore both states while remaining compatible with older include-only presets.
+- Renaming a keyword updates its included or excluded state in saved presets.
