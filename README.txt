@@ -1,4 +1,4 @@
-Gallery Slideshow Manager — HTML version 0.75
+Gallery Slideshow Manager — HTML version 0.76
 
 ================================================
 
@@ -94,6 +94,9 @@ Tile behavior
 - Included keywords use OR matching; any matching excluded keyword removes the parent.
 - Saved keyword-filter presets retain both included and excluded keywords.
 - Special-prefix keywords always use the same symbol order: ~, @, !, #, $, %, &, then all other symbols in character order.
+- In the main filter UI, a special prefix appears once as the label at the left of its keyword row; button captions omit the prefix.
+- Keyword-window buttons also omit the prefix, without displaying a separate prefix label.
+- Double-click rename loads the complete prefix-bound keyword name, so the prefix can be edited with the name.
 
 - Random slideshow respects search and keyword filters.
 - Random Gallery is the default slideshow mode. The selected gallery still
@@ -893,3 +896,11 @@ Version 0.75
 - Special-prefix keyword groups now use one deterministic symbol-first order everywhere.
 - The preferred prefix sequence is ~, @, !, #, $, %, &, followed by all remaining symbols in character order.
 - Filter buttons, manager right-click menus and slideshow keyword menus share the same ordering function.
+
+Version 0.76
+------------
+
+- Main keyword-filter rows display their special character as a left-side label.
+- Special characters are removed from keyword button captions in the main UI and keyword popup.
+- Each special character now produces one row while preserving case-priority order inside it.
+- Renaming still uses the complete stored keyword, allowing the bound prefix to be changed with the name.

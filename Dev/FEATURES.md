@@ -252,6 +252,10 @@ These must remain removed:
 - Special-prefix groups always use `~`, `@`, `!`, `#`, `$`, `%`, `&`, then
   any remaining symbols in deterministic character order.
 - Filters and both right-click keyword menus share this exact ordering.
+- The main filter UI shows a special prefix once as a left-side row label.
+- Main and keyword-window button captions omit the prefix.
+- Rename editing uses the complete prefix-bound keyword and permits changing
+  the prefix together with its name.
 - Keyword filter buttons do not display checkboxes.
 - Left-click toggles a green include state; right-click toggles a red exclude state.
 - Using the opposite mouse button switches directly between include and exclude.

@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta charset="utf-8" />
-<title>Gallery Slideshow Manager 0.75</title>
+<title>Gallery Slideshow Manager 0.76</title>
 <hta:application
     id="galleryApp"
     applicationname="Gallery Slideshow Manager"
@@ -215,6 +215,17 @@ input:disabled {
     margin-top: 8px;
     padding-top: 8px;
     border-top: 1px solid #2c3440;
+}
+.keywordFilterPrefix {
+    flex: 0 0 28px;
+    box-sizing: border-box;
+    padding: 7px 6px 0 2px;
+    color: #aeb9c8;
+    font-family: "Segoe UI Symbol", "Segoe UI", sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 24px;
+    text-align: left;
 }
 .keywordFilterButtons {
     display: flex;
@@ -949,7 +960,7 @@ var fso = new ActiveXObject("Scripting.FileSystemObject");
 var shell = new ActiveXObject("WScript.Shell");
 var shellApp = new ActiveXObject("Shell.Application");
 
-var APP_VERSION = "0.75";
+var APP_VERSION = "0.76";
 var APP_NAME = "Gallery-Slideshow-Manager";
 var appDir = getApplicationDirectory();
 var tempDir = shell.ExpandEnvironmentStrings("%TEMP%");
@@ -3718,6 +3729,15 @@ function keywordFormattingType(word) {
     };
 }
 
+function keywordControlText(word) {
+    var text = String(word || "");
+    var formatting = keywordFormattingType(text);
+
+    return formatting.isSpecial
+        ? text.substring(1)
+        : text;
+}
+
 function sortKeywordWordsCaseInsensitive(words) {
     words.sort(function(leftWord, rightWord) {
         var leftKey = lower(leftWord);
@@ -3795,6 +3815,8 @@ function groupedKeywords(words) {
 
         plainGroups[patternName] = {
             key: "plain:" + patternName,
+            isSpecial: false,
+            specialCharacter: "",
             words: []
         };
     }
@@ -3839,6 +3861,12 @@ function groupedKeywords(words) {
     for (i = 0; i < specialCharacters.length; i++) {
         var orderedCharacter = specialCharacters[i];
         var specialPatternIndex;
+        var combinedSpecialGroup = {
+            key: "special:" + orderedCharacter,
+            isSpecial: true,
+            specialCharacter: orderedCharacter,
+            words: []
+        };
 
         for (
             specialPatternIndex = 0;
@@ -3846,16 +3874,28 @@ function groupedKeywords(words) {
             specialPatternIndex++
         ) {
             var specialPattern = patternOrder[specialPatternIndex];
-            var specialGroup =
+            var patternGroup =
                 specialGroups[orderedCharacter][specialPattern];
 
-            if (specialGroup && specialGroup.words.length) {
+            if (patternGroup && patternGroup.words.length) {
                 sortKeywordWordsCaseInsensitive(
-                    specialGroup.words
+                    patternGroup.words
                 );
-                result.push(specialGroup);
+
+                var patternWordIndex;
+                for (
+                    patternWordIndex = 0;
+                    patternWordIndex < patternGroup.words.length;
+                    patternWordIndex++
+                ) {
+                    combinedSpecialGroup.words.push(
+                        patternGroup.words[patternWordIndex]
+                    );
+                }
             }
         }
+
+        result.push(combinedSpecialGroup);
     }
 
     // Then plain patterns:
@@ -3906,7 +3946,7 @@ function createKeywordFilterButton(word) {
             : "Left-click to include; right-click to exclude; double-click to edit: " + word);
     button.innerHTML =
         '<span class="keywordFilterWord">'
-        + escapeHtml(word)
+        + escapeHtml(keywordControlText(word))
         + '</span>';
 
     button.onclick = function() {
@@ -3979,6 +4019,13 @@ function renderKeywordFilters() {
         var group = groups[groupIndex];
         var groupElement = document.createElement("div");
         groupElement.className = "keywordFilterGroup";
+
+        if (group.isSpecial) {
+            var prefix = document.createElement("div");
+            prefix.className = "keywordFilterPrefix";
+            prefix.innerText = group.specialCharacter;
+            groupElement.appendChild(prefix);
+        }
 
         var buttons = document.createElement("div");
         buttons.className = "keywordFilterButtons";
@@ -6667,7 +6714,7 @@ function buildKeywordMenuStructure(menu, ownerDocument, signature) {
             button.appendChild(mark);
 
             var label = ownerDocument.createElement("span");
-            label.innerText = word;
+            label.innerText = keywordControlText(word);
             button.appendChild(label);
 
             button.onclick = keywordMenuButtonClicked;
@@ -7792,7 +7839,7 @@ function initialize() {
         <div id="emptyState">No parent galleries match the current filters.</div>
     </div>
 
-    <div id="statusBar">v0.75 | Ready.</div>
+    <div id="statusBar">v0.76 | Ready.</div>
 </div>
 
 <div id="galleryOverlay" onclick="if (window.event.srcElement === this) closeGalleryDialog();">

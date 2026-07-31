@@ -178,7 +178,8 @@ check(
 
 const keywordInput = {
     value: "blocked",
-    focus: function() {}
+    focus: function() {},
+    select: function() {}
 };
 const galleryKeywords = {
     innerText: ""
@@ -365,9 +366,8 @@ const expectedKeywordOrder = [
     "?later",
     "plain"
 ];
-const orderedKeywords = flattenKeywordGroups(
-    groupedKeywords(symbolKeywords)
-);
+const orderedKeywordGroups = groupedKeywords(symbolKeywords);
+const orderedKeywords = flattenKeywordGroups(orderedKeywordGroups);
 const reverseSourceOrder = flattenKeywordGroups(
     groupedKeywords(symbolKeywords.slice(0).reverse())
 );
@@ -379,6 +379,33 @@ check(
 check(
     reverseSourceOrder.join("|") === expectedKeywordOrder.join("|"),
     "Special-prefix order should not depend on source-list order."
+);
+check(
+    orderedKeywordGroups[0].isSpecial
+        && orderedKeywordGroups[0].specialCharacter === "~"
+        && orderedKeywordGroups[0].words.join("|") === "~ALPHA|~z",
+    "Each special character should produce one labeled keyword row."
+);
+check(
+    keywordControlText("~ALPHA") === "ALPHA"
+        && keywordControlText("plain") === "plain",
+    "Control captions should omit a special prefix only."
+);
+check(
+    htaText.indexOf("label.innerText = keywordControlText(word);") >= 0,
+    "Keyword-window buttons should use prefix-free control captions."
+);
+
+filterButton = createKeywordFilterButton("~green");
+check(
+    filterButton.innerHTML.indexOf("~") < 0
+        && filterButton.innerHTML.indexOf("green") >= 0,
+    "Main keyword buttons should hide the special prefix."
+);
+filterButton.ondblclick();
+check(
+    keywordInput.value === "~green",
+    "Renaming should receive the complete prefix-bound keyword name."
 );
 
 console.log("Keyword filter behavior: PASS");

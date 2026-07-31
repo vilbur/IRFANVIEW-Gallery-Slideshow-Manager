@@ -115,6 +115,8 @@ Obsolete controls remain absent:
 - [ ] Rating persists and displays.
 - [ ] Keywords remain alphabetically sorted.
 - [ ] Special-prefix keywords keep the same deterministic order on every keyword surface.
+- [ ] Main special-prefix rows have left labels; keyword-window rows do not.
+- [ ] Keyword button captions omit prefixes while rename retains the complete bound name.
 - [ ] Assignment affects selected parent only.
 - [ ] Included keyword filters retain OR matching.
 - [ ] Excluded keyword filters veto matching parents.

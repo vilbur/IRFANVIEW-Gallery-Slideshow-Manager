@@ -2,6 +2,21 @@
 
 This records design milestones and trusted baselines, not every code edit.
 
+## 0.76
+
+Prefix labels and bound keyword names:
+
+- each special character produces one main filter row with its prefix aligned
+  as a label on the left;
+- main filter buttons and keyword-window assignment buttons omit that prefix
+  from their visible captions;
+- keyword-window rows do not display separate prefix labels;
+- filtering, assignment and rename handlers retain the complete stored keyword;
+- double-click rename exposes the full prefix-bound name so both parts can be
+  changed together.
+
+Status: syntax and static regression validation required; live Windows interaction requires user confirmation.
+
 ## 0.75
 
 Stable special-prefix keyword order:
