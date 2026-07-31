@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta charset="utf-8" />
-<title>Gallery Slideshow Manager 0.64</title>
+<title>Gallery Slideshow Manager 0.66</title>
 <hta:application
     id="galleryApp"
     applicationname="Gallery Slideshow Manager"
@@ -949,7 +949,7 @@ var fso = new ActiveXObject("Scripting.FileSystemObject");
 var shell = new ActiveXObject("WScript.Shell");
 var shellApp = new ActiveXObject("Shell.Application");
 
-var APP_VERSION = "0.64";
+var APP_VERSION = "0.66";
 var APP_NAME = "Gallery-Slideshow-Manager";
 var appDir = getApplicationDirectory();
 var tempDir = shell.ExpandEnvironmentStrings("%TEMP%");
@@ -1008,7 +1008,9 @@ var state = {
     thumbnailCompletedCount: 0,
     thumbnailFailedCount: 0,
     thumbnailQueueScope: "",
-    thumbnailRefreshTimer: 0
+    thumbnailRefreshTimer: 0,
+    libraryCacheDirty: false,
+    libraryCacheSaveTimer: 0
 };
 
 var sharedFileTextCache = {};
@@ -3814,6 +3816,48 @@ function saveLibraryCache() {
     }
 }
 
+function scheduleLibraryCacheSave(delayMs) {
+    state.libraryCacheDirty = true;
+
+    if (state.libraryCacheSaveTimer) {
+        window.clearTimeout(state.libraryCacheSaveTimer);
+    }
+
+    state.libraryCacheSaveTimer = window.setTimeout(function() {
+        state.libraryCacheSaveTimer = 0;
+
+        if (!state.libraryCacheDirty) {
+            return;
+        }
+
+        state.libraryCacheDirty = false;
+
+        if (!saveLibraryCache()) {
+            state.libraryCacheDirty = true;
+        }
+    }, Math.max(0, parseInt(delayMs, 10) || 0));
+}
+
+function flushLibraryCacheIfDirty() {
+    if (state.libraryCacheSaveTimer) {
+        window.clearTimeout(state.libraryCacheSaveTimer);
+        state.libraryCacheSaveTimer = 0;
+    }
+
+    if (!state.libraryCacheDirty) {
+        return true;
+    }
+
+    state.libraryCacheDirty = false;
+
+    if (!saveLibraryCache()) {
+        state.libraryCacheDirty = true;
+        return false;
+    }
+
+    return true;
+}
+
 function loadLibraryCache() {
     if (!state.root || !fso.FileExists(cachePath)) {
         return false;
@@ -4782,11 +4826,16 @@ function createParentTile(parent) {
             state.parentClickTimer = 0;
         }
 
+        var previousTile = state.selectedParent
+            ? findParentTileByPath(state.selectedParent.path)
+            : null;
+
         state.selectedParent = parent;
         state.expandedLetter = parent.letter
             ? String(parent.letter).toUpperCase()
             : state.expandedLetter;
-        renderParents();
+        setParentTileSelectedFast(previousTile, false);
+        setParentTileSelectedFast(tile, true);
         showKeywordContext(parent, window.event.clientX, window.event.clientY);
         window.event.cancelBubble = true;
         window.event.returnValue = false;
@@ -4980,6 +5029,68 @@ function findParentTileByPath(parentPath) {
     }
 
     return null;
+}
+
+function setParentTileSelectedFast(tile, selected) {
+    if (!tile) {
+        return false;
+    }
+
+    var className = (" " + (tile.className || "") + " ")
+        .replace(/\sselected\s/g, " ")
+        .replace(/^\s+|\s+$/g, "")
+        .replace(/\s+/g, " ");
+
+    if (selected) {
+        className += (className ? " " : "") + "selected";
+    }
+
+    tile.className = className;
+    return true;
+}
+
+function refreshParentKeywordPresentation(parent, words) {
+    var normalizedParent = lower(normalizePath(parent.path));
+    var actualParent = parent;
+    var i;
+
+    parent.keywords = words;
+
+    for (i = 0; i < state.parents.length; i++) {
+        if (lower(normalizePath(state.parents[i].path)) === normalizedParent) {
+            state.parents[i].keywords = words;
+            actualParent = state.parents[i];
+            break;
+        }
+    }
+
+    if (
+        state.selectedParent
+        && lower(normalizePath(state.selectedParent.path)) === normalizedParent
+    ) {
+        state.selectedParent = actualParent;
+        document.getElementById("galleryKeywords").innerText =
+            words.join(", ");
+    }
+
+    var tile = findParentTileByPath(parent.path);
+
+    if (!tile) {
+        return true;
+    }
+
+    var elements = tile.getElementsByTagName("div");
+
+    for (i = 0; i < elements.length; i++) {
+        var className = " " + (elements[i].className || "") + " ";
+
+        if (className.indexOf(" keywordBadges ") >= 0) {
+            elements[i].innerHTML = keywordBadgeHtml(words);
+            break;
+        }
+    }
+
+    return true;
 }
 
 function focusParentThumbnail(parentPath) {
@@ -5697,8 +5808,16 @@ function showKeywordContext(parent, x, y, centered) {
         + "px";
 }
 
-function hideContextMenu() {
+function hideInlineKeywordMenu() {
     document.getElementById("contextMenu").style.display = "none";
+
+    if (state.libraryCacheDirty) {
+        scheduleLibraryCacheSave(50);
+    }
+}
+
+function hideContextMenu() {
+    hideInlineKeywordMenu();
 
     if (keywordPopup) {
         try {
@@ -5745,8 +5864,26 @@ function showKeywordPopup(
             keywordPopup.close();
         }
 
+        var availableLeft = parseInt(workLeft, 10);
+        var availableTop = parseInt(workTop, 10);
+        var availableRight = parseInt(workRight, 10);
+        var availableBottom = parseInt(workBottom, 10);
+        var availableWidth = availableRight - availableLeft;
+        var availableHeight = availableBottom - availableTop;
+        var popupWidth = 460;
+
+        if (
+            !isNaN(availableWidth)
+            && availableWidth > 0
+        ) {
+            popupWidth = Math.min(
+                Math.max(240, availableWidth - 16),
+                Math.max(720, Math.floor(availableWidth * 0.78))
+            );
+        }
+
         var popupFeatures =
-            "width=460"
+            "width=" + popupWidth
             + ",height=240"
             + ",left=" + parseInt(screenX, 10)
             + ",top=" + parseInt(screenY, 10)
@@ -5768,11 +5905,11 @@ function showKeywordPopup(
             return false;
         }
 
-        var popupDocument = keywordPopup.document;
+        var popupWindow = keywordPopup;
+        var popupDocument = popupWindow.document;
         var popupBody = popupDocument.body;
         var styleElement = popupDocument.createElement("style");
         var menu = popupDocument.createElement("div");
-        var popupWidth = 460;
         var popupHeight;
         var frameWidth;
         var frameHeight;
@@ -5780,10 +5917,6 @@ function showKeywordPopup(
         var outerHeight;
         var left = parseInt(screenX, 10);
         var top = parseInt(screenY, 10);
-        var availableLeft = parseInt(workLeft, 10);
-        var availableTop = parseInt(workTop, 10);
-        var availableRight = parseInt(workRight, 10);
-        var availableBottom = parseInt(workBottom, 10);
 
         styleElement.type = "text/css";
         var popupHeads = popupDocument.getElementsByTagName("head");
@@ -5800,6 +5933,14 @@ function showKeywordPopup(
         }
 
         popupDocument.title = "Keywords - " + parent.name;
+        popupDocument.oncontextmenu = function() {
+            try {
+                popupWindow.close();
+            } catch (error) {
+            }
+
+            return false;
+        };
 
         popupBody.style.margin = "0";
         popupBody.style.padding = "0";
@@ -5832,6 +5973,30 @@ function showKeywordPopup(
             (keywordPopup.outerHeight || 0)
             - (popupDocument.documentElement.clientHeight || 0)
         );
+
+        if (
+            !isNaN(availableWidth)
+            && !isNaN(availableHeight)
+            && availableWidth > 0
+            && availableHeight > 0
+            && popupHeight + frameHeight > availableHeight - 16
+            && popupWidth < availableWidth - 16
+        ) {
+            popupWidth = Math.max(240, availableWidth - 16);
+            popupBody.style.width = popupWidth + "px";
+            menu.style.width = popupWidth + "px";
+            menu.style.maxWidth = popupWidth + "px";
+            keywordPopup.resizeTo(
+                popupWidth + frameWidth,
+                Math.max(240, keywordPopup.outerHeight || 240)
+            );
+            popupHeight = Math.max(
+                54,
+                menu.scrollHeight || 0,
+                menu.offsetHeight || 0
+            );
+        }
+
         outerWidth = popupWidth + frameWidth;
         outerHeight = popupHeight + frameHeight;
 
@@ -5857,9 +6022,40 @@ function showKeywordPopup(
             );
         }
 
-        keywordPopup.resizeTo(outerWidth, outerHeight);
-        keywordPopup.moveTo(left, top);
-        keywordPopup.focus();
+        popupWindow.resizeTo(outerWidth, outerHeight);
+        popupWindow.moveTo(left, top);
+        popupWindow.focus();
+
+        popupWindow.onblur = function() {
+            window.setTimeout(function() {
+                try {
+                    if (popupWindow.closed) {
+                        return;
+                    }
+
+                    if (
+                        popupWindow.document.hasFocus
+                        && popupWindow.document.hasFocus()
+                    ) {
+                        return;
+                    }
+
+                    popupWindow.close();
+                } catch (error) {
+                }
+            }, 80);
+        };
+
+        popupWindow.onunload = function() {
+            if (keywordPopup === popupWindow) {
+                keywordPopup = null;
+            }
+
+            if (state.libraryCacheDirty) {
+                scheduleLibraryCacheSave(50);
+            }
+        };
+
         return true;
     } catch (error) {
         keywordPopup = null;
@@ -5936,6 +6132,7 @@ function showRequestedKeywordWindow(
 }
 
 function toggleParentKeyword(parent, word, checked) {
+    var matchedBefore = parentMatches(parent);
     var words = getParentKeywords(parent.path);
     var result = [];
     var found = false;
@@ -5954,10 +6151,14 @@ function toggleParentKeyword(parent, word, checked) {
     }
     result = parseKeywordList(joinKeywords(result));
     saveParentKeywords(parent.path, result);
-    parent.keywords = result;
-    renderParents();
-    saveLibraryCache();
-    document.getElementById("galleryKeywords").innerText = result.join(", ");
+    refreshParentKeywordPresentation(parent, result);
+    scheduleLibraryCacheSave(1200);
+
+    if (matchedBefore !== parentMatches(parent)) {
+        window.setTimeout(function() {
+            renderParents();
+        }, 0);
+    }
 }
 
 function ensureBridge() {
@@ -6374,6 +6575,23 @@ function initialize() {
         hideContextMenu();
     };
 
+    document.oncontextmenu = function() {
+        var menu = document.getElementById("contextMenu");
+
+        if (menu && menu.style.display === "block") {
+            hideContextMenu();
+            window.event.cancelBubble = true;
+            window.event.returnValue = false;
+            return false;
+        }
+
+        return true;
+    };
+
+    window.onblur = function() {
+        hideInlineKeywordMenu();
+    };
+
     window.onresize = function() {
         updateFixedControlsLayout();
 
@@ -6403,6 +6621,7 @@ function initialize() {
     };
 
     window.onbeforeunload = function() {
+        flushLibraryCacheIfDirty();
         saveWindowPlacement();
 
         if (!managerExitRequested) {
@@ -6501,7 +6720,7 @@ function initialize() {
         <div id="emptyState">No parent galleries match the current filters.</div>
     </div>
 
-    <div id="statusBar">v0.64 | Ready.</div>
+    <div id="statusBar">v0.66 | Ready.</div>
 </div>
 
 <div id="galleryOverlay" onclick="if (window.event.srcElement === this) closeGalleryDialog();">

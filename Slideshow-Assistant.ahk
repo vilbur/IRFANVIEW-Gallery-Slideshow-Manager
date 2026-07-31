@@ -12,7 +12,7 @@ if not A_IsAdmin
 }
 
 ; slideshow-assistant.ahk
-; Version: 0.29
+; Version: 0.30
 ; Multiple instances are allowed; each instance exits when its exact bound viewer closes.
 ; Automatic navigation waits at least one second after physical input and between image changes.
 ; Files are never deleted or overwritten; destructive actions move them to _DELETE or _CROP.
@@ -99,6 +99,12 @@ CheckIrfanView:
     }
 
     if closeBlockedIrfanViewDialogs()
+    {
+        resetSlideTimer()
+        return
+    }
+
+    if isGalleryKeywordWindowOpen()
     {
         resetSlideTimer()
         return
@@ -1007,6 +1013,17 @@ testIrfanViewWindowSnapshotData()
         && snapshot.monitor_bottom - snapshot.monitor_top = 1080
         && snapshot.window_x >= snapshot.monitor_left
         && snapshot.window_y >= snapshot.monitor_top)
+}
+
+
+/*  CHECK WHETHER THE SHARED HTML KEYWORD WINDOW IS OPEN
+    Automatic navigation remains paused without toggling IrfanView pause state.
+ */
+isGalleryKeywordWindowOpen()
+{
+    keyword_window_id := WinExist("Keywords - ahk_exe mshta.exe")
+    return keyword_window_id != ""
+        && DllCall("IsWindowVisible", "Ptr", keyword_window_id)
 }
 
 

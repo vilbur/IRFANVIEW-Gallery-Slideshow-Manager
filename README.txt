@@ -1,4 +1,4 @@
-Gallery Slideshow Manager — HTML version 0.64
+Gallery Slideshow Manager — HTML version 0.66
 
 ================================================
 
@@ -793,3 +793,21 @@ Version 0.64
 - Closing the final Gallery Slideshow Manager window closes IrfanView and exits the resident bridge.
 - Automatic manager replacement keeps the slideshow running when a replacement manager window already exists.
 - In random mode, Tab stays inside the current parent and Ctrl+Tab alone moves to a random different parent.
+
+Version 0.65
+------------
+- The slideshow right-click action opens the same HTML keyword menu used by the manager UI.
+- Right-clicking anywhere while that keyword window is visible closes it.
+- Automatic slideshow navigation pauses while the keyword window is visible and resumes after it closes.
+- The keyword popup has no scrollbar and expands across its monitor work area when necessary.
+- Version 0.64 Tab, Ctrl+Tab, Remote, random-navigation and IrfanView lifecycle behavior is preserved.
+
+Version 0.66
+------------
+- Fixed slideshow keyword popup reopening after an older inactive popup existed.
+- The slideshow keyword popup closes automatically whenever it loses focus.
+- Right-click inside the popup closes it; clicking elsewhere also closes it through focus loss.
+- Main parent-tile right-click no longer rebuilds the entire gallery grid before displaying keywords.
+- Keyword changes update only the affected tile and defer the expensive library-cache write.
+- Active keyword-filter visibility still refreshes immediately when an assignment changes the match result.
+- Version 0.65 slideshow pause and version 0.64 Tab, Remote, random-navigation and IrfanView lifecycle behavior are preserved.
