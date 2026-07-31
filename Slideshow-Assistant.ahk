@@ -1,19 +1,45 @@
 ﻿#NoEnv
-#SingleInstance Off
+#SingleInstance Force
 #Persistent
 #InstallKeybdHook
 
 SetWorkingDir, %A_ScriptDir%
 
+requested_irfanview_process_id := 0
+
+for argument_index, argument_value in A_Args
+{
+    if (InStr(argument_value, "--bind-pid=") = 1)
+    {
+        requested_process_id_text := SubStr(argument_value, StrLen("--bind-pid=") + 1)
+
+        if requested_process_id_text is integer
+        {
+            if (requested_process_id_text > 0)
+            {
+                requested_irfanview_process_id := requested_process_id_text + 0
+            }
+        }
+    }
+}
+
 if not A_IsAdmin
 {
-    Run *RunAs "%A_ScriptFullPath%"
+    if (requested_irfanview_process_id > 0)
+    {
+        Run *RunAs "%A_ScriptFullPath%" --bind-pid=%requested_irfanview_process_id%
+    }
+    else
+    {
+        Run *RunAs "%A_ScriptFullPath%"
+    }
+
     ExitApp
 }
 
 ; slideshow-assistant.ahk
-; Version: 0.31
-; Multiple instances are allowed; each instance exits when its exact bound viewer closes.
+; Version: 0.32
+; One assistant instance binds to the exact requested viewer and exits when it closes.
 ; Automatic navigation waits at least one second after physical input and between image changes.
 ; Files are never deleted or overwritten; destructive actions move them to _DELETE or _CROP.
 
@@ -73,7 +99,16 @@ CheckIrfanView:
 
     if (!bound_irfanview_process_id)
     {
-        if !bindToAvailableIrfanViewProcess()
+        if (requested_irfanview_process_id > 0)
+        {
+            binding_succeeded := bindToRequestedIrfanViewProcess(requested_irfanview_process_id)
+        }
+        else
+        {
+            binding_succeeded := bindToAvailableIrfanViewProcess()
+        }
+
+        if (!binding_succeeded)
         {
             if (A_TickCount >= instance_bind_deadline)
             {
@@ -235,6 +270,54 @@ bindToAvailableIrfanViewProcess()
 }
 
 
+/*  BIND ONLY TO THE VIEWER PROCESS REQUESTED BY THE MANAGER
+    A manager-launched assistant never falls back to another IrfanView instance.
+ */
+bindToRequestedIrfanViewProcess(requested_process_id)
+{
+    if (!requested_process_id)
+    {
+        return false
+    }
+
+    active_window_id := WinExist("A")
+
+    if isWindowOwnedByProcess(active_window_id, requested_process_id)
+    {
+        if bindToIrfanViewWindow(active_window_id)
+        {
+            return true
+        }
+    }
+
+    WinGet, window_list, List, ahk_pid %requested_process_id%
+
+    Loop, %window_list%
+    {
+        window_id := window_list%A_Index%
+
+        if !DllCall("IsWindowVisible", "Ptr", window_id)
+        {
+            continue
+        }
+
+        WinGetClass, window_class, ahk_id %window_id%
+
+        if (window_class != "IrfanView" && window_class != "FullScreenClass")
+        {
+            continue
+        }
+
+        if bindToIrfanViewWindow(window_id)
+        {
+            return true
+        }
+    }
+
+    return false
+}
+
+
 /*  BIND THIS SCRIPT INSTANCE TO THE PROCESS OWNING ONE VIEWER WINDOW
     Dialogs are rejected so a new instance never binds to Save As or Browse subdirs.
  */
@@ -283,6 +366,11 @@ bindToIrfanViewWindow(window_id)
     }
 
     bound_irfanview_window_missing_since := 0
+
+    ; #IfWinActive can now suppress protected shortcuts without evaluating a
+    ; custom expression on every keyboard event.
+    GroupAdd, SlideshowAssistantViewer, ahk_class IrfanView ahk_pid %process_id%
+    GroupAdd, SlideshowAssistantViewer, ahk_class FullScreenClass ahk_pid %process_id%
 
     return isWindowOwnedByProcess(bound_irfanview_anchor_window_id, bound_irfanview_process_id)
 }
@@ -2454,6 +2542,22 @@ testStandaloneModifierDetection()
 */
 
 
+/*  COPY CURRENT IMAGE AS PARENT FOLDER.JPG
+    A direct exact-process window group intercepts every Ctrl+Shift+F variant
+    before IrfanView can invoke Set as wallpaper. This does not depend on the
+    expression-based context used by the remaining assistant hotkeys.
+ */
+#IfWinActive ahk_group SlideshowAssistantViewer
+$*^+f::
+    Critical, On
+    copyCurrentImageAsFolderJpg()
+    Critical, Off
+    resetSlideTimer()
+    KeyWait, f
+return
+#IfWinActive
+
+
 #If isMainIrfanViewWindowActive()
 
 
@@ -2469,19 +2573,6 @@ testStandaloneModifierDetection()
     resetSlideTimer()
 return
 
-
-
-/*  COPY CURRENT IMAGE AS PARENT FOLDER.JPG
-    The wildcard also catches Ctrl+Shift+F while another modifier is still held,
-    so IrfanView never receives its Set as wallpaper shortcut.
- */
-$*^+f::
-    Critical, On
-    copyCurrentImageAsFolderJpg()
-    Critical, Off
-    resetSlideTimer()
-    KeyWait, f
-return
 
 
 /*  MANUAL SLIDESHOW NAVIGATION

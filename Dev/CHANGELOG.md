@@ -11,6 +11,9 @@ Color-only keyword assignment state:
 - assigned keywords retain only the blue active-color accent;
 - `X` now toggles the dedicated slideshow keyword window instead of showing a
   tray-only keyword notification;
+- slideshow-assistant now honors the bridge's exact IrfanView process binding,
+  replaces stale copies and intercepts `Ctrl+Shift+F` through an exact-process
+  window group so IrfanView cannot fall through to Set as wallpaper;
 - keyword ordering, captions, click behavior, rating display and slideshow
   overlay lifecycle remain unchanged.
 
