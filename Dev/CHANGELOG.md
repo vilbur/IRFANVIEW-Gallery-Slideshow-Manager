@@ -10,6 +10,8 @@ IrfanView lifecycle tightened:
 - any existing 32-bit or 64-bit IrfanView process is closed before a slideshow starts;
 - closing the final manager window exits the resident bridge and closes IrfanView;
 - manager replacement and automatic version handoff keep working because the new manager window exists before the old one closes.
+- random Tab navigation stays inside the current parent;
+- Ctrl+Tab alone selects a random different parent.
 
 Status: statically validated; live Windows process behaviour still requires user confirmation.
 

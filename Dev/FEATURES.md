@@ -62,8 +62,7 @@ Run the selected gallery in IrfanView and control it through the bridge.
 
 ### Remote interaction
 
-- Single Tab moves to the next gallery after the double-press interval.
-- Double Tab opens Remote without first moving galleries.
+- Tab opens the next gallery immediately.
 - Ctrl+Tab moves to the next parent gallery.
 - Tab inside Remote offers the next gallery and starts its timeout.
 - Ctrl+Tab inside Remote offers the first matching gallery in the next parent and starts its timeout.
@@ -71,6 +70,7 @@ Run the selected gallery in IrfanView and control it through the bridge.
 - Invalid live and prepared parent candidates leave the current slideshow running.
 - While Remote is open, slideshow hotkeys are inactive outside Remote.
 - Remote closes after its displayed gallery starts successfully.
+- Escape or a mouse click outside Remote closes it and cancels its pending offer.
 - Closing Remote restores slideshow input.
 
 ## Random Slideshow
@@ -87,8 +87,9 @@ Run galleries in genuinely random order.
 
 ### Random selection
 
-- Choose the next matching parent randomly.
-- Then choose one matching gallery from that parent.
+- Tab chooses a random matching gallery inside the current parent.
+- Ctrl+Tab chooses a random different matching parent, then one matching
+  gallery from that parent.
 - Alphabetical, sorted or directory order must not decide the result.
 - Avoid immediately repeating the current parent when alternatives exist.
 - Avoid immediately repeating the current gallery when alternatives exist.
@@ -100,9 +101,8 @@ Run galleries in genuinely random order.
 ### Mandatory stored-destination workflow
 
 ```text
-Choose random parent
-→ Choose random gallery
-→ Store exact parent/gallery
+Choose a same-parent gallery for Tab, or a different parent/gallery for Ctrl+Tab
+→ Store the exact destination for that control
 → Preview that exact destination
 → Execute that exact destination
 → Clear it
@@ -144,18 +144,19 @@ Remote-control the currently running slideshow while Remote is open.
 ### Open and initial state
 
 - Window title: `Remote`.
-- Double Tab opens it from the managed slideshow.
 - Initially displays the currently running gallery.
 
 ### Controls
 
 ```text
-Single Tab outside Remote  Next gallery
-Double Tab outside Remote  Open Remote
+Tab outside Remote         Open next gallery immediately
 Ctrl+Tab outside Remote    Next parent gallery
 Tab inside Remote          Offer next gallery and start/restart timeout
 Ctrl+Tab inside Remote     Offer next parent gallery and start/restart timeout
 ```
+
+In random mode, both Tab controls stay inside the current parent. Both
+Ctrl+Tab controls are the only controls that choose a random different parent.
 
 ### Timeout
 

@@ -60,8 +60,6 @@ remote_monitor_index := 0
 remote_return_window_id := ""
 remote_disabled_irfan_window_id := ""
 remote_disabled_vlc_window_id := ""
-tab_press_pending := false
-tab_double_press_window_ms := 500
 temporary_vlc_mute_active := false
 temporary_vlc_mute_window_id := ""
 temporary_vlc_mute_pid := ""
@@ -74,6 +72,7 @@ random_gallery_history := []
 random_gallery_history_limit := 12
 stored_random_gallery := ""
 stored_random_parent := ""
+stored_random_same_parent_gallery := ""
 takeover_existing_bridge := false
 open_manager_on_start := A_Args.Length() < 1
 
@@ -171,12 +170,11 @@ return
 
 #If isGalleryNavigationActive() && !remote_open
 $Tab::
-    handleSlideshowTabPress()
+    requestPreparedSwitch("gallery")
     KeyWait, Tab
 return
 
 $^Tab::
-    cancelPendingSingleTab()
     requestPreparedSwitch("parent")
     KeyWait, Tab
 return
@@ -191,6 +189,19 @@ return
 $^Tab::
     previewRemoteDirection("parent")
     KeyWait, Tab
+return
+#If
+
+#If isRemoteOpen()
+$Esc::
+    closeRemoteWindow(true)
+    KeyWait, Esc
+return
+
+~LButton::
+~RButton::
+~MButton::
+    closeRemoteIfPointerOutside()
 return
 #If
 
@@ -233,10 +244,6 @@ remoteTimeoutTimer:
     executeRemotePreview("timeout")
 return
 
-singleTabTimer:
-    commitSingleTabPress()
-return
-
 vlcAutoUnmuteTimer:
     restoreTemporaryVlcSound()
 return
@@ -267,7 +274,6 @@ handleBridgeExit:
     SetTimer, monitorIrfanViewTimer, Off
     SetTimer, monitorManagerWindowTimer, Off
     SetTimer, remoteTimeoutTimer, Off
-    SetTimer, singleTabTimer, Off
     SetTimer, vlcAutoUnmuteTimer, Off
 
     restoreTemporaryVlcSound()
@@ -564,7 +570,6 @@ initializeResidentBridge()
     global RESIDENT_PID_FILE, SCRIPT_ICON
     global open_manager_on_start
     global takeover_existing_bridge
-    global tab_double_press_window_ms
 
     if (!initializeSharedDataStorage())
     {
@@ -575,8 +580,6 @@ initializeResidentBridge()
     current_pid := DllCall("GetCurrentProcessId")
     random_seed := A_TickCount ^ current_pid
     Random,, %random_seed%
-    tab_double_press_window_ms := getSystemDoubleClickInterval()
-
     if (FileExist(RESIDENT_PID_FILE))
     {
         FileRead, old_pid_text, %RESIDENT_PID_FILE%
@@ -1065,8 +1068,6 @@ startGallery(gallery_path, preserve_remote := false)
     global switching_slideshow, CURRENT_PREFIX
     global remote_open
 
-    cancelPendingSingleTab()
-
     if (remote_open && !preserve_remote)
     {
         closeRemoteWindow(false)
@@ -1189,6 +1190,7 @@ launchPreparedSlot(slot_prefix)
     current_parent := normalizeFolderPath(parent_folder)
     current_video := video_path
     recordRandomGalleryVisit(current_gallery)
+    consumeStoredRandomSameParentDestination(current_gallery)
     consumeStoredRandomDestination(current_gallery)
 
     if (auto_vlc_enabled && video_path != "" && FileExist(video_path))
@@ -1557,6 +1559,7 @@ refreshPreparedNavigationSlots()
     global remote_open
 
     clearStoredRandomDestination()
+    clearStoredRandomSameParentDestination()
     cleanupSlot(NEXT_GALLERY_PREFIX)
     cleanupSlot(NEXT_PARENT_PREFIX)
     cleanupSlot(PREVIOUS_PARENT_PREFIX)
@@ -1608,10 +1611,11 @@ prepareNextNavigationSlots()
 
     if (isRandomNavigationMode())
     {
-        random_next_gallery := ensureStoredRandomDestination()
-        startPreparationWorker(NEXT_GALLERY_PREFIX, random_next_gallery)
-        startPreparationWorker(NEXT_PARENT_PREFIX, random_next_gallery)
-        startPreparationWorker(PREVIOUS_PARENT_PREFIX, random_next_gallery)
+        random_same_parent_gallery := ensureStoredRandomSameParentDestination()
+        random_next_parent_gallery := ensureStoredRandomDestination()
+        startPreparationWorker(NEXT_GALLERY_PREFIX, random_same_parent_gallery)
+        startPreparationWorker(NEXT_PARENT_PREFIX, random_next_parent_gallery)
+        startPreparationWorker(PREVIOUS_PARENT_PREFIX, random_next_parent_gallery)
         return true
     }
 
@@ -1654,76 +1658,6 @@ startPreparationWorker(slot_prefix, gallery_path)
 }
 
 /*
-Use the Windows double-click interval for the Tab double-press gesture.
-*/
-getSystemDoubleClickInterval()
-{
-    interval_ms := DllCall("GetDoubleClickTime")
-
-    if (interval_ms < 250 || interval_ms > 1000)
-    {
-        interval_ms := 500
-    }
-
-    return interval_ms
-}
-
-/*
-Delay the single-Tab gallery switch long enough to distinguish a double press.
-The second Tab cancels the pending switch and opens Remote on the current gallery.
-*/
-handleSlideshowTabPress()
-{
-    global tab_press_pending, tab_double_press_window_ms
-
-    if (tab_press_pending)
-    {
-        cancelPendingSingleTab()
-        return openOrActivateRemote()
-    }
-
-    tab_press_pending := true
-    timer_period := -1 * tab_double_press_window_ms
-    SetTimer, singleTabTimer, %timer_period%
-    return true
-}
-
-/*
-Commit one delayed single-Tab action only if the slideshow is still active.
-*/
-commitSingleTabPress()
-{
-    global tab_press_pending, remote_open
-
-    if (GetKeyState("Tab", "P"))
-    {
-        SetTimer, singleTabTimer, -50
-        return true
-    }
-
-    tab_press_pending := false
-
-    if (remote_open || !isGalleryNavigationActive())
-    {
-        return false
-    }
-
-    return requestPreparedSwitch("gallery")
-}
-
-/*
-Cancel a pending single-Tab action before Ctrl+Tab or double-Tab navigation.
-*/
-cancelPendingSingleTab()
-{
-    global tab_press_pending
-
-    SetTimer, singleTabTimer, Off
-    tab_press_pending := false
-    return true
-}
-
-/*
 Open or activate the Remote control surface.
 Opening always starts on the current gallery and does not start the automatic
 execution timer.
@@ -1735,7 +1669,6 @@ openOrActivateRemote()
     global remote_preview_gallery, remote_preview_parent, remote_preview_direction
     global remote_monitor_index, remote_return_window_id
 
-    cancelPendingSingleTab()
     loadRemoteTimeoutSetting()
 
     if (remote_open)
@@ -1806,6 +1739,55 @@ isRemoteActive()
 }
 
 /*
+Return true while Remote is open, including when a click has moved focus away
+from it but the outside-click handler has not yet run.
+*/
+isRemoteOpen()
+{
+    global remote_open
+
+    return remote_open
+}
+
+/*
+Close Remote when a mouse button is pressed beyond its window rectangle.
+Do not restore focus here: the native click should activate its own target.
+*/
+closeRemoteIfPointerOutside()
+{
+    global remote_open, remote_window_id
+
+    if (!remote_open)
+    {
+        return false
+    }
+
+    if (remote_window_id = "" || !WinExist("ahk_id " . remote_window_id))
+    {
+        return closeRemoteWindow(false)
+    }
+
+    CoordMode, Mouse, Screen
+    MouseGetPos, pointer_x, pointer_y
+    remote_left := ""
+    remote_top := ""
+    remote_width := ""
+    remote_height := ""
+    WinGetPos, remote_left, remote_top, remote_width, remote_height, ahk_id %remote_window_id%
+
+    if (remote_width = "" || remote_height = ""
+        || pointer_x < remote_left
+        || pointer_x >= remote_left + remote_width
+        || pointer_y < remote_top
+        || pointer_y >= remote_top + remote_height)
+    {
+        return closeRemoteWindow(false)
+    }
+
+    return false
+}
+
+/*
 Return Remote to the authoritative current gallery without starting a timer.
 */
 resetRemoteToCurrent()
@@ -1857,14 +1839,21 @@ previewRemoteDirection(direction)
 
     if (isRandomNavigationMode())
     {
-        if (remote_preview_direction != ""
-            && stored_random_gallery != ""
-            && toLowerText(remote_preview_gallery) = toLowerText(stored_random_gallery))
+        if (direction = "parent")
         {
-            clearStoredRandomDestination()
-        }
+            if (remote_preview_direction != ""
+                && stored_random_gallery != ""
+                && toLowerText(remote_preview_gallery) = toLowerText(stored_random_gallery))
+            {
+                clearStoredRandomDestination()
+            }
 
-        candidate_gallery := ensureStoredRandomDestination()
+            candidate_gallery := ensureStoredRandomDestination()
+        }
+        else
+        {
+            candidate_gallery := getRandomSameParentGalleryPath(base_parent, base_gallery)
+        }
     }
     else
     {
@@ -2245,7 +2234,7 @@ showRemoteWindow(parent_folder, gallery_path)
     footer_y := remote_height - footer_height
     footer_options := "x0 y" . footer_y . " w" . remote_width . " h" . footer_height . " Center 0x200"
     timeout_label := formatRemoteTimeoutLabel()
-    footer_text := remote_preview_direction = "" ? "Tab  NEXT GALLERY     Ctrl+Tab  NEXT PARENT" : "Tab  NEXT GALLERY     Ctrl+Tab  NEXT PARENT`nStarts slideshow in " . timeout_label . " · Close Remote to cancel"
+    footer_text := remote_preview_direction = "" ? "Tab  NEXT GALLERY     Ctrl+Tab  NEXT PARENT`nEsc or click outside to close" : "Tab  NEXT GALLERY     Ctrl+Tab  NEXT PARENT`nStarts slideshow in " . timeout_label . " · Esc/click outside cancels"
     Gui, Remote:Add, Text, %footer_options%, %footer_text%
 
     remote_x := remote_work_areaLeft + Floor((work_width - remote_width) / 2)
@@ -2355,11 +2344,19 @@ isNavigationDestinationUsable(gallery_path, switch_type, source_gallery, source_
         return false
     }
 
-    if (switch_type = "parent" || switch_type = "previousparent")
-    {
-        SplitPath, gallery_path,, destination_parent
-        destination_parent := normalizeFolderPath(destination_parent)
+    SplitPath, gallery_path,, destination_parent
+    destination_parent := normalizeFolderPath(destination_parent)
 
+    if (switch_type = "gallery")
+    {
+        if (destination_parent = ""
+            || toLowerText(destination_parent) != toLowerText(source_parent))
+        {
+            return false
+        }
+    }
+    else if (switch_type = "parent" || switch_type = "previousparent")
+    {
         if (destination_parent = ""
             || toLowerText(destination_parent) = toLowerText(source_parent))
         {
@@ -2378,8 +2375,6 @@ requestPreparedSwitch(switch_type)
     global current_gallery, current_parent, switching_slideshow
     global NEXT_GALLERY_PREFIX, NEXT_PARENT_PREFIX, PREVIOUS_PARENT_PREFIX
     global remote_open
-
-    cancelPendingSingleTab()
 
     if (remote_open)
     {
@@ -2412,7 +2407,14 @@ requestPreparedSwitch(switch_type)
 
     if (isRandomNavigationMode())
     {
-        fallback_gallery := ensureStoredRandomDestination()
+        if (switch_type = "gallery")
+        {
+            fallback_gallery := ensureStoredRandomSameParentDestination()
+        }
+        else
+        {
+            fallback_gallery := ensureStoredRandomDestination()
+        }
     }
     else if (switch_type = "gallery")
     {
@@ -2472,6 +2474,7 @@ setRandomNavigationMode(is_active, unique_active := false)
     global random_unique_parent_seen
     global random_gallery_history
     global stored_random_gallery, stored_random_parent
+    global stored_random_same_parent_gallery
 
     random_navigation_active := is_active ? true : false
     random_unique_active := random_navigation_active && unique_active
@@ -2480,6 +2483,7 @@ setRandomNavigationMode(is_active, unique_active := false)
     random_gallery_history := []
     stored_random_gallery := ""
     stored_random_parent := ""
+    stored_random_same_parent_gallery := ""
     return true
 }
 
@@ -2497,12 +2501,14 @@ setRandomUniqueMode(is_active)
     global current_gallery
     global current_parent
     global stored_random_gallery, stored_random_parent
+    global stored_random_same_parent_gallery
 
     random_unique_active := random_navigation_active && is_active
     random_unique_seen := []
     random_unique_parent_seen := []
     stored_random_gallery := ""
     stored_random_parent := ""
+    stored_random_same_parent_gallery := ""
 
     if (random_unique_active)
     {
@@ -2698,6 +2704,37 @@ resetUniqueRandomCycle(current_gallery)
 }
 
 /*
+Start a new UNIQUE cycle only for galleries in one parent. Progress in other
+parents remains intact because Tab navigation is scoped to the current parent.
+*/
+resetUniqueRandomGalleriesForParent(parent_path, current_gallery)
+{
+    global random_unique_seen
+
+    parent_key := toLowerText(normalizeFolderPath(parent_path))
+    retained_seen := []
+
+    for seen_index, seen_gallery in random_unique_seen
+    {
+        SplitPath, seen_gallery,, seen_parent
+
+        if (toLowerText(normalizeFolderPath(seen_parent)) != parent_key)
+        {
+            retained_seen.Push(seen_gallery)
+        }
+    }
+
+    random_unique_seen := retained_seen
+
+    if (current_gallery != "")
+    {
+        markUniqueRandomGallerySeen(current_gallery)
+    }
+
+    return true
+}
+
+/*
 Serialize Unique processed paths. The vertical bar is invalid in Windows
 file names, so it is safe as the list separator.
 */
@@ -2832,6 +2869,66 @@ isRandomNavigationMode()
 }
 
 /*
+Return the one stored random Tab destination. It must remain inside the
+current parent and differ from the gallery that is already open.
+*/
+ensureStoredRandomSameParentDestination()
+{
+    global current_parent, current_gallery
+    global stored_random_same_parent_gallery
+
+    stored_random_same_parent_gallery := normalizeFolderPath(stored_random_same_parent_gallery)
+
+    if (stored_random_same_parent_gallery != ""
+        && InStr(FileExist(stored_random_same_parent_gallery), "D"))
+    {
+        SplitPath, stored_random_same_parent_gallery,, stored_parent
+        stored_parent := normalizeFolderPath(stored_parent)
+
+        if (toLowerText(stored_parent) = toLowerText(current_parent)
+            && toLowerText(stored_random_same_parent_gallery) != toLowerText(current_gallery))
+        {
+            return stored_random_same_parent_gallery
+        }
+    }
+
+    clearStoredRandomSameParentDestination()
+    selected_gallery := getRandomSameParentGalleryPath(current_parent, current_gallery)
+    selected_gallery := normalizeFolderPath(selected_gallery)
+
+    if (selected_gallery = "" || !InStr(FileExist(selected_gallery), "D"))
+    {
+        return ""
+    }
+
+    stored_random_same_parent_gallery := selected_gallery
+    return stored_random_same_parent_gallery
+}
+
+clearStoredRandomSameParentDestination()
+{
+    global stored_random_same_parent_gallery
+
+    stored_random_same_parent_gallery := ""
+    return true
+}
+
+consumeStoredRandomSameParentDestination(gallery_path)
+{
+    global stored_random_same_parent_gallery
+
+    if (stored_random_same_parent_gallery != ""
+        && toLowerText(normalizeFolderPath(gallery_path))
+            = toLowerText(normalizeFolderPath(stored_random_same_parent_gallery)))
+    {
+        clearStoredRandomSameParentDestination()
+        return true
+    }
+
+    return false
+}
+
+/*
 Return the one authoritative random destination, choosing it only when no
 valid stored destination exists.
 */
@@ -2845,7 +2942,14 @@ ensureStoredRandomDestination()
     if (stored_random_gallery != ""
         && InStr(FileExist(stored_random_gallery), "D"))
     {
-        return stored_random_gallery
+        SplitPath, stored_random_gallery,, stored_parent
+        stored_parent := normalizeFolderPath(stored_parent)
+
+        if (toLowerText(stored_parent) != toLowerText(current_parent))
+        {
+            stored_random_parent := stored_parent
+            return stored_random_gallery
+        }
     }
 
     clearStoredRandomDestination()
@@ -3021,19 +3125,70 @@ chooseRandomPath(path_list, current_path := "", sequential_path := "", allow_uni
 }
 
 /*
-Choose a random gallery matching the filters from the entire filtered queue.
+Choose a random gallery matching the filters inside the current parent.
 */
 getRandomGalleryPath(filtered_queue, current_gallery)
 {
-    global current_parent
-
-    return getRandomDifferentParentGalleryPath(current_parent)
+    SplitPath, current_gallery,, current_parent
+    return getRandomSameParentGalleryPath(current_parent, current_gallery)
 }
 
 /*
-Choose a random parent different from the current one, then choose
-a random gallery matching the filters inside it.
+Choose a random gallery inside the current parent.
 */
+getRandomSameParentGalleryPath(current_parent, current_gallery, allow_unique_reset := true)
+{
+    parent_groups := getFilteredParentGalleryGroups(queue_is_valid)
+
+    if (!queue_is_valid || parent_groups.Length() < 1)
+    {
+        return ""
+    }
+
+    current_parent := normalizeFolderPath(current_parent)
+    current_parent_key := toLowerText(current_parent)
+    matching_galleries := []
+
+    for parent_index, parent_group in parent_groups
+    {
+        if (toLowerText(normalizeFolderPath(parent_group.parent)) = current_parent_key)
+        {
+            for gallery_index, gallery_path in parent_group.galleries
+            {
+                matching_galleries.Push(gallery_path)
+            }
+
+            break
+        }
+    }
+
+    if (matching_galleries.Length() < 1)
+    {
+        return ""
+    }
+
+    ordered_galleries := []
+
+    for gallery_index, gallery_path in matching_galleries
+    {
+        ordered_galleries.Push(gallery_path)
+    }
+
+    sortPathArray(ordered_galleries)
+    sequential_gallery := getSequentialNextPath(ordered_galleries, current_gallery)
+    selected_gallery := chooseRandomPath(matching_galleries, current_gallery, sequential_gallery, false)
+
+    if (selected_gallery = ""
+        && isUniqueRandomMode()
+        && allow_unique_reset)
+    {
+        resetUniqueRandomGalleriesForParent(current_parent, current_gallery)
+        return getRandomSameParentGalleryPath(current_parent, current_gallery, false)
+    }
+
+    return selected_gallery
+}
+
 /*
 Build random-navigation groups directly from the gallery tree.
 This is used only when the manager queue is missing or corrupt; a valid queue
@@ -3160,6 +3315,10 @@ getAlphabeticallyNextParentPath(parent_groups, current_parent)
     return getSequentialNextPath(parent_paths, current_parent)
 }
 
+/*
+Choose a random parent different from the current one, then choose
+a random gallery matching the filters inside it.
+*/
 getRandomDifferentParentGalleryPath(current_parent, allow_unique_reset := true)
 {
     global current_gallery
@@ -3322,7 +3481,7 @@ getNextGalleryPath(parent_folder, gallery_folder)
 
         if (isRandomNavigationMode())
         {
-            return ensureStoredRandomDestination()
+            return getRandomSameParentGalleryPath(parent_folder, gallery_folder)
         }
 
         current_parent_galleries := []
@@ -3376,7 +3535,7 @@ getPreviousGalleryPath(parent_folder, gallery_folder)
 
         if (isRandomNavigationMode())
         {
-            return ensureStoredRandomDestination()
+            return getRandomSameParentGalleryPath(parent_folder, gallery_folder)
         }
 
         current_parent_galleries := []
@@ -4589,6 +4748,7 @@ clearRunningSessionState()
     global random_unique_parent_seen
     global random_gallery_history
     global stored_random_gallery, stored_random_parent
+    global stored_random_same_parent_gallery
 
     current_parent := ""
     current_gallery := ""
@@ -4603,6 +4763,7 @@ clearRunningSessionState()
     random_gallery_history := []
     stored_random_gallery := ""
     stored_random_parent := ""
+    stored_random_same_parent_gallery := ""
 
     IniDelete, %SESSION_INI%, Session, CurrentParent
     IniDelete, %SESSION_INI%, Session, CurrentGallery

@@ -20,7 +20,7 @@ Gallery-Slideshow-Manager-Bridge.ahk
 
     AutoHotkey v1.1.36 native bridge. It controls IrfanView/VLC and provides
 
-    single-Tab, double-Tab, Ctrl+Tab and Remote navigation while IrfanView or
+    Tab, Ctrl+Tab and Remote navigation while IrfanView or
     VLC is active.
 
 
@@ -96,9 +96,11 @@ Native controls
 
 ---------------
 
-- Single Tab while IrfanView or VLC is active: next gallery.
-- Double Tab while IrfanView or VLC is active: open Remote.
-- Ctrl+Tab while IrfanView or VLC is active: next parent gallery.
+- Tab while IrfanView or VLC is active: immediately open the next gallery
+  inside the current parent. Random mode randomizes only among that parent's
+  matching galleries.
+- Ctrl+Tab while IrfanView or VLC is active: open a gallery from the next
+  parent. Random mode chooses a random different parent.
 - An invalid or unavailable next-parent destination never replaces the
   running slideshow and is reported as a navigation notice.
 - Tab while Remote has focus: offer the next gallery and start its timeout.
@@ -108,6 +110,7 @@ Native controls
   to the parent's folder.jpg when necessary.
 - Remote closes automatically when its offered slideshow starts.
 - Closing Remote before the timeout cancels the offered gallery.
+- Escape or a mouse click outside Remote closes it and cancels its timer.
 
 - Escape while IrfanView is active: confirmation before bridge exit.
 
@@ -789,3 +792,4 @@ Version 0.64
 - Existing 32-bit or 64-bit IrfanView processes are closed before a manager slideshow starts.
 - Closing the final Gallery Slideshow Manager window closes IrfanView and exits the resident bridge.
 - Automatic manager replacement keeps the slideshow running when a replacement manager window already exists.
+- In random mode, Tab stays inside the current parent and Ctrl+Tab alone moves to a random different parent.

@@ -858,12 +858,29 @@ input:disabled {
     box-shadow: 0 12px 28px rgba(0,0,0,0.48);
 }
 .contextTitle {
+    display: flex;
+    align-items: center;
     padding: 6px 8px 10px 8px;
     color: #aeb9c8;
     font-size: 12px;
     font-weight: 700;
     border-bottom: 1px solid #313844;
     margin-bottom: 7px;
+}
+.contextRatingStars {
+    margin-left: 8px;
+    color: #ffd24a;
+    font-size: 23px;
+    line-height: 24px;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 4px rgba(255, 194, 32, 0.28);
+}
+.contextRatingCount {
+    margin-left: 8px;
+    color: #f8e7a3;
+    font-size: 16px;
+    line-height: 20px;
+    font-weight: 800;
 }
 .contextKeywordGroup {
     margin: 0;
@@ -5531,10 +5548,26 @@ function searchChanged() {
 
 function renderKeywordMenu(menu, ownerDocument, parent) {
     var parentRating = parseInt(parent.rating, 10) || 0;
+
+    if (parentRating < 0) {
+        parentRating = 0;
+    } else if (parentRating > 9) {
+        parentRating = 9;
+    }
+
     menu.innerHTML =
         '<div class="contextTitle">'
-        + 'Rating: '
-        + escapeHtml(ratingStarsText(parentRating))
+        + '<span>Rating:</span>'
+        + (
+            parentRating
+            ? '<span class="contextRatingStars">'
+                + escapeHtml(ratingStarsText(parentRating))
+                + '</span>'
+            : ''
+        )
+        + '<span class="contextRatingCount">'
+        + parentRating
+        + '</span>'
         + '</div>';
 
     if (!state.keywords.length) {

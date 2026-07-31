@@ -59,10 +59,10 @@ Review this before every release.
 
 ## Remote
 
-- [ ] Single Tab moves to the next gallery.
-- [ ] Single Tab waits for the system double-click interval before execution.
-- [ ] Double Tab cancels the pending single-Tab move and opens Remote.
+- [ ] Tab opens the next gallery immediately.
+- [ ] In random mode, Tab never leaves the current parent.
 - [ ] Ctrl+Tab moves to the next parent gallery.
+- [ ] In random mode, only Ctrl+Tab chooses a random different parent.
 - [ ] Ctrl+Tab never passes a missing gallery path to the launcher.
 - [ ] A parent switch never resolves to the current parent.
 - [ ] Remote initially shows current gallery.
@@ -79,6 +79,8 @@ Review this before every release.
 - [ ] Failed execution keeps the same offer visible.
 - [ ] Slideshow hotkeys are inactive outside Remote while open.
 - [ ] Remote hotkeys work only while Remote has focus.
+- [ ] Escape closes Remote and cancels its pending offer.
+- [ ] A mouse click outside Remote closes it and cancels its pending offer.
 - [ ] Closing restores IrfanView input.
 - [ ] Closing restores VLC input.
 - [ ] Closing cancels timer and clears preview state.
@@ -90,7 +92,6 @@ Obsolete controls remain absent:
 - [ ] No standalone Shift previous-preview control.
 - [ ] No Space immediate execution.
 - [ ] No Shift+Tab previous-parent shortcut.
-- [ ] No Esc preview-cancel shortcut.
 - [ ] No obsolete preview footer text.
 
 ## VLC

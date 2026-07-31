@@ -164,20 +164,16 @@ Gallery starts
 ### Remote
 
 ```text
-Double Tab in managed slideshow
-→ Open Remote
-→ Show current gallery
-→ Disable slideshow-window input
-→ Remote receives controls
-```
-
-```text
-Single Tab outside Remote → Next gallery after double-press interval
+Tab outside Remote        → Open next gallery immediately
 Ctrl+Tab outside Remote   → Next parent gallery
 Tab inside Remote         → Offer next gallery and start/restart timer
 Ctrl+Tab inside Remote    → Offer first gallery in next parent and restart timer
 Timer                     → Execute exact preview
 ```
+
+Random mode maintains separate prepared destinations: Tab is constrained to a
+matching gallery in the current parent, while Ctrl+Tab selects a gallery from a
+random different parent.
 
 Remote previews the first direct image of its displayed gallery, falling back
 to the parent `folder.jpg`. After successful execution, Remote closes and focus
@@ -204,7 +200,7 @@ The bridge is the only owner of manager slideshow-navigation hotkeys.
 - **0.52** — latest user-confirmed working Tab behaviour.
 - **0.53–0.55** — not trusted for Tab implementation.
 - **0.57** — Remote design introduced; Windows runtime still requires user confirmation.
-- **0.58** — single/double Tab control model and configurable Remote timeout; Windows runtime still requires user confirmation.
+- **0.58** — historical single/double Tab control model and configurable Remote timeout; Windows runtime still requires user confirmation.
 - **0.59** — gallery-image Remote preview, Ctrl+Tab parent offers and close-on-start; Windows runtime still requires user confirmation.
 - **0.60** — guarded Ctrl+Tab parent switching with validated prepared-slot recovery; Windows runtime still requires user confirmation.
 - **0.61** — Random Gallery default and strict next-parent destination validation; Windows runtime still requires user confirmation.
