@@ -1,5 +1,5 @@
 ﻿#NoEnv
-#SingleInstance Force
+#SingleInstance Off
 #Persistent
 #InstallKeybdHook
 
@@ -37,9 +37,25 @@ if not A_IsAdmin
     ExitApp
 }
 
+instance_mutex_suffix := requested_irfanview_process_id > 0 ? requested_irfanview_process_id : "unbound"
+instance_mutex_name := "Local\SlideshowAssistant_" . instance_mutex_suffix
+instance_mutex_handle := DllCall("CreateMutex", "Ptr", 0, "Int", false, "Str", instance_mutex_name, "Ptr")
+instance_mutex_error := A_LastError
+
+if (!instance_mutex_handle || instance_mutex_error = 183)
+{
+    if (instance_mutex_handle)
+    {
+        DllCall("CloseHandle", "Ptr", instance_mutex_handle)
+    }
+
+    ExitApp
+}
+
 ; slideshow-assistant.ahk
-; Version: 0.32
+; Version: 0.33
 ; One assistant instance binds to the exact requested viewer and exits when it closes.
+; A per-viewer mutex silently rejects duplicate launches without AutoHotkey single-instance warnings.
 ; Automatic navigation waits at least one second after physical input and between image changes.
 ; Files are never deleted or overwritten; destructive actions move them to _DELETE or _CROP.
 
@@ -2548,7 +2564,7 @@ testStandaloneModifierDetection()
     expression-based context used by the remaining assistant hotkeys.
  */
 #IfWinActive ahk_group SlideshowAssistantViewer
-$*^+f::
+$^f::
     Critical, On
     copyCurrentImageAsFolderJpg()
     Critical, Off
