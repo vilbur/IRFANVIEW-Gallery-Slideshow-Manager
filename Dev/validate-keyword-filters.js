@@ -232,6 +232,9 @@ const controls = {
     filterPresetSelect: {
         value: ""
     },
+    deleteFilterPresetButton: {
+        disabled: false
+    },
     keywordMatchModeButton: {
         className: "",
         title: ""
@@ -283,6 +286,30 @@ updateKeywordMatchModeButton();
 check(
     controls.keywordMatchModeButton.className.indexOf("matchAll") >= 0,
     "The ALL/ANY button should visibly identify ALL mode."
+);
+global.confirm = function() {
+    return true;
+};
+controls.filterPresetSelect.value = "Preset.Mixed%20filters";
+check(
+    deleteSelectedFilterPreset(),
+    "A selected named filter preset should delete."
+);
+check(
+    !savedSettings.KeywordFilterPresets["Preset.Mixed%20filters"]
+        && !savedSettings.KeywordFilterPresets[
+            "PresetExclude.Mixed%20filters"
+        ]
+        && !savedSettings.KeywordFilterPresets[
+            "PresetMatchMode.Mixed%20filters"
+        ],
+    "Deleting a filter should remove its include, exclude and mode records."
+);
+check(
+    state.activeFilters.red === "include"
+        && state.activeFilters.blocked === "exclude"
+        && state.keywordMatchMode === "all",
+    "Deleting a preset should preserve the active filter combination."
 );
 
 const keywordInput = {
@@ -673,6 +700,30 @@ check(
 check(
     assistantText.indexOf("Keywords - Gallery Slideshow ahk_exe mshta.exe") >= 0,
     "Automatic slideshow navigation should pause for the dedicated keyword window."
+);
+check(
+    htaText.indexOf('id="keywordsRollout"') >= 0
+        && htaText.indexOf('id="keywordsRolloutHeader"') >= 0
+        && htaText.indexOf('id="keywordsRolloutBody"') >= 0
+        && htaText.indexOf("function toggleKeywordsRollout()") >= 0,
+    "The main keyword controls should live in a collapsible rollout."
+);
+check(
+    htaText.indexOf('class="row filterPresetRow"')
+        > htaText.indexOf('id="keywordsRolloutBody"')
+        && htaText.indexOf('id="deleteFilterPresetButton"')
+            > htaText.indexOf('class="row filterPresetRow"'),
+    "The filter row should sit below the Keywords rollout and include Delete filter."
+);
+check(
+    /\.row > \* \+ \*\s*\{\s*margin-left:\s*16px;/.test(htaText)
+        && /\.toolbarZone \.toolbarControl \+ \.toolbarControl\s*\{\s*margin-left:\s*16px;/.test(htaText),
+    "Regular main-window controls should keep at least 16 pixels of horizontal spacing."
+);
+check(
+    /\.keywordFilterButtons\s*\{[\s\S]*?column-gap:\s*0;/.test(htaText)
+        && /\.keywordFilterButton\s*\{[\s\S]*?margin-right:\s*0;[\s\S]*?margin-left:\s*0;/.test(htaText),
+    "Main-window keyword buttons should keep zero horizontal spacing."
 );
 
 console.log("Keyword filter behavior: PASS");

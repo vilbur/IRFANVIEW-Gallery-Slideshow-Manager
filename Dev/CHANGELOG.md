@@ -2,6 +2,168 @@
 
 This records design milestones and trusted baselines, not every code edit.
 
+## 1.02
+
+Single-instance VLC guard:
+
+- process cleanup now counts VLC instances before sending any close command;
+- when the protected active VLC is already the sole process, cleanup returns
+  immediately and leaves it running.
+
+Status: AutoHotkey v1 syntax-load and static regression checks pass; live VLC
+process replacement requires user confirmation.
+
+## 1.01
+
+Single VLC process enforcement:
+
+- after a replacement VLC has initialized, its PID is protected while every
+  other VLC window receives a graceful close;
+- any older or windowless VLC process that remains is terminated by exact PID;
+- WMI process enumeration verifies that only the new VLC PID survives before
+  the replacement is reported successful.
+
+Status: AutoHotkey v1 syntax-load and static regression checks pass; live VLC
+process replacement requires user confirmation.
+
+## 1.00
+
+Win-key fullscreen preservation correction:
+
+- removed the synthetic Enter command from the VLC-to-IrfanView switch;
+- returning from managed VLC now only shows and activates the existing managed
+  IrfanView window, preserving its fullscreen display state unchanged;
+- added a regression guard that rejects any viewer-key send from this activation
+  path while retaining exact-window targeting and normal Windows combinations.
+
+Status: AutoHotkey v1 syntax-load and static regression checks pass; live
+Windows fullscreen/focus behavior requires user confirmation.
+
+## 0.99
+
+Fullscreen-preserving viewer switch:
+
+- returning from managed VLC with either Windows-key tap reactivates managed
+  IrfanView and keeps it fullscreen;
+- verifies monitor-bound fullscreen state before sending IrfanView's Enter
+  fullscreen command, preventing an already-fullscreen slideshow from being
+  toggled into windowed mode;
+- retains exact managed-window targeting, Remote isolation and normal
+  Windows-key combinations.
+
+Status: AutoHotkey v1 syntax-load and static regression checks pass; live
+Windows fullscreen/focus behavior requires user confirmation.
+
+## 0.98
+
+Safe multi-parent crop restoration:
+
+- added Restore Crop beside Open parent folder;
+- scans every direct gallery of every selected parent thumbnail for _CROP;
+- copies supported image backups into their gallery without moving or deleting
+  source backups;
+- prevents overwrite with deterministic - Restored, - Restored 2, and higher
+  suffixes;
+- rescans the library after success and restores the complete parent selection.
+
+Status: JavaScript behavior, filesystem-safety regression and AutoHotkey v1
+syntax-load checks required; live Windows filesystem behavior requires user confirmation.
+
+## 0.97
+
+Combined keyboard-shortcut reference:
+
+- F1 in the manager opens a dark in-app shortcut overlay;
+- F1 while managed IrfanView or VLC is active opens the same combined shortcut
+  list from the resident bridge;
+- separates Manager, slideshow navigation, Slideshow Assistant image controls
+  and Remote bindings into readable sections;
+- Escape, Close and a second manager F1 dismiss the in-app reference;
+- lists only current controls and retains Remote input isolation.
+
+Status: JavaScript behavior, shortcut regression and AutoHotkey v1 syntax-load
+checks required; live Windows appearance and focus behavior require user confirmation.
+
+## 0.96
+
+Four-state video playback:
+
+- replaced the VLC checkbox with a Videos mode button cycling through No
+  videos, paired Videos, All videos and Auto videos;
+- All videos opens the parent gallery's direct MP4/WMV files as one VLC
+  playlist only when the parent changes;
+- Auto uses gallery/video pairs when the parent has any valid pair, otherwise
+  it falls back to the complete parent playlist;
+- the button label exposes Videos, All Videos and Auto Videos, uses the grey
+  unchecked state for No videos, and lists every mode in its tooltip;
+- a toolbar mode change is applied immediately to the current slideshow;
+- retained migration compatibility with the former `AutoVlc` setting and
+  limited playlist replacement to the manager-owned VLC instance.
+
+Status: JavaScript behavior checks and AutoHotkey v1 syntax-load pass; live
+VLC playlist, process and fullscreen behavior requires user confirmation.
+
+## 0.95
+
+Parent-thumbnail media details:
+
+- replaced the ambiguous combined gallery/video total with separate counts for
+  paired gallery/video items, unpaired galleries and unpaired direct videos;
+- presented all three counts as compact, color-coded statistics while keeping
+  the parent name and rating visible together.
+
+Visible filter presets and deletion:
+
+- moved the filter-preset row directly below and outside the Keywords rollout;
+- added a guarded Delete filter action for the selected named preset;
+- deletes include, exclude and ALL/ANY companion data atomically from the
+  manager settings while leaving the active filter combination unchanged.
+
+Status: JavaScript syntax/behavior and keyword regression checks required;
+live Windows appearance requires user confirmation.
+
+## 0.94
+
+Multi-parent keyword assignment:
+
+- a keyword menu opened from a selected thumbnail targets the complete
+  Ctrl-click parent selection;
+- inactive or mixed keywords are assigned to every selected parent, while a
+  keyword assigned to all is removed from all;
+- mixed assignments use a distinct amber state and descriptive tooltip;
+- right-clicking an unselected thumbnail retains single-parent behavior;
+- all selected-parent keyword records are persisted in one INI update.
+
+Status: JavaScript syntax/behavior, keyword, rating, UNIQUE, AutoHotkey v1
+syntax-load and package checks pass; live Windows interaction requires user confirmation.
+
+## 0.92
+
+Managed viewer focus toggle:
+
+- tapping either Windows key switches focus between the exact managed
+  IrfanView and VLC windows when both are available;
+- validates the stored process/window identities before every switch;
+- preserves Windows-key combinations and suppresses Start only for the
+  single-key viewer-toggle tap;
+- remains inactive outside a managed viewer and while Remote is open.
+
+Status: AutoHotkey v1 syntax-load and static regression checks required; live
+Windows-key behavior requires user confirmation.
+
+## 0.91
+
+Main-window spacing and Keywords rollout:
+
+- grouped keyword management, keyword filters and filter presets in one
+  collapsible Keywords rollout;
+- kept Search and Rating visible while the keyword controls are collapsed;
+- raised regular main-window control spacing to a 16-pixel minimum;
+- kept main keyword buttons at zero horizontal spacing.
+
+Status: JavaScript syntax/behavior, keyword and rating regression, AHK v1
+syntax-load and package checks required; live Windows appearance requires user confirmation.
+
 ## 0.90
 
 Color-only keyword assignment state:

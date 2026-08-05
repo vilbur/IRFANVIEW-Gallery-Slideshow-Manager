@@ -19,8 +19,30 @@ Review this before every release.
 - [ ] Missing thumbnail does not break manager.
 - [ ] No redundant startup window.
 - [ ] Dark UI remains usable.
+- [ ] Regular main-window controls retain at least 16 pixels of horizontal spacing.
+- [ ] Main-window keyword buttons retain zero horizontal spacing.
+- [ ] Keyword management and keyword filters remain inside the Keywords rollout.
+- [ ] The saved filter-preset row remains outside and directly below the Keywords rollout.
+- [ ] Delete filter removes all companion preset records but preserves active filters.
+
+## Crop restoration
+
+- [ ] Restore Crop remains beside Open parent folder.
+- [ ] Every selected parent thumbnail is processed.
+- [ ] Every direct child gallery is checked for _CROP.
+- [ ] Only supported image files are restored.
+- [ ] Restore uses copy, never move or delete.
+- [ ] Existing destination files are never overwritten.
+- [ ] Collisions receive deterministic unique restore suffixes.
+- [ ] _CROP sources remain intact after restore.
+- [ ] Library refresh retains the selected parent thumbnails.
 
 ## Slideshow
+
+- [ ] F1 in the manager opens the combined keyboard-shortcut reference.
+- [ ] F1 in managed IrfanView/VLC opens the same combined reference.
+- [ ] The reference lists only current Manager, slideshow, Assistant and Remote controls.
+- [ ] F1 help never bypasses Remote input isolation.
 
 - [ ] Selected gallery starts first.
 - [ ] Random Gallery is the default for gallery double-click and direct starts.
@@ -33,6 +55,12 @@ Review this before every release.
 - [ ] Hotkeys target main viewer only.
 - [ ] T does not open thumbnail view.
 - [ ] Ctrl+C copies current image.
+- [ ] A single left or right Windows-key tap toggles managed IrfanView/VLC focus.
+- [ ] Returning from VLC sends no viewer keystroke and preserves managed
+      IrfanView's existing fullscreen display state.
+- [ ] The Windows-key toggle never targets unrelated viewer processes.
+- [ ] Windows-key combinations retain their normal Windows behavior.
+- [ ] The Windows-key toggle remains inactive while Remote is open.
 - [ ] Auto-switch waits at least one second after user input.
 - [ ] No double jumps.
 - [ ] No permanent source-image deletion.
@@ -112,6 +140,13 @@ Obsolete controls remain absent:
 
 ## VLC
 
+- [ ] Videos cycles through No videos, paired Videos, All videos and Auto videos.
+- [ ] The Videos tooltip lists and explains every video mode.
+- [ ] Changing Videos mode applies immediately to the active slideshow.
+- [ ] No videos closes only the manager-owned VLC instance.
+- [ ] Paired Videos follows the current gallery's first-integer pair.
+- [ ] All videos reloads one parent playlist only when the parent changes.
+- [ ] Auto prefers a parent's pairs and falls back to its playlist only when no pairs exist.
 - [ ] Associated video launches.
 - [ ] VLC opens on configured monitor.
 - [ ] VLC enters fullscreen.
@@ -119,7 +154,9 @@ Obsolete controls remain absent:
 - [ ] Remote does not stop playback.
 - [ ] VLC input is isolated only while Remote is open.
 - [ ] VLC input restores on Remote close.
-- [ ] Unrelated VLC instances are untouched during slideshow replacement.
+- [ ] A new VLC launch closes every older VLC process but never the new protected PID.
+- [ ] Replacement success requires exactly one surviving VLC process.
+- [ ] A sole protected VLC process never receives a close or terminate command.
 - [ ] Exiting Slideshow Manager closes all VLC instances.
 
 ## Ratings and keywords
@@ -133,7 +170,10 @@ Obsolete controls remain absent:
 - [ ] All main keyword rows reserve the same prefix column and remain left-aligned.
 - [ ] Keyword button captions omit prefixes while rename retains the complete bound name.
 - [ ] Rename editing shows one prefix separator but saves the canonical bound name without it.
-- [ ] Assignment affects selected parent only.
+- [ ] Manager keyword assignment affects every Ctrl-selected parent and no unselected parent.
+- [ ] Mixed multi-selection keywords display distinctly and clicking them assigns to all.
+- [ ] A keyword assigned to every selected parent can be removed from all with one click.
+- [ ] Right-clicking an unselected parent retains single-parent keyword assignment.
 - [ ] Included keyword filters retain OR matching.
 - [ ] ALL mode requires every included keyword; ANY mode retains OR matching.
 - [ ] Excluded keyword filters veto matching parents.

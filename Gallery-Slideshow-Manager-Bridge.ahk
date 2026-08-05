@@ -10,7 +10,7 @@ SetWorkingDir, %A_ScriptDir%
 ; AutoHotkey v1.1.36 native bridge for the HTML tile interface.
 ; Handles IrfanView, VLC, global navigation, dynamic lists, and background preparation.
 
-SCRIPT_VERSION := "0.90"
+SCRIPT_VERSION := "1.02"
 APP_NAME := "Gallery-Slideshow-Manager"
 DATA_DIR := A_Temp . "\" . APP_NAME
 SETTINGS_INI := DATA_DIR . "\" . APP_NAME . ".ini"
@@ -33,7 +33,7 @@ LIST_ENCODING := "CP0"
 root_folder := ""
 irfanview_exe := ""
 vlc_exe := ""
-auto_vlc_enabled := true
+video_mode := "paired"
 current_parent := ""
 current_gallery := ""
 current_irfan_pid := ""
@@ -132,6 +132,23 @@ return
 $x::
     toggleCurrentParentKeywordWindow()
     KeyWait, x
+return
+#If
+
+#If isManagedViewerToggleActive()
+$LWin::
+    handleManagedViewerWinKey("LWin")
+return
+
+$RWin::
+    handleManagedViewerWinKey("RWin")
+return
+#If
+
+#If isGalleryNavigationActive() && !remote_open
+$F1::
+    showKeyboardShortcutHelp()
+    KeyWait, F1
 return
 #If
 
@@ -1203,21 +1220,29 @@ launchHtmlManager()
 }
 
 /*
-Read executable paths, root folder, Auto VLC state and Remote timeout.
+Read executable paths, root folder, video mode and Remote timeout.
 */
 loadSettings()
 {
-    global SETTINGS_INI, root_folder, irfanview_exe, vlc_exe, auto_vlc_enabled
+    global SETTINGS_INI, root_folder, irfanview_exe, vlc_exe, video_mode
 
     IniRead, root_folder, %SETTINGS_INI%, Galleries, RootPath,
     IniRead, irfanview_exe, %SETTINGS_INI%, IrfanView, ExePath,
     IniRead, vlc_exe, %SETTINGS_INI%, VLC, ExePath,
+    IniRead, video_mode_value, %SETTINGS_INI%, Options, VideoMode,
     IniRead, auto_vlc_value, %SETTINGS_INI%, Options, AutoVlc, 1
 
     root_folder := normalizeFolderPath(root_folder)
     irfanview_exe := Trim(irfanview_exe, " `t`r`n""")
     vlc_exe := Trim(vlc_exe, " `t`r`n""")
-    auto_vlc_enabled := auto_vlc_value ? true : false
+    video_mode_value := toLowerText(Trim(video_mode_value))
+
+    if (video_mode_value != "none" && video_mode_value != "paired" && video_mode_value != "all" && video_mode_value != "auto")
+    {
+        video_mode_value := auto_vlc_value ? "paired" : "none"
+    }
+
+    video_mode := video_mode_value
     loadRemoteTimeoutSetting()
 }
 
@@ -1290,6 +1315,10 @@ pollCommandFile()
     else if (command_action = "uniqueoff")
     {
         setRandomUniqueMode(false)
+    }
+    else if (command_action = "videomodechanged")
+    {
+        applyCurrentVideoMode()
     }
     else if (command_action = "nextgallery")
     {
@@ -1415,7 +1444,7 @@ Launch one prepared slot and prepare the two following navigation slots.
 launchPreparedSlot(slot_prefix)
 {
     global root_folder, current_parent, current_gallery
-    global current_video, switching_slideshow, auto_vlc_enabled
+    global current_video, current_vlc_pid, switching_slideshow, video_mode
     global random_unique_skip_parent_completion_once
     global random_unique_parent_round_reset_pending
     global random_unique_parent_seen
@@ -1452,7 +1481,7 @@ launchPreparedSlot(slot_prefix)
 
     current_gallery := normalizeFolderPath(gallery_path)
     current_parent := normalizeFolderPath(parent_folder)
-    current_video := video_path
+    current_video := ""
     recordRandomGalleryVisit(current_gallery)
 
     if (isUniqueRandomMode())
@@ -1479,9 +1508,43 @@ launchPreparedSlot(slot_prefix)
     consumeStoredRandomSameParentDestination(current_gallery)
     consumeStoredRandomDestination(current_gallery)
 
-    if (auto_vlc_enabled && video_path != "" && FileExist(video_path))
+    parent_changed := previous_parent = "" || toLowerText(previous_parent) != toLowerText(current_parent)
+    parent_video_paths := getDirectVideoPaths(current_parent)
+    parent_uses_pairs := video_mode = "paired" || (video_mode = "auto" && parentHasPairedVideo(current_parent))
+    video_launched := false
+
+    if (video_mode = "none")
     {
-        sendVideoToVlc(video_path)
+        closeManagedVlcInstance()
+    }
+    else if (parent_uses_pairs)
+    {
+        if (video_path != "" && FileExist(video_path))
+        {
+            current_video := video_path
+            video_launched := sendVideoToVlc(video_path)
+        }
+        else
+        {
+            closeManagedVlcInstance()
+        }
+    }
+    else if (parent_video_paths.Length() > 0)
+    {
+        current_video := parent_video_paths[1]
+
+        if (parent_changed || current_vlc_pid = "" || !processExists(current_vlc_pid))
+        {
+            video_launched := sendVideosToVlc(parent_video_paths)
+        }
+    }
+    else if (parent_changed)
+    {
+        closeManagedVlcInstance()
+    }
+
+    if (video_launched)
+    {
         activateCurrentIrfanView()
     }
 
@@ -1489,6 +1552,68 @@ launchPreparedSlot(slot_prefix)
     prepareNextNavigationSlots()
 
     showTrayTip("Gallery opened", image_count . " images`n" . current_gallery, 1)
+    return true
+}
+
+/*
+Apply a toolbar video-mode change immediately to the current gallery.
+*/
+applyCurrentVideoMode()
+{
+    global SESSION_INI, current_parent, current_gallery, current_video, video_mode
+
+    loadSettings()
+    current_video := ""
+    video_launched := false
+
+    if (video_mode = "none")
+    {
+        closeManagedVlcInstance()
+    }
+    else if (current_parent = "" || !InStr(FileExist(current_parent), "D"))
+    {
+        return false
+    }
+    else if (video_mode = "paired" || (video_mode = "auto" && parentHasPairedVideo(current_parent)))
+    {
+        paired_video := findPairedVideo(current_parent, current_gallery)
+
+        if (paired_video != "" && FileExist(paired_video))
+        {
+            current_video := paired_video
+            video_launched := sendVideoToVlc(paired_video)
+        }
+        else
+        {
+            closeManagedVlcInstance()
+        }
+    }
+    else
+    {
+        parent_video_paths := getDirectVideoPaths(current_parent)
+
+        if (parent_video_paths.Length() > 0)
+        {
+            current_video := parent_video_paths[1]
+            video_launched := sendVideosToVlc(parent_video_paths)
+        }
+        else
+        {
+            closeManagedVlcInstance()
+        }
+    }
+
+    if (video_launched)
+    {
+        activateCurrentIrfanView()
+    }
+
+    if (current_gallery != "")
+    {
+        IniRead, current_image_count, %SESSION_INI%, Session, ImageCount, 0
+        writeSessionState(current_image_count)
+    }
+
     return true
 }
 
@@ -4259,6 +4384,54 @@ findPairedVideo(parent_folder, gallery_folder)
 }
 
 /*
+Return every direct MP4 or WMV in one parent gallery, sorted by path.
+The All and Auto modes pass this array to VLC as one playlist.
+*/
+getDirectVideoPaths(parent_folder)
+{
+    video_paths := []
+
+    if (parent_folder = "" || !InStr(FileExist(parent_folder), "D"))
+    {
+        return video_paths
+    }
+
+    Loop, Files, % parent_folder . "\*.*", F
+    {
+        SplitPath, A_LoopFileFullPath,,, file_extension
+        file_extension := toLowerText(file_extension)
+
+        if (file_extension = "mp4" || file_extension = "wmv")
+        {
+            video_paths.Push(A_LoopFileFullPath)
+        }
+    }
+
+    sortPathArray(video_paths)
+    return video_paths
+}
+
+/*
+Return true when at least one image gallery has a first-integer video pair.
+Auto mode uses one consistent strategy for the whole parent: pairs when any
+exist, otherwise the complete direct-video playlist.
+*/
+parentHasPairedVideo(parent_folder)
+{
+    gallery_folders := getGalleryFolders(parent_folder)
+
+    for gallery_index, gallery_folder in gallery_folders
+    {
+        if (findPairedVideo(parent_folder, gallery_folder) != "")
+        {
+            return true
+        }
+    }
+
+    return false
+}
+
+/*
 Extract only the first integer from the final file or folder name.
 */
 getFirstIntegerFromName(path_or_name)
@@ -4378,23 +4551,38 @@ restoreTemporaryVlcSound()
 }
 
 /*
-Open a matched video in a new VLC instance, fullscreen it, mute it for
-ten seconds, and close the old instance.
+Open one video through the shared VLC playlist launcher.
 */
 sendVideoToVlc(video_path)
+{
+    video_paths := []
+    video_paths.Push(video_path)
+    return sendVideosToVlc(video_paths)
+}
+
+/*
+Open one or more videos in a new VLC instance as a single playlist,
+fullscreen it, mute it for ten seconds, and close every older VLC instance.
+The new process ID is explicitly protected throughout cleanup.
+*/
+sendVideosToVlc(video_paths)
 {
     global vlc_exe
     global current_vlc_window_id, current_vlc_pid
 
     restoreTemporaryVlcSound()
 
+    if (!IsObject(video_paths) || video_paths.Length() < 1)
+    {
+        return false
+    }
+
     if (!ensureVlcPath())
     {
         return false
     }
 
-    WinGet, old_vlc_window_id, ID, ahk_exe vlc.exe
-    old_vlc_pid := ""
+    old_vlc_window_id := getManagedVlcWindowId()
     old_x := ""
     old_y := ""
     old_width := ""
@@ -4402,11 +4590,26 @@ sendVideoToVlc(video_path)
 
     if (old_vlc_window_id != "")
     {
-        WinGet, old_vlc_pid, PID, ahk_id %old_vlc_window_id%
         WinGetPos, old_x, old_y, old_width, old_height, ahk_id %old_vlc_window_id%
     }
 
-    command_line := quotePath(vlc_exe) . " --no-one-instance --fullscreen " . quotePath(video_path)
+    command_line := quotePath(vlc_exe) . " --no-one-instance --fullscreen"
+    valid_video_count := 0
+
+    for video_index, video_path in video_paths
+    {
+        if (video_path != "" && FileExist(video_path))
+        {
+            command_line .= " " . quotePath(video_path)
+            valid_video_count++
+        }
+    }
+
+    if (valid_video_count < 1)
+    {
+        return false
+    }
+
     Run, %command_line%,, UseErrorLevel, new_vlc_pid
 
     if (ErrorLevel || new_vlc_pid = "")
@@ -4447,13 +4650,145 @@ sendVideoToVlc(video_path)
 
     startTemporaryVlcMute(new_vlc_window_id, new_vlc_pid)
 
-    if (old_vlc_window_id != "" && old_vlc_pid != new_vlc_pid)
+    if (!closeOtherVlcInstances(new_vlc_pid))
     {
-        WinClose, ahk_id %old_vlc_window_id%
-        Process, WaitClose, %old_vlc_pid%, 2
+        showTrayTip("VLC replacement", "An older VLC process could not be closed.", 3)
+        return false
     }
 
     return true
+}
+
+/*
+Return every running VLC process ID through WMI, including processes without
+a visible top-level window.
+*/
+getVlcProcessIds(ByRef query_succeeded := "")
+{
+    vlc_process_ids := []
+    query_succeeded := false
+
+    try
+    {
+        wmi_service := ComObjGet("winmgmts:{impersonationLevel=impersonate}!\\.\root\cimv2")
+        vlc_processes := wmi_service.ExecQuery("Select ProcessId from Win32_Process where Name='vlc.exe'")
+
+        for vlc_process in vlc_processes
+        {
+            vlc_process_ids.Push(vlc_process.ProcessId + 0)
+        }
+
+        query_succeeded := true
+    }
+    catch query_error
+    {
+        return vlc_process_ids
+    }
+
+    return vlc_process_ids
+}
+
+/*
+Close all VLC instances except the newly launched process. Visible windows get
+a graceful close first; any surviving or windowless process is then terminated
+by its exact PID. The protected process is never passed to a close command.
+*/
+closeOtherVlcInstances(protected_vlc_pid)
+{
+    if (protected_vlc_pid = "" || !processExists(protected_vlc_pid))
+    {
+        return false
+    }
+
+    initial_vlc_pids := getVlcProcessIds(query_succeeded)
+
+    if (!query_succeeded)
+    {
+        return false
+    }
+
+    ; Never send a close command when the protected VLC is already the only
+    ; running instance.
+    if (initial_vlc_pids.Length() = 1)
+    {
+        return initial_vlc_pids[1] = protected_vlc_pid
+    }
+
+    WinGet, vlc_window_list, List, ahk_exe vlc.exe
+
+    Loop, %vlc_window_list%
+    {
+        vlc_window_id := vlc_window_list%A_Index%
+        WinGet, vlc_window_pid, PID, ahk_id %vlc_window_id%
+
+        if (vlc_window_pid != "" && vlc_window_pid != protected_vlc_pid)
+        {
+            WinClose, ahk_id %vlc_window_id%
+        }
+    }
+
+    graceful_deadline := A_TickCount + 1500
+
+    Loop
+    {
+        remaining_vlc_pids := getVlcProcessIds(query_succeeded)
+
+        if (!query_succeeded)
+        {
+            return false
+        }
+
+        older_process_found := false
+
+        for process_index, process_id in remaining_vlc_pids
+        {
+            if (process_id != protected_vlc_pid)
+            {
+                older_process_found := true
+                break
+            }
+        }
+
+        if (!older_process_found || A_TickCount >= graceful_deadline)
+        {
+            break
+        }
+
+        Sleep, 50
+    }
+
+    remaining_vlc_pids := getVlcProcessIds(query_succeeded)
+
+    if (!query_succeeded)
+    {
+        return false
+    }
+
+    for process_index, process_id in remaining_vlc_pids
+    {
+        if (process_id != protected_vlc_pid)
+        {
+            Process, Close, %process_id%
+            Process, WaitClose, %process_id%, 1
+        }
+    }
+
+    remaining_vlc_pids := getVlcProcessIds(query_succeeded)
+
+    if (!query_succeeded)
+    {
+        return false
+    }
+
+    for process_index, process_id in remaining_vlc_pids
+    {
+        if (process_id != protected_vlc_pid)
+        {
+            return false
+        }
+    }
+
+    return processExists(protected_vlc_pid)
 }
 
 /*
@@ -5266,6 +5601,38 @@ closeAllIrfanViewInstances()
 }
 
 /*
+Close only the VLC instance started and tracked by this manager.
+*/
+closeManagedVlcInstance()
+{
+    global current_vlc_window_id, current_vlc_pid
+
+    restoreTemporaryVlcSound()
+    managed_vlc_pid := current_vlc_pid
+    managed_vlc_window_id := getManagedVlcWindowId()
+
+    if (managed_vlc_window_id != "")
+    {
+        WinClose, ahk_id %managed_vlc_window_id%
+    }
+
+    if (managed_vlc_pid != "" && processExists(managed_vlc_pid))
+    {
+        Process, WaitClose, %managed_vlc_pid%, 2
+    }
+
+    if (managed_vlc_pid != "" && processExists(managed_vlc_pid))
+    {
+        Process, Close, %managed_vlc_pid%
+        Process, WaitClose, %managed_vlc_pid%, 1
+    }
+
+    current_vlc_window_id := ""
+    current_vlc_pid := ""
+    return managed_vlc_pid = "" || !processExists(managed_vlc_pid)
+}
+
+/*
 Close every VLC process when the Slideshow Manager bridge exits.
 This exit-only cleanup intentionally includes VLC instances that were not
 started by the current slideshow.
@@ -5573,6 +5940,48 @@ monitorManagedIrfanView()
 /*
 Activate the current managed IrfanView window.
 */
+showKeyboardShortcutHelp()
+{
+    shortcut_help_text =
+    (
+MANAGER
+F1 - Show or close this shortcut reference
+Ctrl+0...9 - Rate every selected parent gallery
+Ctrl+click - Add or remove a parent from the selection
+Esc - Close parent details; from the main view, request Exit
+
+SLIDESHOW NAVIGATION
+F1 - Show this combined shortcut reference
+Tab - Next gallery inside the current parent
+Ctrl+Tab - Next gallery from another parent
+Ctrl+0...9 - Rate the current parent gallery
+X - Toggle the current parent's Keywords window
+Windows key tap - Switch between managed IrfanView and VLC; no viewer key is sent
+Enter - Close the current slideshow
+Esc - Confirm bridge/slideshow exit
+
+SLIDESHOW ASSISTANT - IMAGE CONTROLS
+Space - Next image
+Backspace or Ctrl tap - Previous image
+Shift tap - Add one slideshow pause step
+Shift+Space - Pause and mark the current view for crop capture
+Delete - Move the current image safely to _DELETE, then continue
+W / A / S / D - Pan the image
+Q / E - Zoom in / out
+Arrow or numpad navigation - Native pan/zoom; mark view as cropped
+L / R / H - Rotate left / rotate right / horizontal flip
+Ctrl+F - Copy the current image as the parent folder.jpg
+
+REMOTE
+Tab - Offer the next gallery and start the timeout
+Ctrl+Tab - Offer a gallery from the next parent
+Esc - Close Remote and cancel its pending offer
+    )
+
+    MsgBox, 262208, Gallery Slideshow Manager - Keyboard shortcuts, %shortcut_help_text%
+    return true
+}
+
 activateCurrentIrfanView()
 {
     global current_irfan_pid
@@ -5584,6 +5993,153 @@ activateCurrentIrfanView()
 
     WinActivate, % "ahk_pid " . current_irfan_pid
     return true
+}
+
+/*
+Return the current managed IrfanView main window when it is still valid.
+*/
+getManagedIrfanViewWindowId()
+{
+    global current_irfan_pid
+
+    if (current_irfan_pid = "" || !processExists(current_irfan_pid))
+    {
+        return ""
+    }
+
+    return WinExist("ahk_pid " . current_irfan_pid)
+}
+
+/*
+Return the exact managed VLC window, recovering its handle from the tracked
+process only when the previously stored handle became stale.
+*/
+getManagedVlcWindowId()
+{
+    global current_vlc_window_id, current_vlc_pid
+
+    if (current_vlc_pid = "" || !processExists(current_vlc_pid))
+    {
+        return ""
+    }
+
+    if (current_vlc_window_id != "" && WinExist("ahk_id " . current_vlc_window_id))
+    {
+        WinGet, stored_vlc_pid, PID, % "ahk_id " . current_vlc_window_id
+
+        if (stored_vlc_pid = current_vlc_pid)
+        {
+            return current_vlc_window_id
+        }
+    }
+
+    recovered_vlc_window_id := WinExist("ahk_pid " . current_vlc_pid)
+
+    if (recovered_vlc_window_id != "")
+    {
+        current_vlc_window_id := recovered_vlc_window_id
+    }
+
+    return recovered_vlc_window_id
+}
+
+/*
+Enable the single-Windows-key viewer toggle only while both managed viewer
+windows exist, one of them owns focus, and Remote is not isolating input.
+*/
+isManagedViewerToggleActive()
+{
+    global remote_open
+
+    if (remote_open)
+    {
+        return false
+    }
+
+    irfanview_window_id := getManagedIrfanViewWindowId()
+    vlc_window_id := getManagedVlcWindowId()
+
+    if (irfanview_window_id = "" || vlc_window_id = "")
+    {
+        return false
+    }
+
+    active_window_id := WinExist("A")
+    return active_window_id = irfanview_window_id || active_window_id = vlc_window_id
+}
+
+/*
+Preserve normal Windows-key combinations. A Windows-key tap is masked from
+opening Start and is used only to toggle the two managed viewer windows.
+*/
+handleManagedViewerWinKey(key_name)
+{
+    SendInput, % "{Blind}{" . key_name . " Down}"
+    KeyWait, %key_name%
+    was_single_key_tap := A_PriorKey = key_name
+
+    if (was_single_key_tap)
+    {
+        SendInput, {Blind}{vkE8}
+    }
+
+    SendInput, % "{Blind}{" . key_name . " Up}"
+
+    if (was_single_key_tap)
+    {
+        toggleManagedViewerWindow()
+    }
+
+    return was_single_key_tap
+}
+
+/*
+Reactivate managed IrfanView without sending any viewer keystroke. Its existing
+fullscreen/windowed display state must remain unchanged during the focus switch.
+*/
+activateManagedIrfanViewPreservingDisplayState(window_id)
+{
+    if (window_id = "" || !WinExist("ahk_id " . window_id))
+    {
+        return false
+    }
+
+    WinShow, ahk_id %window_id%
+    WinActivate, ahk_id %window_id%
+    WinWaitActive, ahk_id %window_id%,, 2
+    return !ErrorLevel
+}
+
+/*
+Switch focus between the exact manager-owned IrfanView and VLC windows.
+Returning from VLC preserves IrfanView's existing fullscreen display state.
+*/
+toggleManagedViewerWindow()
+{
+    irfanview_window_id := getManagedIrfanViewWindowId()
+    vlc_window_id := getManagedVlcWindowId()
+
+    if (irfanview_window_id = "" || vlc_window_id = "")
+    {
+        return false
+    }
+
+    active_window_id := WinExist("A")
+
+    if (active_window_id = irfanview_window_id)
+    {
+        WinShow, ahk_id %vlc_window_id%
+        WinActivate, ahk_id %vlc_window_id%
+        return true
+    }
+
+    if (active_window_id = vlc_window_id)
+    {
+        activateManagedIrfanViewPreservingDisplayState(irfanview_window_id)
+        return true
+    }
+
+    return false
 }
 
 /*
@@ -5872,6 +6428,18 @@ runSelfTest()
     if (!InStr(toLowerText(paired_video), "1 video 2160.mp4"))
     {
         test_failures.Push("Video pairing")
+    }
+
+    direct_videos := getDirectVideoPaths(test_root . "\A\Parent A")
+
+    if (direct_videos.Length() != 2)
+    {
+        test_failures.Push("Direct video scan")
+    }
+
+    if (!parentHasPairedVideo(test_root . "\A\Parent A"))
+    {
+        test_failures.Push("Auto paired-parent detection")
     }
 
     test_images := getDirectImagePaths(gallery_one)

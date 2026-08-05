@@ -19,12 +19,19 @@ This is the functional source of truth.
 - Starting a slideshow browses to its parent and gallery.
 - Selected gallery shows its first available image.
 - Parent preview uses `folder.jpg` when available.
+- Each parent thumbnail separately reports paired gallery/video items,
+  unpaired galleries and unpaired direct MP4/WMV videos.
 - Missing images show a safe placeholder.
 - Thumbnail work must not block the UI.
 
 ### UI
 
 - Dark interface.
+- Regular main-window controls keep at least 16 pixels of horizontal spacing.
+- Main-window keyword buttons keep zero horizontal spacing.
+- Keyword management and keyword-filter controls live in a collapsible Keywords rollout.
+- Saved filter presets remain visible directly below the Keywords rollout.
+- A selected named filter preset can be deleted without clearing the active filters.
 - No redundant startup window.
 - Preserve user data and saved layout/settings.
 - Tray messages only for useful errors or explicit status.
@@ -59,10 +66,18 @@ Run the selected gallery in IrfanView and control it through the bridge.
 
 ### Slideshow input
 
+- F1 shows a combined Manager, slideshow navigation, Slideshow Assistant and
+  Remote keyboard-shortcut reference.
+
 - Do not auto-switch images less than one second after keyboard or mouse input.
 - Avoid double jumps.
 - `T` must not open IrfanView thumbnail view.
 - `Ctrl+C` copies the current image.
+- A single left or right Windows-key tap switches focus between the managed
+  IrfanView and VLC windows when both exist.
+- Returning from VLC only shows and activates managed IrfanView; it sends no
+  viewer keystroke, preserving the existing fullscreen display state.
+- Windows-key combinations retain their normal Windows behavior.
 - Hotkeys target only the main IrfanView viewer, not dialogs.
 - Source images are never permanently deleted by normal slideshow controls.
 
@@ -224,7 +239,15 @@ These must remain removed:
 
 ## VLC integration
 
-- Detect associated video.
+- The Videos toolbar button cycles through No videos, paired Videos, All
+  videos and Auto videos, and its tooltip describes the complete mode list.
+- Changing the button applies the new mode immediately to the active slideshow.
+- No videos closes and suppresses the manager-owned VLC instance.
+- Videos launches the first-integer MP4/WMV pair for each gallery.
+- All videos launches all direct parent MP4/WMV files as one playlist when the
+  active parent gallery changes.
+- Auto uses pair behavior when a parent has any valid pair; when it has no
+  pairs but has direct videos, it uses the complete parent playlist.
 - Launch controlled VLC instance.
 - Track managed VLC window/process.
 - Move to configured monitor.
@@ -233,8 +256,10 @@ These must remain removed:
 - Recover from fullscreen on the wrong monitor where possible.
 - While Remote is open, playback continues but VLC input is isolated.
 - Restore VLC input when Remote closes.
-- Do not close unrelated VLC instances.
-- Manager exit is the explicit exception: it closes all VLC processes.
+- Every new managed VLC launch closes all older VLC instances and verifies that
+  only the new protected process remains.
+- If the protected VLC is already the sole process, no close command is sent.
+- Manager exit also closes all VLC processes.
 
 ## Ratings
 
@@ -247,7 +272,13 @@ These must remain removed:
 
 ## Keywords
 
-- Assign keywords to selected parent gallery.
+- Assign or remove keywords for one selected parent or the complete Ctrl-click
+  parent-thumbnail selection.
+- In the manager keyword menu, blue means every selected parent has the
+  keyword; amber means only some have it. Clicking blue removes from all,
+  while clicking amber or inactive assigns to all.
+- Right-clicking an unselected parent replaces the selection and therefore
+  affects only that parent.
 - Sort keywords alphabetically on startup.
 - Special-prefix groups always use `~`, `@`, `!`, `#`, `$`, `%`, `&`, then
   any remaining symbols in deterministic character order.
@@ -360,6 +391,17 @@ Rules:
 - Random gallery matching may respect it.
 - Explicit user action can clear/change it.
 - Skip state must not silently reorder normal mode.
+
+## Crop restoration
+
+- Restore Crop is beside Open parent folder in the main toolbar.
+- It applies to every selected parent thumbnail.
+- Every direct gallery inside each selected parent is checked for _CROP.
+- Supported image backups are copied back into their gallery.
+- _CROP source files remain untouched.
+- Existing gallery files are never overwritten; unique - Restored suffixes
+  are generated for every collision.
+- A successful restore refreshes the library and retains the parent selection.
 
 ## Safety
 

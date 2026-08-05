@@ -37,7 +37,7 @@ html, body {
 }
 #windowSurface {
     width: 100%;
-    height: 100%;
+    height: auto;
     overflow: hidden;
     border: 1px solid #526071;
     border-radius: 9px;
@@ -812,17 +812,18 @@ function fitAndPlaceWindow() {
     clientWidth = Math.max(240, clientWidth);
     document.body.style.width = clientWidth + "px";
     surface.style.width = clientWidth + "px";
+    surface.style.height = "auto";
     groups.style.height = "auto";
     groups.style.maxHeight = "none";
 
     var maximumClientHeight = Math.max(150, workHeight - (margin * 2));
-    var naturalHeight = surface.scrollHeight;
+    var naturalHeight = surface.offsetHeight || surface.scrollHeight;
 
     if (naturalHeight > maximumClientHeight && workWidth >= 560) {
         clientWidth = Math.min(720, workWidth - (margin * 2));
         document.body.style.width = clientWidth + "px";
         surface.style.width = clientWidth + "px";
-        naturalHeight = surface.scrollHeight;
+        naturalHeight = surface.offsetHeight || surface.scrollHeight;
     }
 
     if (naturalHeight > maximumClientHeight) {
@@ -831,7 +832,7 @@ function fitAndPlaceWindow() {
             + document.getElementById("saveStatus").offsetHeight
             + 2;
         groups.style.height = Math.max(62, maximumClientHeight - fixedHeight) + "px";
-        naturalHeight = maximumClientHeight;
+        naturalHeight = surface.offsetHeight || maximumClientHeight;
     }
 
     var clientHeight = Math.max(92, Math.min(naturalHeight, maximumClientHeight));

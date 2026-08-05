@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta charset="utf-8" />
-<title>Gallery Slideshow Manager 0.90</title>
+<title>Gallery Slideshow Manager 1.02</title>
 <hta:application
     id="galleryApp"
     applicationname="Gallery Slideshow Manager"
@@ -98,14 +98,16 @@ input[type=text]:focus {
     background: #171a20;
     border-bottom: 1px solid #2b313b;
 }
-#optionsRollout {
+#optionsRollout,
+#keywordsRollout {
     margin-bottom: 10px;
     border: 1px solid #303844;
     border-radius: 9px;
     overflow: hidden;
     background: #15191f;
 }
-#optionsRolloutHeader {
+#optionsRolloutHeader,
+#keywordsRolloutHeader {
     display: flex;
     align-items: center;
     width: 100%;
@@ -117,40 +119,49 @@ input[type=text]:focus {
     color: #edf2f8;
     text-align: left;
 }
-#optionsRolloutHeader:hover {
+#optionsRolloutHeader:hover,
+#keywordsRolloutHeader:hover {
     background: #272e39;
 }
-#optionsRolloutArrow {
+#optionsRolloutArrow,
+#keywordsRolloutArrow {
     width: 18px;
     color: #8fbfff;
     font-size: 17px;
     font-weight: 700;
     text-align: center;
 }
-#optionsRolloutTitle {
+#optionsRolloutTitle,
+#keywordsRolloutTitle {
     margin-left: 5px;
     font-size: 13px;
     font-weight: 700;
 }
-#optionsRolloutSummary {
+#optionsRolloutSummary,
+#keywordsRolloutSummary {
     margin-left: 10px;
     color: #8e9aaa;
     font-size: 11px;
     font-weight: 400;
 }
-#optionsRolloutBody {
+#optionsRolloutBody,
+#keywordsRolloutBody {
     display: none;
     padding: 10px 12px 1px 12px;
     border-top: 1px solid #303844;
 }
-#optionsRollout.open #optionsRolloutBody {
+#optionsRollout.open #optionsRolloutBody,
+#keywordsRollout.open #keywordsRolloutBody {
     display: block;
 }
 .row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0;
     margin-bottom: 9px;
+}
+.row > * + * {
+    margin-left: 16px;
 }
 .row:last-child {
     margin-bottom: 0;
@@ -231,7 +242,8 @@ input:disabled {
     display: flex;
     flex: 1 1 auto;
     flex-wrap: wrap;
-    gap: 7px;
+    column-gap: 0;
+    row-gap: 7px;
     min-width: 0;
 }
 .keywordFilterButton {
@@ -239,6 +251,8 @@ input:disabled {
     align-items: center;
     min-height: 38px;
     box-sizing: border-box;
+    margin-right: 0;
+    margin-left: 0;
     padding: 7px 12px;
     border: 1px solid #3a4350;
     border-radius: 8px;
@@ -281,8 +295,11 @@ input:disabled {
 #ratingFilters {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 0;
     min-height: 38px;
+}
+#ratingFilters .ratingFilterStar + .ratingFilterStar {
+    margin-left: 16px;
 }
 .ratingFilterStar {
     position: relative;
@@ -343,7 +360,7 @@ input:disabled {
     line-height: 11px;
 }
 #ratingFilterHint {
-    margin-left: 8px;
+    margin-left: 16px;
     color: #8e9aaa;
     font-size: 11px;
 }
@@ -380,15 +397,15 @@ input:disabled {
     justify-content: center;
     flex: 0 1 auto;
     flex-wrap: nowrap;
-    margin: 0 14px;
+    margin: 0 16px;
     height: 42px;
     min-height: 42px;
 }
 .toolbarZone .toolbarControl + .toolbarControl {
-    margin-left: 9px;
+    margin-left: 16px;
 }
 #slideshowActions .toolbarControl + .toolbarControl {
-    margin-left: 12px;
+    margin-left: 16px;
 }
 .toolbarControl {
     display: inline-flex;
@@ -454,12 +471,12 @@ input:disabled {
         padding-left: 10px;
     }
     #slideshowActions {
-        margin-right: 7px;
-        margin-left: 7px;
+        margin-right: 16px;
+        margin-left: 16px;
     }
     .toolbarZone .toolbarControl + .toolbarControl,
     #slideshowActions .toolbarControl + .toolbarControl {
-        margin-left: 6px;
+        margin-left: 16px;
     }
     .toolbarControl,
     .toolbarCheckButton,
@@ -653,12 +670,53 @@ input:disabled {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.parentMeta {
+.parentHeading {
     display: flex;
     align-items: center;
     margin-top: 5px;
+}
+.parentHeading .parentName {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.parentHeading .ratingBadge {
+    flex: 0 0 auto;
+}
+.parentStats {
+    display: flex;
+    margin-top: 8px;
+    border: 1px solid #303844;
+    border-radius: 7px;
+    overflow: hidden;
+    background: #15191f;
+}
+.parentStat {
+    flex: 1 1 33.333%;
+    min-width: 0;
+    padding: 5px 3px 6px 3px;
+    border-left: 1px solid #303844;
+    text-align: center;
     color: #98a4b4;
-    font-size: 12px;
+    font-size: 10px;
+    line-height: 13px;
+}
+.parentStat:first-child {
+    border-left: 0;
+}
+.parentStatCount {
+    display: block;
+    color: #e7ebf1;
+    font-size: 14px;
+    font-weight: 700;
+}
+.parentStat.pairs .parentStatCount {
+    color: #75d18d;
+}
+.parentStat.galleries .parentStatCount {
+    color: #7eb6ff;
+}
+.parentStat.videos .parentStatCount {
+    color: #d49aff;
 }
 .ratingBadge {
     display: inline-block;
@@ -730,6 +788,56 @@ input:disabled {
     font-size: 12px;
     z-index: 20;
 }
+#shortcutHelpOverlay {
+    display: none;
+    position: fixed;
+    z-index: 160;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(4,6,9,0.82);
+}
+#shortcutHelpDialog {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 760px;
+    max-width: calc(100% - 40px);
+    max-height: calc(100% - 40px);
+    transform: translate(-50%, -50%);
+    border: 1px solid #46505f;
+    border-radius: 12px;
+    background: #171b21;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.62);
+    overflow: hidden;
+}
+#shortcutHelpHeader {
+    display: flex;
+    align-items: center;
+    min-height: 52px;
+    padding: 8px 12px 8px 18px;
+    border-bottom: 1px solid #303844;
+    background: #202630;
+}
+#shortcutHelpTitle {
+    font-size: 18px;
+    font-weight: 700;
+}
+#shortcutHelpClose {
+    margin-left: auto;
+}
+#shortcutHelpText {
+    max-height: calc(100vh - 125px);
+    margin: 0;
+    padding: 18px 22px 22px 22px;
+    overflow: auto;
+    color: #dce4ee;
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+}
 #galleryOverlay {
     display: none;
     position: fixed;
@@ -759,7 +867,10 @@ input:disabled {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 0;
+}
+#galleryHeader > * + * {
+    margin-left: 16px;
 }
 #galleryHeader button {
     flex: 0 0 auto;
@@ -951,6 +1062,11 @@ input:disabled {
     background: #255a9f;
     color: #ffffff;
 }
+.contextKeywordButton.mixed {
+    border-color: #c3943e;
+    background: #594820;
+    color: #fff2cf;
+}
 .smallMuted {
     color: #7f8998;
     font-size: 11px;
@@ -961,7 +1077,7 @@ var fso = new ActiveXObject("Scripting.FileSystemObject");
 var shell = new ActiveXObject("WScript.Shell");
 var shellApp = new ActiveXObject("Shell.Application");
 
-var APP_VERSION = "0.90";
+var APP_VERSION = "1.02";
 var APP_NAME = "Gallery-Slideshow-Manager";
 var appDir = getApplicationDirectory();
 var tempDir = shell.ExpandEnvironmentStrings("%TEMP%");
@@ -986,9 +1102,10 @@ var state = {
     root: "",
     backupDir: "",
     rememberedParentPath: "",
-    autoVlc: true,
+    videoMode: "paired",
     remoteTimeoutMs: 4000,
     optionsExpanded: false,
+    keywordsExpanded: false,
     uniqueRandom: false,
     parents: [],
     keywords: [],
@@ -1361,6 +1478,22 @@ function toggleOptionsRollout() {
         state.optionsExpanded ? "true" : "false"
     );
     arrow.innerText = state.optionsExpanded ? "\u25BE" : "\u25B8";
+    updateFixedControlsLayout();
+    return false;
+}
+
+function toggleKeywordsRollout() {
+    var rollout = document.getElementById("keywordsRollout");
+    var header = document.getElementById("keywordsRolloutHeader");
+    var arrow = document.getElementById("keywordsRolloutArrow");
+
+    state.keywordsExpanded = !state.keywordsExpanded;
+    rollout.className = state.keywordsExpanded ? "open" : "";
+    header.setAttribute(
+        "aria-expanded",
+        state.keywordsExpanded ? "true" : "false"
+    );
+    arrow.innerText = state.keywordsExpanded ? "\u25BE" : "\u25B8";
     updateFixedControlsLayout();
     return false;
 }
@@ -1890,9 +2023,10 @@ function updateFilterPresetControls() {
     var select = document.getElementById("filterPresetSelect");
     var nameInput = document.getElementById("filterPresetName");
     var saveButton = document.getElementById("saveFilterPresetButton");
+    var deleteButton = document.getElementById("deleteFilterPresetButton");
     var hint = document.getElementById("filterPresetHint");
 
-    if (!select || !nameInput || !saveButton || !hint) {
+    if (!select || !nameInput || !saveButton || !deleteButton || !hint) {
         return;
     }
 
@@ -1937,6 +2071,7 @@ function updateFilterPresetControls() {
     var canSave = activeCount > 0 && !matchedPreset;
     nameInput.disabled = !canSave;
     saveButton.disabled = !canSave;
+    deleteButton.disabled = !matchedPreset;
 
     if (!canSave && matchedPreset) {
         nameInput.value = "";
@@ -2060,6 +2195,41 @@ function saveCurrentFilterPreset() {
     document.getElementById("filterPresetSelect").value = key;
     updateFilterPresetControls();
     setStatus("Keyword filter preset saved: " + presetName);
+    return true;
+}
+
+function deleteSelectedFilterPreset() {
+    var select = document.getElementById("filterPresetSelect");
+    var preset = findFilterPresetById(select.value);
+
+    if (!preset) {
+        alert("Select a saved filter preset to delete.");
+        updateFilterPresetControls();
+        return false;
+    }
+
+    if (!confirm('Delete filter preset "' + preset.name + '"?')) {
+        return false;
+    }
+
+    var data = readIni(settingsPath);
+
+    if (!data.KeywordFilterPresets) {
+        data.KeywordFilterPresets = {};
+    }
+
+    var encodedName = preset.id.substr(7);
+    delete data.KeywordFilterPresets[preset.id];
+    delete data.KeywordFilterPresets["PresetExclude." + encodedName];
+    delete data.KeywordFilterPresets["PresetMatchMode." + encodedName];
+
+    if (!writeIni(settingsPath, data)) {
+        alert("The filter preset could not be deleted.");
+        return false;
+    }
+
+    loadFilterPresets();
+    setStatus("Keyword filter preset deleted: " + preset.name);
     return true;
 }
 
@@ -2253,7 +2423,21 @@ function loadSettings() {
     state.rememberedParentPath = normalizePath(
         getIniValue(data, "Selection", "ParentPath", "")
     );
-    state.autoVlc = String(getIniValue(data, "Options", "AutoVlc", "1")) !== "0";
+    state.videoMode = lower(
+        getIniValue(data, "Options", "VideoMode", "")
+    );
+
+    if (
+        state.videoMode !== "none"
+        && state.videoMode !== "paired"
+        && state.videoMode !== "all"
+        && state.videoMode !== "auto"
+    ) {
+        // Preserve the former AutoVlc checkbox setting during migration.
+        state.videoMode = String(
+            getIniValue(data, "Options", "AutoVlc", "1")
+        ) !== "0" ? "paired" : "none";
+    }
     state.remoteTimeoutMs = parseInt(
         getIniValue(data, "Options", "RemoteTimeoutMs", "4000"),
         10
@@ -2359,7 +2543,7 @@ function loadSettings() {
     document.getElementById("rootPath").value = state.root;
     document.getElementById("backupPath").value = state.backupDir;
     updateRemoteTimeoutOption();
-    updateAutoVlcButton();
+    updateVideoModeButton();
     updateUniqueRandomButton();
     updateKeywordMatchModeButton();
     updateDisplayModeButton();
@@ -2993,9 +3177,37 @@ function restoreActiveSlideshowType() {
     return true;
 }
 
-function updateAutoVlcButton() {
+function videoModeLabel(mode) {
+    if (mode === "all") {
+        return "ALL VIDEOS";
+    }
+
+    if (mode === "auto") {
+        return "AUTO VIDEOS";
+    }
+
+    return "VIDEOS";
+}
+
+function videoModeDescription(mode) {
+    if (mode === "none") {
+        return "No videos";
+    }
+
+    if (mode === "all") {
+        return "All videos when the parent gallery changes";
+    }
+
+    if (mode === "auto") {
+        return "Use pairs, or all parent videos when pairs are missing";
+    }
+
+    return "Paired video for each gallery";
+}
+
+function updateVideoModeButton() {
     var button = document.getElementById(
-        "autoVlcButton"
+        "videoModeButton"
     );
 
     if (!button) {
@@ -3004,14 +3216,25 @@ function updateAutoVlcButton() {
 
     button.className =
         "toolbarControl toolbarCheckButton"
-        + (state.autoVlc ? " active" : "");
+        + (state.videoMode !== "none" ? " active" : "");
     button.setAttribute(
         "aria-pressed",
-        state.autoVlc ? "true" : "false"
+        state.videoMode !== "none" ? "true" : "false"
     );
-    button.title = state.autoVlc
-        ? "Automatic paired VLC video is enabled."
-        : "Automatic paired VLC video is disabled.";
+    button.setAttribute("data-video-mode", state.videoMode);
+    button.getElementsByTagName("span")[1].innerText =
+        videoModeLabel(state.videoMode);
+    button.title =
+        "Video mode (click to change)\n\n"
+        + "No videos - do not use VLC\n"
+        + "Videos - use gallery/video pairs\n"
+        + "All videos - load the parent's videos when its gallery changes\n"
+        + "Auto videos - use pairs; if that parent has no pairs, load all its videos\n\n"
+        + "Current: " + videoModeDescription(state.videoMode);
+    button.setAttribute(
+        "aria-label",
+        "Video mode: " + videoModeDescription(state.videoMode)
+    );
     return true;
 }
 
@@ -3095,19 +3318,41 @@ function toggleUniqueRandom() {
     return true;
 }
 
-function toggleAutoVlc() {
-    state.autoVlc = !state.autoVlc;
-    updateAutoVlcButton();
+function toggleVideoMode() {
+    var modeOrder = ["none", "paired", "all", "auto"];
+    var currentIndex = 0;
+    var i;
+
+    for (i = 0; i < modeOrder.length; i++) {
+        if (modeOrder[i] === state.videoMode) {
+            currentIndex = i;
+            break;
+        }
+    }
+
+    state.videoMode = modeOrder[(currentIndex + 1) % modeOrder.length];
+    updateVideoModeButton();
+    setIniValue(
+        settingsPath,
+        "Options",
+        "VideoMode",
+        state.videoMode
+    );
+    // Keep the legacy flag meaningful for older builds using this INI.
     setIniValue(
         settingsPath,
         "Options",
         "AutoVlc",
-        state.autoVlc ? "1" : "0"
+        state.videoMode === "none" ? "0" : "1"
     );
+    ensureBridge();
+    sendCommand("videomodechanged", "");
     setStatus(
-        "Automatic VLC "
-        + (state.autoVlc ? "enabled." : "disabled.")
+        "Video mode: "
+        + videoModeDescription(state.videoMode)
+        + "."
     );
+    return true;
 }
 
 function updateDisplayModeButton() {
@@ -4660,6 +4905,63 @@ function findPairedVideo(parentPath, galleryPath) {
     return matches.length ? matches[0] : "";
 }
 
+function isSupportedVideo(path) {
+    var ext = lower(fso.GetExtensionName(path || ""));
+    return ext === "mp4" || ext === "wmv";
+}
+
+function getParentMediaCounts(parent, galleries) {
+    if (!parent) {
+        return {
+            pairs: 0,
+            galleries: 0,
+            videos: 0
+        };
+    }
+
+    if (parent._mediaCounts) {
+        return parent._mediaCounts;
+    }
+
+    galleries = galleries || getAvailableParentGalleries(parent);
+
+    var pairedVideoPaths = {};
+    var pairCount = 0;
+    var galleryCount = 0;
+    var videoCount = 0;
+    var i;
+
+    for (i = 0; i < galleries.length; i++) {
+        var pairedVideo = normalizePath(galleries[i].video || "");
+
+        if (pairedVideo && fso.FileExists(pairedVideo)) {
+            pairCount++;
+            pairedVideoPaths[lower(pairedVideo)] = true;
+        } else {
+            galleryCount++;
+        }
+    }
+
+    var parentFiles = enumerateFiles(parent.path);
+
+    for (i = 0; i < parentFiles.length; i++) {
+        if (
+            isSupportedVideo(parentFiles[i])
+            && !pairedVideoPaths[lower(normalizePath(parentFiles[i]))]
+        ) {
+            videoCount++;
+        }
+    }
+
+    parent._mediaCounts = {
+        pairs: pairCount,
+        galleries: galleryCount,
+        videos: videoCount
+    };
+
+    return parent._mediaCounts;
+}
+
 function encodeCacheField(value) {
     return encodeURIComponent(String(value || ""));
 }
@@ -5997,23 +6299,27 @@ function createParentTile(parent) {
     body.className = "parentBody";
     var availableGalleries =
         getAvailableParentGalleries(parent);
-    var videoCount = 0;
-    var i;
-    for (i = 0; i < availableGalleries.length; i++) {
-        if (availableGalleries[i].video) {
-            videoCount++;
-        }
-    }
+    var mediaCounts = getParentMediaCounts(parent, availableGalleries);
     var parentRating = parseInt(parent.rating, 10) || 0;
 
     body.innerHTML =
-        '<div class="parentName">' + escapeHtml(parent.name) + '</div>' +
-        '<div class="parentMeta">' +
-            '<span>' + availableGalleries.length + ' galleries · ' + videoCount + ' videos</span>' +
+        '<div class="parentHeading">' +
+            '<div class="parentName">' + escapeHtml(parent.name) + '</div>' +
             '<span class="ratingBadge' + (parentRating === 0 ? ' zero' : '') + '"' +
                 ' title="' + escapeHtml(ratingText(parentRating)) + '">' +
                 parentRating + '★' +
             '</span>' +
+        '</div>' +
+        '<div class="parentStats" title="Paired gallery/video items, unpaired galleries, and unpaired videos">' +
+            '<span class="parentStat pairs"><span class="parentStatCount">' +
+                mediaCounts.pairs + '</span>' +
+                (mediaCounts.pairs === 1 ? 'pair' : 'pairs') + '</span>' +
+            '<span class="parentStat galleries"><span class="parentStatCount">' +
+                mediaCounts.galleries + '</span>' +
+                (mediaCounts.galleries === 1 ? 'gallery' : 'galleries') + '</span>' +
+            '<span class="parentStat videos"><span class="parentStatCount">' +
+                mediaCounts.videos + '</span>' +
+                (mediaCounts.videos === 1 ? 'video' : 'videos') + '</span>' +
         '</div>' +
         '<div class="keywordBadges">' + keywordBadgeHtml(parent.keywords) + '</div>';
 
@@ -6090,7 +6396,13 @@ function createParentTile(parent) {
         state.expandedLetter = parent.letter
             ? String(parent.letter).toUpperCase()
             : state.expandedLetter;
-        showKeywordContext(parent, window.event.clientX, window.event.clientY);
+        showKeywordContext(
+            parent,
+            window.event.clientX,
+            window.event.clientY,
+            false,
+            getSelectedParents()
+        );
         window.event.cancelBubble = true;
         window.event.returnValue = false;
         return false;
@@ -6192,7 +6504,7 @@ function toggleParentSelection(parent) {
     renderParents();
     setStatus(
         getSelectedParents().length
-        + " parent thumbnail(s) selected. Ctrl+0–9 assigns a rating."
+        + " parent thumbnail(s) selected. Ctrl+0–9 assigns a rating; right-click sets keywords."
     );
     return true;
 }
@@ -7139,6 +7451,178 @@ function startRandom() {
     return true;
 }
 
+function uniqueCropRestoreDestinationPath(destinationPath) {
+    if (!fso.FileExists(destinationPath)) {
+        return destinationPath;
+    }
+
+    var directory = fso.GetParentFolderName(destinationPath);
+    var baseName = fso.GetBaseName(destinationPath);
+    var extension = fso.GetExtensionName(destinationPath);
+    var extensionText = extension ? "." + extension : "";
+    var candidate =
+        directory
+        + "\\"
+        + baseName
+        + " - Restored"
+        + extensionText;
+    var suffix = 2;
+
+    while (fso.FileExists(candidate)) {
+        candidate =
+            directory
+            + "\\"
+            + baseName
+            + " - Restored "
+            + suffix
+            + extensionText;
+        suffix++;
+    }
+
+    return candidate;
+}
+
+function restoreSelectedCropBackups() {
+    var selectedParents = getSelectedParents();
+
+    if (!selectedParents.length) {
+        alert("Select at least one parent thumbnail first.");
+        return false;
+    }
+
+    if (!confirm(
+        "Restore image backups from every gallery _CROP folder in "
+        + selectedParents.length
+        + " selected parent(s)?\n\n"
+        + "Existing files will never be overwritten. Backup sources will remain in _CROP."
+    )) {
+        return false;
+    }
+
+    var selectedPathMap = {};
+    var restoredParentMap = {};
+    var restoredCount = 0;
+    var restoredGalleryCount = 0;
+    var failedCount = 0;
+    var parentIndex;
+
+    for (parentIndex = 0; parentIndex < selectedParents.length; parentIndex++) {
+        var parent = selectedParents[parentIndex];
+        var parentKey = parentSelectionKey(parent);
+        selectedPathMap[parentKey] = true;
+
+        if (!parent.path || !fso.FolderExists(parent.path)) {
+            failedCount++;
+            continue;
+        }
+
+        var galleryFolders = enumerateSubfolders(parent.path);
+        var galleryIndex;
+
+        for (galleryIndex = 0; galleryIndex < galleryFolders.length; galleryIndex++) {
+            var galleryPath = galleryFolders[galleryIndex];
+            var galleryName = fso.GetFileName(galleryPath);
+
+            if (/^(_DELETE|_CROP|_DUPLICATES|_SMALL)$/i.test(galleryName)) {
+                continue;
+            }
+
+            var cropPath = galleryPath + "\\_CROP";
+
+            if (!fso.FolderExists(cropPath)) {
+                continue;
+            }
+
+            var cropFiles = enumerateFiles(cropPath);
+            var restoredInGallery = 0;
+            var fileIndex;
+
+            for (fileIndex = 0; fileIndex < cropFiles.length; fileIndex++) {
+                var sourcePath = cropFiles[fileIndex];
+
+                if (!isSupportedImage(sourcePath)) {
+                    continue;
+                }
+
+                var requestedDestination =
+                    galleryPath
+                    + "\\"
+                    + fso.GetFileName(sourcePath);
+                var destinationPath =
+                    uniqueCropRestoreDestinationPath(requestedDestination);
+
+                try {
+                    fso.CopyFile(sourcePath, destinationPath, false);
+
+                    if (fso.FileExists(destinationPath)) {
+                        restoredCount++;
+                        restoredInGallery++;
+                        restoredParentMap[parentKey] = true;
+                    } else {
+                        failedCount++;
+                    }
+                } catch (error) {
+                    failedCount++;
+                }
+            }
+
+            if (restoredInGallery > 0) {
+                restoredGalleryCount++;
+            }
+        }
+    }
+
+    if (!restoredCount) {
+        var emptyMessage = failedCount
+            ? "No crop backups were restored; " + failedCount + " file operation(s) failed."
+            : "No supported image backups were found in the selected parents’ gallery _CROP folders.";
+        alert(emptyMessage);
+        setStatus(emptyMessage);
+        return false;
+    }
+
+    scanLibrary();
+    state.selectedParentPaths = {};
+    state.selectedParent = null;
+
+    for (parentIndex = 0; parentIndex < state.parents.length; parentIndex++) {
+        var refreshedParent = state.parents[parentIndex];
+        var refreshedKey = parentSelectionKey(refreshedParent);
+
+        if (selectedPathMap[refreshedKey]) {
+            state.selectedParentPaths[refreshedKey] = true;
+            state.selectedParent = refreshedParent;
+        }
+    }
+
+    renderParents();
+
+    var parentCount = 0;
+    var restoredParentKey;
+    for (restoredParentKey in restoredParentMap) {
+        if (restoredParentMap.hasOwnProperty(restoredParentKey)) {
+            parentCount++;
+        }
+    }
+
+    var message =
+        "Restored "
+        + restoredCount
+        + " image backup(s) across "
+        + restoredGalleryCount
+        + " gallery folder(s) in "
+        + parentCount
+        + " selected parent(s). Sources remain in _CROP.";
+
+    if (failedCount) {
+        message += " " + failedCount + " file operation(s) failed.";
+        alert(message);
+    }
+
+    setStatus(message);
+    return true;
+}
+
 function openCurrentParent() {
     var parent = state.selectedParent;
     if (!parent && state.currentParentPath) {
@@ -7170,32 +7654,85 @@ function getCachedKeywordGroups() {
     return keywordGroupCache;
 }
 
-function updateKeywordMenuButtonState(button, assigned) {
-    var active = !!assigned[button._keywordKey];
+function normalizeKeywordMenuTargets(parent, targetParents) {
+    var source = targetParents && targetParents.length
+        ? targetParents
+        : [parent];
+    var targets = [];
+    var seen = {};
+    var i;
+
+    for (i = 0; i < source.length; i++) {
+        if (!source[i] || !source[i].path) {
+            continue;
+        }
+
+        var key = parentSelectionKey(source[i]);
+
+        if (!seen[key]) {
+            seen[key] = true;
+            targets.push(source[i]);
+        }
+    }
+
+    if (!targets.length && parent) {
+        targets.push(parent);
+    }
+
+    return targets;
+}
+
+function updateKeywordMenuButtonState(
+    button,
+    assignedAll,
+    assignedAny,
+    targetCount
+) {
+    var active = !!assignedAll[button._keywordKey];
+    var mixed = !active && !!assignedAny[button._keywordKey];
+    var count = Math.max(1, parseInt(targetCount, 10) || 1);
+    var targetLabel = count === 1
+        ? "parent"
+        : count + " selected parents";
 
     button.className =
         "contextKeywordButton"
-        + (active ? " active" : "");
+        + (active ? " active" : (mixed ? " mixed" : ""));
     button.title =
         active
-        ? "Remove keyword: " + button._keywordWord
-        : "Assign keyword: " + button._keywordWord;
+        ? "Remove from " + targetLabel + ": " + button._keywordWord
+        : "Assign to " + targetLabel + ": " + button._keywordWord
+            + (mixed ? " (currently assigned to some)" : "");
 }
 
 function keywordMenuButtonClicked() {
     var button = this;
     var menu = button._keywordMenu;
-    var parent = menu && menu._keywordParent;
-    var assigned = menu && menu._keywordAssigned;
+    var targets = menu && menu._keywordTargets;
+    var assignedAll = menu && menu._keywordAssignedAll;
+    var assignedAny = menu && menu._keywordAssignedAny;
 
-    if (!parent || !assigned) {
+    if (!targets || !targets.length || !assignedAll || !assignedAny) {
         return false;
     }
 
-    var newChecked = !assigned[button._keywordKey];
-    toggleParentKeyword(parent, button._keywordWord, newChecked);
-    assigned[button._keywordKey] = newChecked;
-    updateKeywordMenuButtonState(button, assigned);
+    var newChecked = !assignedAll[button._keywordKey];
+    if (!toggleParentsKeyword(
+        targets,
+        button._keywordWord,
+        newChecked
+    )) {
+        return false;
+    }
+
+    assignedAll[button._keywordKey] = newChecked;
+    assignedAny[button._keywordKey] = newChecked;
+    updateKeywordMenuButtonState(
+        button,
+        assignedAll,
+        assignedAny,
+        targets.length
+    );
 
     var clickEvent =
         button.ownerDocument.parentWindow
@@ -7324,7 +7861,12 @@ function buildKeywordMenuStructure(menu, ownerDocument, signature) {
     keywordMenuMarkupCache = menu.innerHTML;
 }
 
-function renderKeywordMenu(menu, ownerDocument, parent) {
+function renderKeywordMenu(
+    menu,
+    ownerDocument,
+    parent,
+    targetParents
+) {
     var signature = joinKeywords(state.keywords);
 
     if (
@@ -7342,24 +7884,45 @@ function renderKeywordMenu(menu, ownerDocument, parent) {
         parentRating = 9;
     }
 
+    var targets = normalizeKeywordMenuTargets(parent, targetParents);
+
     menu._keywordParent = parent;
+    menu._keywordTargets = targets;
     menu._keywordRatingStars.innerText =
         parentRating ? ratingStarsText(parentRating) : "";
     menu._keywordRatingCount.innerText = String(parentRating);
 
-    var assigned = {};
+    var assignedCounts = {};
+    var assignedAll = {};
+    var assignedAny = {};
     var i;
+    var j;
 
-    for (i = 0; i < parent.keywords.length; i++) {
-        assigned[lower(parent.keywords[i])] = true;
+    for (i = 0; i < targets.length; i++) {
+        var targetWords = targets[i].keywords || [];
+
+        for (j = 0; j < targetWords.length; j++) {
+            var key = lower(targetWords[j]);
+            assignedCounts[key] = (assignedCounts[key] || 0) + 1;
+        }
     }
 
-    menu._keywordAssigned = assigned;
+    for (i = 0; i < state.keywords.length; i++) {
+        key = lower(state.keywords[i]);
+        assignedAny[key] = !!assignedCounts[key];
+        assignedAll[key] = targets.length > 0
+            && assignedCounts[key] === targets.length;
+    }
+
+    menu._keywordAssignedAll = assignedAll;
+    menu._keywordAssignedAny = assignedAny;
 
     for (i = 0; i < menu._keywordButtons.length; i++) {
         updateKeywordMenuButtonState(
             menu._keywordButtons[i],
-            assigned
+            assignedAll,
+            assignedAny,
+            targets.length
         );
     }
 }
@@ -7380,10 +7943,21 @@ function primeKeywordMenu() {
     return true;
 }
 
-function showKeywordContext(parent, x, y, centered) {
+function showKeywordContext(
+    parent,
+    x,
+    y,
+    centered,
+    targetParents
+) {
     var menu = document.getElementById("contextMenu");
 
-    renderKeywordMenu(menu, document, parent);
+    renderKeywordMenu(
+        menu,
+        document,
+        parent,
+        targetParents
+    );
 
     menu.style.left = "0px";
     menu.style.top = "0px";
@@ -7811,34 +8385,119 @@ function showRequestedKeywordWindow(
     return true;
 }
 
-function toggleParentKeyword(parent, word, checked) {
-    var matchedBefore = parentMatches(parent);
-    var words = getParentKeywords(parent.path);
+function keywordWordsWithAssignment(words, word, checked) {
     var result = [];
     var found = false;
     var i;
+
     for (i = 0; i < words.length; i++) {
         if (lower(words[i]) === lower(word)) {
             found = true;
+
             if (!checked) {
                 continue;
             }
         }
+
         result.push(words[i]);
     }
+
     if (checked && !found) {
         result.push(word);
     }
-    result = parseKeywordList(joinKeywords(result));
-    saveParentKeywords(parent.path, result);
-    refreshParentKeywordPresentation(parent, result);
+
+    return parseKeywordList(joinKeywords(result));
+}
+
+function toggleParentsKeyword(parents, word, checked) {
+    var targets = normalizeKeywordMenuTargets(
+        parents && parents.length ? parents[0] : null,
+        parents
+    );
+
+    if (!targets.length || !state.root) {
+        return false;
+    }
+
+    var path = keywordIniPath();
+    var data = readIni(path);
+    var changes = [];
+    var rerenderRequired = false;
+    var i;
+
+    for (i = 0; i < targets.length; i++) {
+        var target = targets[i];
+        var section = encodeParentSection(target.path);
+        var words = parseKeywordList(
+            getIniValue(
+                data,
+                section,
+                "Keywords",
+                joinKeywords(target.keywords || [])
+            )
+        );
+        var result = keywordWordsWithAssignment(
+            words,
+            word,
+            checked
+        );
+
+        changes.push({
+            parent: target,
+            words: result,
+            matchedBefore: parentMatches(target)
+        });
+
+        if (!result.length) {
+            delete data[section];
+        } else {
+            if (!data[section]) {
+                data[section] = {};
+            }
+
+            data[section].Keywords = joinKeywords(result);
+        }
+    }
+
+    writeIni(path, data);
+
+    for (i = 0; i < changes.length; i++) {
+        refreshParentKeywordPresentation(
+            changes[i].parent,
+            changes[i].words
+        );
+
+        if (
+            changes[i].matchedBefore
+            !== parentMatches(changes[i].parent)
+        ) {
+            rerenderRequired = true;
+        }
+    }
+
     scheduleLibraryCacheSave(1200);
 
-    if (matchedBefore !== parentMatches(parent)) {
+    if (rerenderRequired) {
         window.setTimeout(function() {
             renderParents();
         }, 0);
     }
+
+    if (targets.length > 1) {
+        setStatus(
+            "Keyword "
+            + (checked ? "assigned to " : "removed from ")
+            + targets.length
+            + " selected parents: "
+            + word
+        );
+    }
+
+    return true;
+}
+
+function toggleParentKeyword(parent, word, checked) {
+    return toggleParentsKeyword([parent], word, checked);
 }
 
 function ensureBridge() {
@@ -8061,6 +8720,60 @@ function handleWindowScriptError(message, url, lineNumber) {
         return true;
     }
 
+    return false;
+}
+
+function keyboardShortcutHelpText() {
+    return [
+        "MANAGER",
+        "F1 — Show or close this shortcut reference",
+        "Ctrl+0…9 — Rate every selected parent gallery",
+        "Ctrl+click — Add or remove a parent from the selection",
+        "Esc — Close parent details; from the main view, request Exit",
+        "",
+        "SLIDESHOW NAVIGATION",
+        "F1 — Show this combined shortcut reference",
+        "Tab — Next gallery inside the current parent",
+        "Ctrl+Tab — Next gallery from another parent",
+        "Ctrl+0…9 — Rate the current parent gallery",
+        "X — Toggle the current parent’s Keywords window",
+        "Windows key tap — Switch between managed IrfanView and VLC; no viewer key is sent",
+        "Enter — Close the current slideshow",
+        "Esc — Confirm bridge/slideshow exit",
+        "",
+        "SLIDESHOW ASSISTANT — IMAGE CONTROLS",
+        "Space — Next image",
+        "Backspace or Ctrl tap — Previous image",
+        "Shift tap — Add one slideshow pause step",
+        "Shift+Space — Pause and mark the current view for crop capture",
+        "Delete — Move the current image safely to _DELETE, then continue",
+        "W / A / S / D — Pan the image",
+        "Q / E — Zoom in / out",
+        "Arrow or numpad navigation — Native pan/zoom; mark view as cropped",
+        "L / R / H — Rotate left / rotate right / horizontal flip",
+        "Ctrl+F — Copy the current image as the parent folder.jpg",
+        "",
+        "REMOTE",
+        "Tab — Offer the next gallery and start the timeout",
+        "Ctrl+Tab — Offer a gallery from the next parent",
+        "Esc — Close Remote and cancel its pending offer"
+    ].join("\r\n");
+}
+
+function isKeyboardShortcutHelpOpen() {
+    return document.getElementById("shortcutHelpOverlay").style.display === "block";
+}
+
+function openKeyboardShortcutHelp() {
+    document.getElementById("shortcutHelpText").innerText =
+        keyboardShortcutHelpText();
+    document.getElementById("shortcutHelpOverlay").style.display = "block";
+    document.getElementById("shortcutHelpClose").focus();
+    return false;
+}
+
+function closeKeyboardShortcutHelp() {
+    document.getElementById("shortcutHelpOverlay").style.display = "none";
     return false;
 }
 
@@ -8308,6 +9021,18 @@ function initialize() {
         var eventObject = window.event;
         var keyCode = eventObject.keyCode;
 
+        if (keyCode === 112) {
+            eventObject.returnValue = false;
+
+            if (isKeyboardShortcutHelpOpen()) {
+                closeKeyboardShortcutHelp();
+            } else {
+                openKeyboardShortcutHelp();
+            }
+
+            return false;
+        }
+
         if (
             eventObject.ctrlKey
             && !eventObject.altKey
@@ -8327,7 +9052,9 @@ function initialize() {
         if (keyCode === 27) {
             eventObject.returnValue = false;
 
-            if (isGalleryDialogOpen()) {
+            if (isKeyboardShortcutHelpOpen()) {
+                closeKeyboardShortcutHelp();
+            } else if (isGalleryDialogOpen()) {
                 closeGalleryDialog();
             } else {
                 requestExit();
@@ -8388,37 +9115,49 @@ function initialize() {
                 </div>
             </div>
         </div>
-        <div class="row">
-            <button id="keywordMatchModeButton" class="keywordMatchModeButton matchAny" type="button" onclick="return toggleKeywordMatchMode();"><span class="keywordMatchModeChoice matchAll">ALL</span><span class="keywordMatchModeSeparator">\</span><span class="keywordMatchModeChoice matchAny">ANY</span></button>
-            <span class="label">Keyword</span>
-            <input id="keywordName" type="text" />
-            <button onclick="addKeyword()">Add keyword</button>
-            <button onclick="renameKeyword()">Rename</button>
-            <button onclick="clearUnusedKeywords()">Clear unused</button>
-            <span class="label" style="margin-left:18px;">Search</span>
-            <input id="searchInput" type="text" onkeyup="searchChanged()" />
+        <div id="keywordsRollout">
+            <button id="keywordsRolloutHeader" type="button" aria-expanded="false" onclick="return toggleKeywordsRollout();">
+                <span id="keywordsRolloutArrow">▸</span>
+                <span id="keywordsRolloutTitle">Keywords</span>
+                <span id="keywordsRolloutSummary">Manage, include, exclude and save keyword filters</span>
+            </button>
+            <div id="keywordsRolloutBody">
+                <div class="row">
+                    <button id="keywordMatchModeButton" class="keywordMatchModeButton matchAny" type="button" onclick="return toggleKeywordMatchMode();"><span class="keywordMatchModeChoice matchAll">ALL</span><span class="keywordMatchModeSeparator">\</span><span class="keywordMatchModeChoice matchAny">ANY</span></button>
+                    <span class="label">Keyword</span>
+                    <input id="keywordName" type="text" />
+                    <button onclick="addKeyword()">Add keyword</button>
+                    <button onclick="renameKeyword()">Rename</button>
+                    <button onclick="clearUnusedKeywords()">Clear unused</button>
+                </div>
+                <div class="row keywordFilterRow">
+                    <div id="keywordFilters" class="grow"></div>
+                </div>
+            </div>
+        </div>
+        <div class="row filterPresetRow">
+            <span class="label">Filter preset</span>
+            <select id="filterPresetSelect" onchange="loadSelectedFilterPreset()"></select>
+            <input id="filterPresetName" type="text" placeholder="New preset name" />
+            <button id="saveFilterPresetButton" onclick="saveCurrentFilterPreset()">Save current filter</button>
+            <button id="deleteFilterPresetButton" class="danger" onclick="deleteSelectedFilterPreset()">Delete filter</button>
+            <span id="filterPresetHint"></span>
         </div>
         <div class="row">
-            <div id="keywordFilters" class="grow"></div>
+            <span class="label">Search</span>
+            <input id="searchInput" type="text" onkeyup="searchChanged()" />
         </div>
         <div class="row">
             <span class="label">Rating</span>
             <div id="ratingFilters"></div>
             <span id="ratingFilterHint"></span>
         </div>
-        <div class="row">
-            <span class="label">Filter preset</span>
-            <select id="filterPresetSelect" onchange="loadSelectedFilterPreset()"></select>
-            <input id="filterPresetName" type="text" placeholder="New preset name" />
-            <button id="saveFilterPresetButton" onclick="saveCurrentFilterPreset()">Save current filter</button>
-            <span id="filterPresetHint"></span>
-        </div>
         </div>
 
         <div id="toolbar">
             <div class="toolbarZone left">
                 <button id="displayModeButton" class="toolbarControl toolbarCheckButton" type="button" onclick="displayModeChanged()"><span class="checkbuttonMark">✓</span><span>TILES</span></button>
-                <button id="autoVlcButton" class="toolbarControl toolbarCheckButton" type="button" onclick="toggleAutoVlc()" title="Open paired video in VLC"><span class="checkbuttonMark">✓</span><span>VLC</span></button>
+                <button id="videoModeButton" class="toolbarControl toolbarCheckButton" type="button" onclick="toggleVideoMode()" title="Choose how videos open in VLC"><span class="checkbuttonMark">✓</span><span>VIDEOS</span></button>
                 <button id="uniqueRandomButton" class="toolbarControl toolbarCheckButton" type="button" onclick="toggleUniqueRandom()"><span class="checkbuttonMark">✓</span><span>UNIQUE</span></button>
             </div>
 
@@ -8429,6 +9168,7 @@ function initialize() {
 
             <div class="toolbarZone right">
                 <button class="toolbarControl" type="button" onclick="openCurrentParent()">Open parent folder</button>
+                <button id="restoreCropButton" class="toolbarControl" type="button" onclick="restoreSelectedCropBackups()" title="Copy every selected parent’s gallery _CROP images back without overwriting files">Restore Crop</button>
                 <button class="toolbarControl" type="button" onclick="scanLibrary()" title="Rescan folders and rebuild the persistent cache">Refresh library</button>
                 <button class="toolbarControl danger" type="button" onclick="requestExit()">Exit</button>
             </div>
@@ -8444,7 +9184,17 @@ function initialize() {
         <div id="emptyState">No parent galleries match the current filters.</div>
     </div>
 
-    <div id="statusBar">v0.90 | Ready.</div>
+    <div id="statusBar">v1.02 | Ready.</div>
+</div>
+
+<div id="shortcutHelpOverlay" onclick="if (window.event.srcElement === this) closeKeyboardShortcutHelp();">
+    <div id="shortcutHelpDialog" onclick="window.event.cancelBubble=true;">
+        <div id="shortcutHelpHeader">
+            <div id="shortcutHelpTitle">Keyboard shortcuts</div>
+            <button id="shortcutHelpClose" type="button" onclick="return closeKeyboardShortcutHelp();">Close</button>
+        </div>
+        <pre id="shortcutHelpText"></pre>
+    </div>
 </div>
 
 <div id="galleryOverlay" onclick="if (window.event.srcElement === this) closeGalleryDialog();">
