@@ -198,9 +198,11 @@ readIni = function() {
     return {
         KeywordFilterPresets: {
             "Preset.Legacy": "red|blue",
+            "PresetUseCount.Legacy": "2",
             "Preset.Mixed": "red",
             "PresetExclude.Mixed": "blocked",
-            "PresetMatchMode.Mixed": "all"
+            "PresetMatchMode.Mixed": "all",
+            "PresetUseCount.Mixed": "7"
         }
     };
 };
@@ -220,8 +222,13 @@ check(
 check(
     mixedPreset.includeKeywords[0] === "red"
         && mixedPreset.excludeKeywords[0] === "blocked"
-        && mixedPreset.matchMode === "all",
+        && mixedPreset.matchMode === "all"
+        && mixedPreset.useCount === 7,
     "An include/exclude preset should load both states."
+);
+check(
+    quickFilterPresets()[0].id === "Preset.Mixed",
+    "Quick filters should rank the most-used preset first."
 );
 
 const controls = {
@@ -282,6 +289,14 @@ check(
     ] === "all",
     "A saved preset should retain ALL matching mode."
 );
+const savedMixedPreset = findFilterPresetById("Preset.Mixed%20filters");
+recordFilterPresetUse(savedMixedPreset);
+check(
+    savedSettings.KeywordFilterPresets[
+        "PresetUseCount.Mixed%20filters"
+    ] === "1",
+    "Loading a saved filter should persist its usage count."
+);
 updateKeywordMatchModeButton();
 check(
     controls.keywordMatchModeButton.className.indexOf("matchAll") >= 0,
@@ -302,8 +317,11 @@ check(
         ]
         && !savedSettings.KeywordFilterPresets[
             "PresetMatchMode.Mixed%20filters"
+        ]
+        && !savedSettings.KeywordFilterPresets[
+            "PresetUseCount.Mixed%20filters"
         ],
-    "Deleting a filter should remove its include, exclude and mode records."
+    "Deleting a filter should remove its include, exclude, mode and usage records."
 );
 check(
     state.activeFilters.red === "include"
@@ -376,6 +394,40 @@ writeIni = function(path, data) {
 renderKeywordFilters = function() {};
 renderParents = function() {};
 saveLibraryCache = function() {};
+
+const similarParents = [{
+    path: "X:\\root\\Similar A",
+    keywords: ["red", "blue"]
+}, {
+    path: "X:\\root\\Similar B",
+    keywords: ["RED", "green"]
+}];
+state.keywords = ["red", "blue", "green"];
+state.parents = similarParents;
+state.selectedParent = similarParents[1];
+state.selectedParentPaths = {};
+state.selectedParentPaths[parentSelectionKey(similarParents[0])] = true;
+state.selectedParentPaths[parentSelectionKey(similarParents[1])] = true;
+state.activeFilters = { blue: "exclude" };
+check(
+    findSimilarFromSelectedParents()
+        && state.activeFilters.red === "include"
+        && !state.activeFilters.blue
+        && !state.activeFilters.green,
+    "Find Similar should activate only keywords shared by all selected thumbnails."
+);
+
+state.keywords = ["red", "~blocked"];
+state.activeFilters = {
+    "~blocked": "exclude"
+};
+state.parents = [{
+    path: "X:\\root\\A",
+    keywords: ["red", "~blocked"]
+}];
+state.selectedParent = state.parents[0];
+state.selectedParentPaths = {};
+state.selectedParentPaths[parentSelectionKey(state.parents[0])] = true;
 
 state.keywordMatchMode = "all";
 toggleKeywordMatchMode();
@@ -711,9 +763,25 @@ check(
 check(
     htaText.indexOf('class="row filterPresetRow"')
         > htaText.indexOf('id="keywordsRolloutBody"')
+        && htaText.indexOf('id="clearFilterPresetButton"') >= 0
+        && htaText.indexOf('id="customFilterPresetButton"') >= 0
+        && htaText.indexOf('id="findSimilarFilterButton"') >= 0
+        && htaText.indexOf('id="filterQuickButtons"') >= 0,
+    "The filter row should expose CLEAR, CUSTOM, FIND SIMILAR and most-used quick filters."
+);
+check(
+    htaText.indexOf('id="editFilterPresetsButton"') >= 0
+        && htaText.indexOf('id="filterPresetMenu"') >= 0
+        && htaText.indexOf('id="saveFilterPresetButton"')
+            > htaText.indexOf('id="filterPresetMenu"')
         && htaText.indexOf('id="deleteFilterPresetButton"')
-            > htaText.indexOf('class="row filterPresetRow"'),
-    "The filter row should sit below the Keywords rollout and include Delete filter."
+            > htaText.indexOf('id="filterPresetMenu"'),
+    "Saving and deleting filters should live inside the Edit filters menu."
+);
+check(
+    htaText.indexOf('customOption.innerText') < 0
+        && htaText.indexOf('noneOption.innerText') < 0,
+    "CLEAR and CUSTOM should not remain as default dropdown entries."
 );
 check(
     /\.row > \* \+ \*\s*\{\s*margin-left:\s*16px;/.test(htaText)

@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta charset="utf-8" />
-<title>Gallery Slideshow Manager 1.02</title>
+<title>Gallery Slideshow Manager 1.03</title>
 <hta:application
     id="galleryApp"
     applicationname="Gallery Slideshow Manager"
@@ -187,7 +187,7 @@ input[type=text]:focus {
     width: 180px;
 }
 #filterPresetSelect {
-    width: 230px;
+    width: 210px;
     border: 1px solid #343c48;
     border-radius: 7px;
     background: #171a20;
@@ -199,6 +199,59 @@ input[type=text]:focus {
 }
 #filterPresetHint {
     color: #8e9aaa;
+    font-size: 11px;
+}
+.filterQuickButtons {
+    display: flex;
+    align-items: center;
+    margin-left: 8px !important;
+}
+.filterQuickButtons button + button {
+    margin-left: 8px;
+}
+.filterQuickButton.active {
+    border-color: #57a6ff;
+    background: #23466d;
+    color: #ffffff;
+}
+.filterPresetEditor {
+    position: relative;
+}
+.filterPresetMenu {
+    display: none;
+    position: absolute;
+    z-index: 1200;
+    top: 39px;
+    right: 0;
+    width: 430px;
+    padding: 12px;
+    border: 1px solid #465263;
+    border-radius: 8px;
+    background: #20252d;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.filterPresetMenu.open {
+    display: block;
+}
+.filterPresetMenuRow {
+    display: flex;
+    align-items: center;
+}
+.filterPresetMenuRow + .filterPresetMenuRow {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #343d49;
+}
+.filterPresetMenuRow > * + * {
+    margin-left: 10px;
+}
+.filterPresetMenu #filterPresetName {
+    flex: 1 1 auto;
+    width: auto;
+}
+.filterPresetMenuNote {
+    flex: 1 1 auto;
+    color: #9ea9b8;
     font-size: 11px;
 }
 button:disabled,
@@ -1077,7 +1130,7 @@ var fso = new ActiveXObject("Scripting.FileSystemObject");
 var shell = new ActiveXObject("WScript.Shell");
 var shellApp = new ActiveXObject("Shell.Application");
 
-var APP_VERSION = "1.02";
+var APP_VERSION = "1.03";
 var APP_NAME = "Gallery-Slideshow-Manager";
 var appDir = getApplicationDirectory();
 var tempDir = shell.ExpandEnvironmentStrings("%TEMP%");
@@ -1165,6 +1218,7 @@ var versionRestartCandidate = "";
 var versionRestartStableChecks = 0;
 var versionRestartInProgress = false;
 var managerExitRequested = false;
+var ratingFilterClickDelayMs = 0;
 
 function getApplicationDirectory() {
     var path = unescape(window.location.pathname).replace(/\//g, "\\");
@@ -1967,12 +2021,22 @@ function loadFilterPresets() {
         var matchMode = normalizeKeywordMatchMode(
             section["PresetMatchMode." + key.substr(7)] || "any"
         );
+        var useCount = parseInt(
+            section["PresetUseCount." + key.substr(7)] || "0",
+            10
+        );
+
+        if (isNaN(useCount) || useCount < 0) {
+            useCount = 0;
+        }
+
         presets.push({
             id: key,
             name: name,
             includeKeywords: includeWords,
             excludeKeywords: excludeWords,
             matchMode: matchMode,
+            useCount: useCount,
             signature: filterSignature(
                 includeWords,
                 excludeWords,
@@ -2030,18 +2094,7 @@ function updateFilterPresetControls() {
         return;
     }
 
-    var currentValue = select.value;
     select.innerHTML = "";
-
-    var customOption = document.createElement("option");
-    customOption.value = "__custom__";
-    customOption.innerText = "Current custom combination";
-    select.appendChild(customOption);
-
-    var noneOption = document.createElement("option");
-    noneOption.value = "__none__";
-    noneOption.innerText = "No keyword filter";
-    select.appendChild(noneOption);
 
     var i;
     for (i = 0; i < state.filterPresets.length; i++) {
@@ -2061,10 +2114,10 @@ function updateFilterPresetControls() {
         select.value = matchedPreset.id;
         hint.innerText = "Matches saved preset: " + matchedPreset.name;
     } else if (!activeCount) {
-        select.value = "__none__";
+        select.selectedIndex = -1;
         hint.innerText = "Select include or exclude filters to create a named preset.";
     } else {
-        select.value = "__custom__";
+        select.selectedIndex = -1;
         hint.innerText = "This ALL/ANY filter combination is not saved.";
     }
 
@@ -2076,21 +2129,34 @@ function updateFilterPresetControls() {
     if (!canSave && matchedPreset) {
         nameInput.value = "";
     }
+
+    updateQuickFilterButtons();
 }
 
 function loadSelectedFilterPreset() {
     var presetId = document.getElementById("filterPresetSelect").value;
 
+    if (presetId) {
+        loadFilterPreset(presetId, true);
+    }
+}
+
+function loadFilterPreset(presetId, countUse) {
+    var preset = findFilterPresetById(presetId);
+
     if (presetId === "__custom__") {
         updateFilterPresetControls();
-        return;
+        return false;
+    }
+
+    if (presetId !== "__none__" && !preset) {
+        updateFilterPresetControls();
+        return false;
     }
 
     state.activeFilters = {};
 
     if (presetId !== "__none__") {
-        var preset = findFilterPresetById(presetId);
-
         if (preset) {
             state.keywordMatchMode = normalizeKeywordMatchMode(
                 preset.matchMode
@@ -2130,6 +2196,126 @@ function loadSelectedFilterPreset() {
     renderKeywordFilters();
     renderParents();
     updateFilterPresetControls();
+
+    if (preset && countUse) {
+        recordFilterPresetUse(preset);
+    }
+
+    return true;
+}
+
+function recordFilterPresetUse(preset) {
+    var data = readIni(settingsPath);
+
+    if (!data.KeywordFilterPresets) {
+        data.KeywordFilterPresets = {};
+    }
+
+    preset.useCount = (preset.useCount || 0) + 1;
+    data.KeywordFilterPresets[
+        "PresetUseCount." + preset.id.substr(7)
+    ] = String(preset.useCount);
+
+    if (writeIni(settingsPath, data)) {
+        updateQuickFilterButtons();
+    }
+}
+
+function quickFilterPresets() {
+    var presets = state.filterPresets.slice(0);
+
+    presets.sort(function(a, b) {
+        if ((b.useCount || 0) !== (a.useCount || 0)) {
+            return (b.useCount || 0) - (a.useCount || 0);
+        }
+
+        return lower(a.name) < lower(b.name) ? -1 :
+            (lower(a.name) > lower(b.name) ? 1 : 0);
+    });
+
+    return presets.slice(0, 5);
+}
+
+function updateQuickFilterButtons() {
+    var container = document.getElementById("filterQuickButtons");
+    var clearButton = document.getElementById("clearFilterPresetButton");
+    var customButton = document.getElementById("customFilterPresetButton");
+
+    if (!container || !clearButton || !customButton) {
+        return;
+    }
+
+    var includeWords = getActiveFilterWords("include");
+    var excludeWords = getActiveFilterWords("exclude");
+    var activeCount = includeWords.length + excludeWords.length;
+    var matchedPreset = findMatchingFilterPreset();
+    clearButton.className = "filterQuickButton" +
+        (!activeCount ? " active" : "");
+    customButton.className = "filterQuickButton" +
+        (activeCount && !matchedPreset ? " active" : "");
+    customButton.disabled = !activeCount || !!matchedPreset;
+    container.innerHTML = "";
+
+    var presets = quickFilterPresets();
+    var i;
+
+    for (i = 0; i < presets.length; i++) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.innerText = presets[i].name;
+        button.title = "Load saved filter: " + presets[i].name;
+        button.className = "filterQuickButton" +
+            (matchedPreset && matchedPreset.id === presets[i].id ? " active" : "");
+        button._presetId = presets[i].id;
+        button.onclick = function() {
+            loadFilterPreset(this._presetId, true);
+            window.event.cancelBubble = true;
+            return false;
+        };
+        container.appendChild(button);
+    }
+}
+
+function clearKeywordFilters() {
+    return loadFilterPreset("__none__", false);
+}
+
+function keepCustomKeywordFilters() {
+    updateFilterPresetControls();
+    return false;
+}
+
+function toggleFilterEditMenu() {
+    var menu = document.getElementById("filterPresetMenu");
+    var button = document.getElementById("editFilterPresetsButton");
+    var isOpen = menu.className.indexOf("open") >= 0;
+    menu.className = "filterPresetMenu" + (isOpen ? "" : " open");
+    button.setAttribute("aria-expanded", isOpen ? "false" : "true");
+
+    if (!isOpen && !document.getElementById("filterPresetName").disabled) {
+        document.getElementById("filterPresetName").focus();
+    }
+
+    window.event.cancelBubble = true;
+    return false;
+}
+
+function hideFilterEditMenu() {
+    var menu = document.getElementById("filterPresetMenu");
+    var button = document.getElementById("editFilterPresetsButton");
+
+    if (menu) {
+        menu.className = "filterPresetMenu";
+    }
+
+    if (button) {
+        button.setAttribute("aria-expanded", "false");
+    }
+}
+
+function keepFilterEditMenuOpen() {
+    window.event.cancelBubble = true;
+    return true;
 }
 
 function saveCurrentFilterPreset() {
@@ -2222,6 +2408,7 @@ function deleteSelectedFilterPreset() {
     delete data.KeywordFilterPresets[preset.id];
     delete data.KeywordFilterPresets["PresetExclude." + encodedName];
     delete data.KeywordFilterPresets["PresetMatchMode." + encodedName];
+    delete data.KeywordFilterPresets["PresetUseCount." + encodedName];
 
     if (!writeIni(settingsPath, data)) {
         alert("The filter preset could not be deleted.");
@@ -2229,6 +2416,7 @@ function deleteSelectedFilterPreset() {
     }
 
     loadFilterPresets();
+    hideFilterEditMenu();
     setStatus("Keyword filter preset deleted: " + preset.name);
     return true;
 }
@@ -3441,6 +3629,39 @@ function getSelectedRatingValues() {
     return values;
 }
 
+function getRatingFilterClickDelay() {
+    if (ratingFilterClickDelayMs > 0) {
+        return ratingFilterClickDelayMs;
+    }
+
+    var systemDoubleClickMs = 500;
+
+    try {
+        var configuredDoubleClickMs = parseInt(
+            shell.RegRead(
+                "HKCU\\Control Panel\\Mouse\\DoubleClickSpeed"
+            ),
+            10
+        );
+
+        if (
+            !isNaN(configuredDoubleClickMs)
+            && configuredDoubleClickMs >= 200
+            && configuredDoubleClickMs <= 2000
+        ) {
+            systemDoubleClickMs = configuredDoubleClickMs;
+        }
+    } catch (error) {
+    }
+
+    ratingFilterClickDelayMs = systemDoubleClickMs + 75;
+    return ratingFilterClickDelayMs;
+}
+
+function nextRatingFilterMode(mode) {
+    return mode === "exact" ? "upto" : "exact";
+}
+
 function applyRatingFilter(mode, value) {
     state.ratingFilterValue = value;
     state.ratingFilterMode = mode;
@@ -3508,7 +3729,7 @@ function scheduleRatingFilterToggle(value) {
         } else {
             applyRatingFilter("multiple", value);
         }
-    }, 260);
+    }, getRatingFilterClickDelay());
 }
 
 function toggleRatingFilterMode(value) {
@@ -3518,9 +3739,7 @@ function toggleRatingFilterMode(value) {
     }
 
     applyRatingFilter(
-        state.ratingFilterMode === "upto"
-        ? "exact"
-        : "upto",
+        nextRatingFilterMode(state.ratingFilterMode),
         value
     );
 }
@@ -4293,6 +4512,88 @@ function setKeywordFilterState(word, mode) {
 
     renderKeywordFilters();
     renderParents();
+}
+
+function sharedKeywordsForParents(parents) {
+    if (!parents || !parents.length) {
+        return [];
+    }
+
+    var shared = {};
+    var firstWords = parents[0].keywords || [];
+    var i;
+
+    for (i = 0; i < firstWords.length; i++) {
+        shared[lower(firstWords[i])] = true;
+    }
+
+    var parentIndex;
+
+    for (parentIndex = 1; parentIndex < parents.length; parentIndex++) {
+        var parentWords = parents[parentIndex].keywords || [];
+        var parentSet = {};
+
+        for (i = 0; i < parentWords.length; i++) {
+            parentSet[lower(parentWords[i])] = true;
+        }
+
+        var key;
+
+        for (key in shared) {
+            if (shared.hasOwnProperty(key) && !parentSet[key]) {
+                delete shared[key];
+            }
+        }
+    }
+
+    var result = [];
+
+    for (i = 0; i < state.keywords.length; i++) {
+        if (shared[lower(state.keywords[i])]) {
+            result.push(state.keywords[i]);
+        }
+    }
+
+    return result;
+}
+
+function findSimilarFromSelectedParents() {
+    var selectedParents = getSelectedParents();
+
+    if (!selectedParents.length) {
+        alert("Select at least one parent thumbnail first.");
+        return false;
+    }
+
+    var sharedWords = sharedKeywordsForParents(selectedParents);
+    state.activeFilters = {};
+    var i;
+
+    for (i = 0; i < sharedWords.length; i++) {
+        state.activeFilters[lower(sharedWords[i])] = "include";
+    }
+
+    renderKeywordFilters();
+    renderParents();
+    updateFilterPresetControls();
+
+    if (sharedWords.length) {
+        setStatus(
+            "Find Similar activated "
+            + sharedWords.length
+            + " shared keyword(s) from "
+            + selectedParents.length
+            + " selected thumbnail(s)."
+        );
+    } else {
+        setStatus(
+            selectedParents.length > 1
+                ? "The selected thumbnails have no shared keywords."
+                : "The selected thumbnail has no keywords."
+        );
+    }
+
+    return sharedWords.length > 0;
 }
 
 function updateKeywordMatchModeButton() {
@@ -7451,6 +7752,190 @@ function startRandom() {
     return true;
 }
 
+function canonicalFilesystemPath(path) {
+    try {
+        return normalizePath(fso.GetAbsolutePathName(path));
+    } catch (error) {
+        return "";
+    }
+}
+
+function isDirectParentGalleryPath(parentPath) {
+    var rootPath = canonicalFilesystemPath(state.root);
+    var targetPath = canonicalFilesystemPath(parentPath);
+
+    if (!rootPath || !targetPath || lower(rootPath) === lower(targetPath)) {
+        return false;
+    }
+
+    var letterPath = canonicalFilesystemPath(
+        fso.GetParentFolderName(targetPath)
+    );
+    var targetRoot = canonicalFilesystemPath(
+        fso.GetParentFolderName(letterPath)
+    );
+
+    return !!letterPath
+        && lower(targetRoot) === lower(rootPath)
+        && /^[A-Z]$/i.test(fso.GetFileName(letterPath))
+        && !!fso.GetFileName(targetPath);
+}
+
+function removeDeletedParentMetadata(parentPaths) {
+    var metadataPaths = [keywordIniPath(), ratingIniPath()];
+    var metadataIndex;
+    var parentIndex;
+
+    for (metadataIndex = 0; metadataIndex < metadataPaths.length; metadataIndex++) {
+        var metadataPath = metadataPaths[metadataIndex];
+
+        if (!metadataPath) {
+            continue;
+        }
+
+        var data = readIni(metadataPath);
+        var changed = false;
+
+        for (parentIndex = 0; parentIndex < parentPaths.length; parentIndex++) {
+            var section = encodeParentSection(parentPaths[parentIndex]);
+
+            if (data[section]) {
+                delete data[section];
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            writeIni(metadataPath, data);
+        }
+    }
+
+    return true;
+}
+
+function performSelectedParentGalleryDeletion(selectedParents) {
+    var deletedPaths = [];
+
+    var failedNames = [];
+    var parentIndex;
+
+    for (parentIndex = 0; parentIndex < selectedParents.length; parentIndex++) {
+        var parent = selectedParents[parentIndex];
+        var targetPath = canonicalFilesystemPath(parent.path);
+
+        if (
+            !isDirectParentGalleryPath(targetPath)
+            || !fso.FolderExists(targetPath)
+        ) {
+            failedNames.push(parent.name || parent.path);
+            continue;
+        }
+
+        try {
+            fso.DeleteFolder(targetPath, true);
+
+            if (!fso.FolderExists(targetPath)) {
+                deletedPaths.push(targetPath);
+
+            } else {
+                failedNames.push(parent.name || targetPath);
+            }
+        } catch (error) {
+            failedNames.push(parent.name || targetPath);
+        }
+    }
+
+    if (deletedPaths.length) {
+        removeDeletedParentMetadata(deletedPaths);
+
+        var rememberedKey = parentSelectionKey(state.rememberedParentPath);
+        var deletedIndex;
+
+        for (deletedIndex = 0; deletedIndex < deletedPaths.length; deletedIndex++) {
+            if (parentSelectionKey(deletedPaths[deletedIndex]) === rememberedKey) {
+                state.rememberedParentPath = "";
+                setIniValue(settingsPath, "Selection", "ParentPath", "");
+                break;
+            }
+        }
+
+        scanLibrary();
+    }
+
+    var message =
+        "Deleted "
+        + deletedPaths.length
+        + " selected parent "
+        + (deletedPaths.length === 1 ? "gallery." : "galleries.");
+
+    if (failedNames.length) {
+        message += " Could not delete: " + failedNames.join(", ") + ".";
+        alert(message);
+    }
+
+    setStatus(message);
+    return deletedPaths.length > 0 && failedNames.length === 0;
+}
+
+function deleteSelectedParentGalleries() {
+    var selectedParents = getSelectedParents();
+
+    if (!selectedParents.length) {
+        alert("Select at least one parent thumbnail first.");
+        return false;
+    }
+
+    var names = [];
+    var deletesCurrentParent = false;
+    var currentParentKey = parentSelectionKey(state.currentParentPath);
+    var parentIndex;
+
+    for (parentIndex = 0; parentIndex < selectedParents.length; parentIndex++) {
+        var parent = selectedParents[parentIndex];
+
+        if (!isDirectParentGalleryPath(parent.path)) {
+            alert(
+                "Deletion stopped because a selected folder is outside the expected root\\letter\\parent structure:\n\n"
+                + parent.path
+            );
+            return false;
+        }
+
+        names.push("- " + (parent.name || fso.GetFileName(parent.path)));
+
+        if (
+            currentParentKey
+            && parentSelectionKey(parent.path) === currentParentKey
+        ) {
+            deletesCurrentParent = true;
+        }
+    }
+
+    if (!confirm(
+        "PERMANENTLY delete "
+        + selectedParents.length
+        + " selected parent "
+        + (selectedParents.length === 1 ? "gallery" : "galleries")
+        + "?\n\n"
+        + names.join("\n")
+        + "\n\nThis deletes every gallery, image, video, and backup inside the selected parent folders. This cannot be undone."
+    )) {
+        return false;
+    }
+
+    if (deletesCurrentParent) {
+        setStatus("Closing the active slideshow before deleting selected parents...");
+        sendCommand("stopcurrent", "");
+
+        window.setTimeout(function() {
+            performSelectedParentGalleryDeletion(selectedParents);
+        }, 4500);
+        return true;
+    }
+
+    return performSelectedParentGalleryDeletion(selectedParents);
+}
+
 function uniqueCropRestoreDestinationPath(destinationPath) {
     if (!fso.FileExists(destinationPath)) {
         return destinationPath;
@@ -8737,7 +9222,7 @@ function keyboardShortcutHelpText() {
         "Ctrl+Tab — Next gallery from another parent",
         "Ctrl+0…9 — Rate the current parent gallery",
         "X — Toggle the current parent’s Keywords window",
-        "Windows key tap — Switch between managed IrfanView and VLC; no viewer key is sent",
+        "Ctrl+Windows key — Switch between managed IrfanView and VLC; no viewer key is sent",
         "Enter — Close the current slideshow",
         "Esc — Confirm bridge/slideshow exit",
         "",
@@ -8980,6 +9465,7 @@ function initialize() {
 
     document.onclick = function() {
         hideContextMenu();
+        hideFilterEditMenu();
     };
 
     document.oncontextmenu = function() {
@@ -8997,6 +9483,7 @@ function initialize() {
 
     window.onblur = function() {
         hideInlineKeywordMenu();
+        hideFilterEditMenu();
     };
 
     window.onresize = function() {
@@ -9051,6 +9538,13 @@ function initialize() {
 
         if (keyCode === 27) {
             eventObject.returnValue = false;
+
+            var filterMenu = document.getElementById("filterPresetMenu");
+
+            if (filterMenu && filterMenu.className.indexOf("open") >= 0) {
+                hideFilterEditMenu();
+                return false;
+            }
 
             if (isKeyboardShortcutHelpOpen()) {
                 closeKeyboardShortcutHelp();
@@ -9136,11 +9630,25 @@ function initialize() {
             </div>
         </div>
         <div class="row filterPresetRow">
-            <span class="label">Filter preset</span>
+            <span class="label">Filters</span>
+            <button id="clearFilterPresetButton" class="filterQuickButton" type="button" onclick="return clearKeywordFilters();">CLEAR</button>
+            <button id="customFilterPresetButton" class="filterQuickButton" type="button" onclick="return keepCustomKeywordFilters();">CUSTOM</button>
+            <button id="findSimilarFilterButton" class="filterQuickButton" type="button" title="Use the shared keywords of the selected parent thumbnails" onclick="return findSimilarFromSelectedParents();">Find Similar</button>
+            <div id="filterQuickButtons" class="filterQuickButtons"></div>
             <select id="filterPresetSelect" onchange="loadSelectedFilterPreset()"></select>
-            <input id="filterPresetName" type="text" placeholder="New preset name" />
-            <button id="saveFilterPresetButton" onclick="saveCurrentFilterPreset()">Save current filter</button>
-            <button id="deleteFilterPresetButton" class="danger" onclick="deleteSelectedFilterPreset()">Delete filter</button>
+            <div class="filterPresetEditor">
+                <button id="editFilterPresetsButton" type="button" aria-haspopup="true" aria-expanded="false" onclick="return toggleFilterEditMenu();">Edit filters</button>
+                <div id="filterPresetMenu" class="filterPresetMenu" onclick="return keepFilterEditMenuOpen();">
+                    <div class="filterPresetMenuRow">
+                        <input id="filterPresetName" type="text" placeholder="New filter name" />
+                        <button id="saveFilterPresetButton" type="button" onclick="saveCurrentFilterPreset()">Save current</button>
+                    </div>
+                    <div class="filterPresetMenuRow">
+                        <span class="filterPresetMenuNote">Delete the currently loaded saved filter.</span>
+                        <button id="deleteFilterPresetButton" class="danger" type="button" onclick="deleteSelectedFilterPreset()">Delete selected</button>
+                    </div>
+                </div>
+            </div>
             <span id="filterPresetHint"></span>
         </div>
         <div class="row">
@@ -9169,6 +9677,7 @@ function initialize() {
             <div class="toolbarZone right">
                 <button class="toolbarControl" type="button" onclick="openCurrentParent()">Open parent folder</button>
                 <button id="restoreCropButton" class="toolbarControl" type="button" onclick="restoreSelectedCropBackups()" title="Copy every selected parent’s gallery _CROP images back without overwriting files">Restore Crop</button>
+                <button id="deleteSelectedParentsButton" class="toolbarControl danger" type="button" onclick="deleteSelectedParentGalleries()" title="Permanently delete every selected parent gallery after confirmation">Delete Selected</button>
                 <button class="toolbarControl" type="button" onclick="scanLibrary()" title="Rescan folders and rebuild the persistent cache">Refresh library</button>
                 <button class="toolbarControl danger" type="button" onclick="requestExit()">Exit</button>
             </div>
@@ -9184,7 +9693,7 @@ function initialize() {
         <div id="emptyState">No parent galleries match the current filters.</div>
     </div>
 
-    <div id="statusBar">v1.02 | Ready.</div>
+    <div id="statusBar">v1.03 | Ready.</div>
 </div>
 
 <div id="shortcutHelpOverlay" onclick="if (window.event.srcElement === this) closeKeyboardShortcutHelp();">

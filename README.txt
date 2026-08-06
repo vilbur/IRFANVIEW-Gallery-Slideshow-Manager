@@ -1,4 +1,4 @@
-Gallery Slideshow Manager — HTML version 0.90
+Gallery Slideshow Manager — HTML version 1.03
 
 ================================================
 
@@ -80,6 +80,9 @@ Tile behavior
 
 - Parent tiles use parent\folder.jpg.
 
+- Parent tiles separately count paired gallery/video items, unpaired galleries,
+  and unpaired direct MP4/WMV videos.
+
 - Clicking a parent opens gallery tiles.
 
 - Gallery tiles use the alphabetically first direct image.
@@ -93,6 +96,9 @@ Tile behavior
 - Ctrl-click parent tiles to select more than one parent.
 
 - Ctrl+0 through Ctrl+9 assigns that rating to every selected parent; Ctrl+0 clears it.
+
+- Double-click a rating-filter star to alternate between selecting only that exact rating and selecting ratings up to that value.
+- From the normal all-ratings or multiple-ratings filter, the first double-click selects the exact clicked rating.
 
 - Right-click during an active IrfanView slideshow to open the dedicated
   keyword overlay at the mouse cursor for the current parent. The overlay
@@ -125,6 +131,8 @@ Native controls
 
 ---------------
 
+- F1 in the manager or while managed IrfanView/VLC is active: show the combined
+  Manager, slideshow navigation, Slideshow Assistant and Remote shortcut list.
 - Tab while IrfanView or VLC is active: immediately open the next gallery
   inside the current parent. Random mode randomizes only among that parent's
   matching galleries.
@@ -145,20 +153,53 @@ Native controls
 
 - X while IrfanView or VLC is active: open the current gallery's keyword
   window. Press X again while the keyword window has focus to close it.
+- Press Ctrl+left Windows or Ctrl+right Windows while managed IrfanView or VLC
+  is active to switch focus to the other managed viewer. Returning from VLC
+  only reactivates IrfanView and sends no viewer key, preserving its existing
+  fullscreen state. Plain Windows-key taps retain their normal behavior.
 
 - IrfanView enters fullscreen after launch.
 
 - VLC enters fullscreen, then focus returns to IrfanView.
 
+- The Videos button cycles through grey/off No videos, paired Videos, All
+  Videos and Auto Videos; hover it to see the complete mode list.
 
 
+
+Crop restoration
+----------------
+
+- Restore Crop sits beside Open parent folder.
+- It processes every selected parent thumbnail and every direct gallery folder
+  inside those parents.
+- Supported images are copied from each gallery’s _CROP folder back into that
+  gallery; backup sources remain untouched.
+- Existing destination files are never overwritten. Conflicts use
+   - Restored, - Restored 2, and higher unique suffixes.
+- The library refreshes after a successful restore and retains the selected
+  parent thumbnails.
+
+Parent-gallery deletion
+-----------------------
+
+- Delete Selected sits directly beside Restore Crop.
+- It permanently deletes every selected parent folder and all galleries, images,
+  videos and backups inside it.
+- A confirmation lists the exact selected parent names and warns that deletion
+  cannot be undone.
+- Targets are restricted to the configured root\letter\parent structure.
+- If one selected parent is running, its managed slideshow and VLC session are
+  closed first.
+- Deleted parents’ keyword and rating records are removed, then the library is
+  rescanned.
 Settings
 
 --------
 
 Gallery-Slideshow-Manager.ini
 
-    Root path, Auto VLC, Remote timeout, backup directory, remembered
+    Root path, video mode, Remote timeout, backup directory, remembered
     gallery selection, IrfanView path, VLC path, and HTML window placement.
 
 
@@ -208,6 +249,8 @@ The test checks:
 - direct image scanning
 
 - first-integer gallery/video pairing
+
+- direct parent-video scanning and Auto pair detection
 
 - next-gallery navigation
 
@@ -1051,3 +1094,120 @@ Version 0.90
   both the manager menu and slideshow overlay.
 - Assigned keywords are now indicated only by the existing blue active-color
   accent.
+
+Version 0.91
+------------
+
+- Added a collapsible Keywords rollout to the main manager window.
+- Keyword management, include/exclude controls and filter presets are grouped
+  inside the rollout; Search and Rating remain visible in the main window.
+- Main-window controls now retain at least 16 pixels of horizontal spacing.
+- Keyword buttons intentionally retain zero horizontal spacing.
+
+Version 0.92
+------------
+
+- A single tap of either Windows key switches focus between the managed
+  IrfanView and VLC windows when both exist.
+- The toggle validates the tracked process and window identities and never
+  targets unrelated IrfanView or VLC instances.
+- Windows-key combinations remain available for normal Windows shortcuts.
+- The toggle is inactive while Remote isolates slideshow input.
+
+
+Version 0.94
+------------
+
+- Keyword assignment from a selected parent thumbnail now applies to the
+  complete Ctrl-click thumbnail selection.
+- A blue keyword is assigned to every selected parent and clicking it removes
+  it from every selected parent.
+- An amber keyword indicates a mixed selection; clicking it assigns the
+  keyword to every selected parent.
+- Right-clicking an unselected thumbnail still changes only that thumbnail.
+
+Version 0.95
+------------
+
+- Moved the saved filter-preset row outside and directly below the Keywords
+  rollout so presets remain available while keyword management is collapsed.
+- Added Delete filter for the selected named preset.
+- Deleting a preset removes its include, exclude and ALL/ANY records together
+  while retaining the active keyword combination as an unsaved custom filter.
+
+Version 0.96
+------------
+
+- Renamed the VLC toolbar checkbox to Videos and made it cycle through four
+  modes: grey/off No videos, paired Videos, All Videos and Auto Videos.
+- All Videos opens every direct MP4/WMV in the active parent as one VLC
+  playlist, reloading it only when the parent gallery changes.
+- Auto Videos uses gallery/video pairs when the parent contains any valid pair;
+  otherwise it loads all direct parent videos as one playlist.
+- The Videos button tooltip lists all modes and identifies the current one.
+- Changing the Videos mode immediately updates the active VLC playback.
+- Existing Auto VLC settings migrate to paired Videos or No videos.
+- Video replacement and No videos cleanup target only the VLC process started
+  by the manager.
+Version 0.97
+------------
+
+- F1 in the manager opens an in-app Keyboard shortcuts reference.
+- F1 while managed IrfanView or VLC is active shows the same combined Manager,
+  slideshow navigation, Slideshow Assistant and Remote shortcut list.
+- Escape, the Close button or another F1 press closes the manager reference.
+- The reference documents safe-delete, crop/pan, rating, keyword, Remote and
+  managed IrfanView/VLC focus controls without restoring obsolete shortcuts.
+Version 0.98
+------------
+
+- Added Restore Crop beside Open parent folder.
+- It restores supported image backups from every gallery _CROP folder under
+  all selected parent thumbnails.
+- Restore is copy-only: _CROP sources remain untouched and existing gallery
+  files are never overwritten.
+- Name collisions receive - Restored, - Restored 2, and higher suffixes.
+- A successful restore rescans the library and restores the same parent
+  multi-selection.
+
+Version 0.99
+------------
+
+- Returning from managed VLC with either Windows-key tap now keeps IrfanView
+  fullscreen, restoring fullscreen only when it has actually been lost.
+- Existing fullscreen is detected before IrfanView's Enter command is sent, so
+  an already-fullscreen slideshow is not toggled into windowed mode.
+
+Version 1.00
+------------
+
+- Corrected the Win-key VLC-to-IrfanView switch so it no longer sends Enter.
+- Returning to IrfanView now only reactivates its existing managed window,
+  preserving the current fullscreen display state without toggling it.
+
+Version 1.01
+------------
+
+- Launching a new managed VLC instance now closes every older VLC window and
+  force-closes any surviving or windowless older VLC process by exact PID.
+- The new VLC PID is protected throughout cleanup and launch succeeds only
+  after process enumeration confirms that it is the sole VLC instance.
+
+Version 1.02
+------------
+
+- VLC cleanup now checks the process count before closing anything.
+- If the protected active VLC is already the only VLC instance, it is left
+  running without receiving a close or terminate command.
+
+Version 1.03
+------------
+
+- Added Delete Selected directly beside Restore Crop.
+- It permanently deletes every selected parent folder only after a confirmation
+  naming all targets; exact root\letter\parent validation protects broader and
+  unselected folders.
+- Active selected-parent playback is closed first, deleted-parent keyword and
+  rating metadata is removed, and the library is rescanned.
+- Managed IrfanView/VLC switching now uses Ctrl+left Windows or Ctrl+right
+  Windows. Plain Windows-key taps retain their normal behavior.

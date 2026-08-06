@@ -196,16 +196,16 @@ console.log("Selected-parent keyword assignment: PASS");
 
 check(
     bridgeText.indexOf("#If isManagedViewerToggleActive()") >= 0
-        && bridgeText.indexOf("$LWin::") >= 0
-        && bridgeText.indexOf("$RWin::") >= 0
-        && bridgeText.indexOf('handleManagedViewerWinKey("LWin")') >= 0
-        && bridgeText.indexOf('handleManagedViewerWinKey("RWin")') >= 0,
-    "Both Windows keys should use the managed viewer toggle context."
+        && bridgeText.indexOf("$^LWin::") >= 0
+        && bridgeText.indexOf("$^RWin::") >= 0
+        && bridgeText.indexOf("$LWin::") < 0
+        && bridgeText.indexOf("$RWin::") < 0,
+    "Only Ctrl+Windows should use the managed viewer toggle context."
 );
 check(
-    bridgeText.indexOf("was_single_key_tap := A_PriorKey = key_name") >= 0
-        && bridgeText.indexOf("SendInput, {Blind}{vkE8}") >= 0,
-    "The viewer toggle should distinguish a single tap from Windows-key combinations."
+    bridgeText.indexOf("handleManagedViewerWinKey") < 0
+        && bridgeText.indexOf("SendInput, {Blind}{vkE8}") < 0,
+    "The viewer toggle should not synthesize or mask a plain Windows-key tap."
 );
 check(
     bridgeText.indexOf("if (remote_open)") >= 0
@@ -235,7 +235,7 @@ check(
         && irfanActivationBody.indexOf("ControlSend") < 0,
     "Returning from VLC should preserve IrfanView display state without sending a viewer key."
 );
-console.log("Managed viewer Windows-key toggle: PASS");
+console.log("Managed viewer Ctrl+Windows toggle: PASS");
 
 check(
     htaText.indexOf('id="shortcutHelpOverlay"') >= 0

@@ -1,4 +1,13 @@
-[x] Sort keywords by priority.
-[x] Keep the right-click keyword menu open while assigning multiple keywords.
-[x] Show the numeric rating in the right-click keyword menu.
-[x] Keep keyword definitions and assignments in gallery-keywords.ini.
+
+
+..add btn to play all unpaired wideos in parent directory at on once
+
+
+Shift+tab = previous gallery
+
+
+win key = toggle VLC\IrfanView
+
+win+O = open folder
+
+ctrl+c = copy current image inmideatly + show tray message

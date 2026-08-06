@@ -73,11 +73,12 @@ Run the selected gallery in IrfanView and control it through the bridge.
 - Avoid double jumps.
 - `T` must not open IrfanView thumbnail view.
 - `Ctrl+C` copies the current image.
-- A single left or right Windows-key tap switches focus between the managed
+- Ctrl+left Windows or Ctrl+right Windows switches focus between the managed
   IrfanView and VLC windows when both exist.
 - Returning from VLC only shows and activates managed IrfanView; it sends no
   viewer keystroke, preserving the existing fullscreen display state.
-- Windows-key combinations retain their normal Windows behavior.
+- Plain Windows-key taps and other Windows-key combinations retain their normal
+  Windows behavior.
 - Hotkeys target only the main IrfanView viewer, not dialogs.
 - Source images are never permanently deleted by normal slideshow controls.
 
@@ -268,6 +269,9 @@ These must remain removed:
 - `Ctrl+0` through `Ctrl+9` assign rating in the valid slideshow context.
 - In the manager, Ctrl-click selects multiple parent thumbnails and Ctrl+0 through Ctrl+9 rates the complete selection.
 - Rating persists and is visible in manager/Remote where applicable.
+- Double-clicking a rating-filter star alternates exact-rating and up-to-rating modes.
+- A first double-click from all-ratings or multiple-ratings mode enters exact-rating mode.
+- The single-click action waits for the configured Windows double-click interval so it cannot redraw the star before a valid double-click completes.
 - Rating shortcuts must not conflict with Remote controls.
 
 ## Keywords
@@ -403,9 +407,20 @@ Rules:
   are generated for every collision.
 - A successful restore refreshes the library and retains the parent selection.
 
+## Parent-gallery deletion
+
+- Delete Selected is directly beside Restore Crop in the main toolbar.
+- It applies only to the complete selected parent-thumbnail set.
+- Every target must resolve to the exact configured root\letter\parent depth.
+- Confirmation lists every selected parent and states that deletion is permanent.
+- The selected parent folders and everything inside them are permanently deleted.
+- If a selected parent is currently running, the managed IrfanView/VLC session
+  is closed and cleared before deletion.
+- Keyword and rating records belonging to successfully deleted parents are removed.
+- The library is rescanned after successful deletion.
 ## Safety
 
-- Never permanently delete original images through normal controls.
+- Never permanently delete original images through normal controls except the explicit, confirmed Delete Selected parent-gallery action.
 - Use safe destinations such as `_DELETE` or `_CROP` when enabled.
 - Do not overwrite `folder.jpg` without explicit action.
 - Stop only manager-owned processes.

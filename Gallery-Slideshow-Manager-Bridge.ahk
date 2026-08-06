@@ -10,7 +10,7 @@ SetWorkingDir, %A_ScriptDir%
 ; AutoHotkey v1.1.36 native bridge for the HTML tile interface.
 ; Handles IrfanView, VLC, global navigation, dynamic lists, and background preparation.
 
-SCRIPT_VERSION := "1.02"
+SCRIPT_VERSION := "1.03"
 APP_NAME := "Gallery-Slideshow-Manager"
 DATA_DIR := A_Temp . "\" . APP_NAME
 SETTINGS_INI := DATA_DIR . "\" . APP_NAME . ".ini"
@@ -136,12 +136,14 @@ return
 #If
 
 #If isManagedViewerToggleActive()
-$LWin::
-    handleManagedViewerWinKey("LWin")
+$^LWin::
+    KeyWait, LWin
+    toggleManagedViewerWindow()
 return
 
-$RWin::
-    handleManagedViewerWinKey("RWin")
+$^RWin::
+    KeyWait, RWin
+    toggleManagedViewerWindow()
 return
 #If
 
@@ -1335,6 +1337,12 @@ pollCommandFile()
     else if (command_action = "refreshnavigation")
     {
         refreshPreparedNavigationSlots()
+    }
+    else if (command_action = "stopcurrent")
+    {
+        saveAndCloseCurrentIrfanView()
+        closeManagedVlcInstance()
+        clearRunningSessionState()
     }
     else if (command_action = "exit")
     {
@@ -5956,7 +5964,7 @@ Tab - Next gallery inside the current parent
 Ctrl+Tab - Next gallery from another parent
 Ctrl+0...9 - Rate the current parent gallery
 X - Toggle the current parent's Keywords window
-Windows key tap - Switch between managed IrfanView and VLC; no viewer key is sent
+Ctrl+Windows key - Switch between managed IrfanView and VLC; no viewer key is sent
 Enter - Close the current slideshow
 Esc - Confirm bridge/slideshow exit
 
@@ -6044,7 +6052,7 @@ getManagedVlcWindowId()
 }
 
 /*
-Enable the single-Windows-key viewer toggle only while both managed viewer
+Enable the Ctrl+Windows viewer toggle only while both managed viewer
 windows exist, one of them owns focus, and Remote is not isolating input.
 */
 isManagedViewerToggleActive()
@@ -6068,30 +6076,6 @@ isManagedViewerToggleActive()
     return active_window_id = irfanview_window_id || active_window_id = vlc_window_id
 }
 
-/*
-Preserve normal Windows-key combinations. A Windows-key tap is masked from
-opening Start and is used only to toggle the two managed viewer windows.
-*/
-handleManagedViewerWinKey(key_name)
-{
-    SendInput, % "{Blind}{" . key_name . " Down}"
-    KeyWait, %key_name%
-    was_single_key_tap := A_PriorKey = key_name
-
-    if (was_single_key_tap)
-    {
-        SendInput, {Blind}{vkE8}
-    }
-
-    SendInput, % "{Blind}{" . key_name . " Up}"
-
-    if (was_single_key_tap)
-    {
-        toggleManagedViewerWindow()
-    }
-
-    return was_single_key_tap
-}
 
 /*
 Reactivate managed IrfanView without sending any viewer keystroke. Its existing

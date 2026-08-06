@@ -37,6 +37,16 @@ Review this before every release.
 - [ ] _CROP sources remain intact after restore.
 - [ ] Library refresh retains the selected parent thumbnails.
 
+## Parent-gallery deletion
+
+- [ ] Delete Selected remains directly beside Restore Crop.
+- [ ] Confirmation names every selected parent and warns that deletion is permanent.
+- [ ] Only the complete selected parent-thumbnail set is targeted.
+- [ ] Every target is validated at the exact root\letter\parent depth.
+- [ ] The configured root, letter folders and unselected parents can never be targets.
+- [ ] An active selected-parent slideshow is closed before deletion.
+- [ ] Only successfully deleted parents lose keyword and rating metadata.
+- [ ] The library is rescanned after successful deletion.
 ## Slideshow
 
 - [ ] F1 in the manager opens the combined keyboard-shortcut reference.
@@ -55,12 +65,13 @@ Review this before every release.
 - [ ] Hotkeys target main viewer only.
 - [ ] T does not open thumbnail view.
 - [ ] Ctrl+C copies current image.
-- [ ] A single left or right Windows-key tap toggles managed IrfanView/VLC focus.
+- [ ] Ctrl+left Windows and Ctrl+right Windows toggle managed IrfanView/VLC focus.
+- [ ] Plain Windows-key taps do not trigger the managed viewer toggle.
 - [ ] Returning from VLC sends no viewer keystroke and preserves managed
       IrfanView's existing fullscreen display state.
-- [ ] The Windows-key toggle never targets unrelated viewer processes.
-- [ ] Windows-key combinations retain their normal Windows behavior.
-- [ ] The Windows-key toggle remains inactive while Remote is open.
+- [ ] The Ctrl+Windows toggle never targets unrelated viewer processes.
+- [ ] Other Windows-key combinations retain their normal Windows behavior.
+- [ ] The Ctrl+Windows toggle remains inactive while Remote is open.
 - [ ] Auto-switch waits at least one second after user input.
 - [ ] No double jumps.
 - [ ] No permanent source-image deletion.
@@ -164,6 +175,8 @@ Obsolete controls remain absent:
 - [ ] Manager Ctrl-click preserves a multi-selection and Ctrl+0…Ctrl+9 rates every selected parent.
 - [ ] Ctrl+0…Ctrl+9 assign parent rating.
 - [ ] Rating persists and displays.
+- [ ] Rating-star double-click always alternates exact-rating and up-to-rating modes.
+- [ ] A valid slow double-click is not replaced by the rating star's single-click action.
 - [ ] Keywords remain alphabetically sorted.
 - [ ] Special-prefix keywords keep the same deterministic order on every keyword surface.
 - [ ] Main special-prefix rows have left labels; keyword-window rows do not.

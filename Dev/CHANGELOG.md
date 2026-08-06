@@ -2,6 +2,24 @@
 
 This records design milestones and trusted baselines, not every code edit.
 
+## 1.03
+
+Confirmed parent deletion and Ctrl+Windows viewer toggle:
+
+- added Delete Selected directly beside Restore Crop;
+- confirmation lists every selected parent and warns that each complete parent
+  folder is permanently deleted;
+- validates every target at the exact configured root\letter\parent depth,
+  closes an active selected-parent slideshow, removes deleted-parent keyword
+  and rating metadata, and rescans the library;
+- moved managed IrfanView/VLC focus switching from a plain Windows-key tap to
+  Ctrl+left Windows or Ctrl+right Windows;
+- plain Windows-key taps no longer enter the manager hotkey path.
+
+Status: JavaScript behavior, destructive-scope regression and AutoHotkey v1
+syntax-load checks pass; live Windows UI and filesystem behavior require
+user confirmation.
+
 ## 1.02
 
 Single-instance VLC guard:
