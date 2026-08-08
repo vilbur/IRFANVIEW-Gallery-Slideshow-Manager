@@ -10,7 +10,7 @@ SetWorkingDir, %A_ScriptDir%
 ; AutoHotkey v1.1.36 native bridge for the HTML tile interface.
 ; Handles IrfanView, VLC, global navigation, dynamic lists, and background preparation.
 
-SCRIPT_VERSION := "1.03"
+SCRIPT_VERSION := "1.05"
 APP_NAME := "Gallery-Slideshow-Manager"
 DATA_DIR := A_Temp . "\" . APP_NAME
 SETTINGS_INI := DATA_DIR . "\" . APP_NAME . ".ini"
@@ -76,6 +76,7 @@ random_unique_skip_parent_completion_once := false
 random_unique_parent_round_reset_pending := false
 random_gallery_history := []
 random_gallery_history_limit := 12
+gallery_history_back_in_progress := false
 stored_random_gallery := ""
 stored_random_parent := ""
 stored_random_same_parent_gallery := ""
@@ -147,6 +148,13 @@ $^RWin::
 return
 #If
 
+#If isParentFolderShortcutActive()
+$#o::
+    openRelevantParentFolders()
+    KeyWait, o
+return
+#If
+
 #If isGalleryNavigationActive() && !remote_open
 $F1::
     showKeyboardShortcutHelp()
@@ -208,6 +216,12 @@ return
 #If
 
 #If isGalleryNavigationActive() && !remote_open
+$+Tab::
+    cancelPendingSingleTab()
+    requestPreviousGalleryVisit()
+    KeyWait, Tab
+return
+
 $Tab::
     handleSlideshowTabPress()
     KeyWait, Tab
@@ -1490,7 +1504,7 @@ launchPreparedSlot(slot_prefix)
     current_gallery := normalizeFolderPath(gallery_path)
     current_parent := normalizeFolderPath(parent_folder)
     current_video := ""
-    recordRandomGalleryVisit(current_gallery)
+    recordGalleryVisit(current_gallery)
 
     if (isUniqueRandomMode())
     {
@@ -3334,17 +3348,18 @@ parseRandomUniquePaths(path_text)
 
 
 /*
-Remember a gallery only after it actually opens.
+Remember every gallery only after it actually opens. The same bounded list is
+used as a real visitation back stack by Shift+Tab in normal and random modes.
 */
-recordRandomGalleryVisit(gallery_path)
+recordGalleryVisit(gallery_path)
 {
-    global random_navigation_active
     global random_gallery_history
     global random_gallery_history_limit
+    global gallery_history_back_in_progress
 
-    if (!random_navigation_active)
+    if (gallery_history_back_in_progress)
     {
-        return false
+        return true
     }
 
     gallery_path := normalizeFolderPath(gallery_path)
@@ -3377,6 +3392,63 @@ recordRandomGalleryVisit(gallery_path)
     if (isUniqueRandomMode())
     {
         markUniqueRandomGallerySeen(gallery_path)
+    }
+
+    return true
+}
+
+/*
+Open the previously visited gallery. Remove the current entry from the stack
+and suppress re-adding the destination while it is being reopened.
+*/
+requestPreviousGalleryVisit()
+{
+    global current_gallery
+    global random_gallery_history
+    global gallery_history_back_in_progress
+
+    cancelPendingSingleTab()
+    current_key := toLowerText(normalizeFolderPath(current_gallery))
+    removed_current := ""
+
+    if (current_key = "" || random_gallery_history.Length() < 1)
+    {
+        showTrayTip("Gallery navigation", "No previous gallery is available.", 2)
+        return false
+    }
+
+    history_count := random_gallery_history.Length()
+
+    if (toLowerText(random_gallery_history[history_count]) = current_key)
+    {
+        removed_current := random_gallery_history.RemoveAt(history_count)
+    }
+
+    if (random_gallery_history.Length() < 1)
+    {
+        if (removed_current != "")
+        {
+            random_gallery_history.Push(removed_current)
+        }
+
+        showTrayTip("Gallery navigation", "No previous gallery is available.", 2)
+        return false
+    }
+
+    previous_gallery := random_gallery_history[random_gallery_history.Length()]
+    gallery_history_back_in_progress := true
+    open_result := startGallery(previous_gallery)
+    gallery_history_back_in_progress := false
+
+    if (!open_result)
+    {
+        if (removed_current != "")
+        {
+            random_gallery_history.Push(removed_current)
+        }
+
+        showTrayTip("Gallery navigation", "The previous gallery could not be opened.", 3)
+        return false
     }
 
     return true
@@ -5960,7 +6032,9 @@ Esc - Close parent details; from the main view, request Exit
 
 SLIDESHOW NAVIGATION
 F1 - Show this combined shortcut reference
+Win+O - Open the running parent folder
 Tab - Next gallery inside the current parent
+Shift+Tab - Go back to the previously visited gallery
 Ctrl+Tab - Next gallery from another parent
 Ctrl+0...9 - Rate the current parent gallery
 X - Toggle the current parent's Keywords window
@@ -5978,6 +6052,7 @@ W / A / S / D - Pan the image
 Q / E - Zoom in / out
 Arrow or numpad navigation - Native pan/zoom; mark view as cropped
 L / R / H - Rotate left / rotate right / horizontal flip
+Ctrl+C - Copy the current image immediately to the clipboard
 Ctrl+F - Copy the current image as the parent folder.jpg
 
 REMOTE
@@ -6126,6 +6201,81 @@ toggleManagedViewerWindow()
     return false
 }
 
+/*
+Enable Win+O while the manager or a managed viewer owns focus.
+*/
+isParentFolderShortcutActive()
+{
+    global remote_open
+
+    if (remote_open)
+    {
+        return false
+    }
+
+    return WinActive("Gallery Slideshow Manager ahk_exe mshta.exe")
+        || isGalleryNavigationActive()
+}
+
+/*
+Open the running parent from IrfanView/VLC, or every parent currently selected
+in the manager. The manager publishes selected paths with the filesystem-safe
+vertical-bar separator.
+*/
+openRelevantParentFolders()
+{
+    global SESSION_INI, current_parent
+
+    parent_paths := []
+
+    if (WinActive("Gallery Slideshow Manager ahk_exe mshta.exe"))
+    {
+        IniRead, selected_parent_text, %SESSION_INI%, Session, ManagerSelectedParents,
+        parent_paths := parseRandomUniquePaths(selected_parent_text)
+    }
+    else
+    {
+        running_parent := normalizeFolderPath(current_parent)
+
+        if (running_parent != "")
+        {
+            parent_paths.Push(running_parent)
+        }
+    }
+
+    opened_paths := {}
+    opened_count := 0
+
+    for parent_index, parent_path in parent_paths
+    {
+        parent_path := normalizeFolderPath(parent_path)
+        parent_key := toLowerText(parent_path)
+
+        if (parent_path = ""
+            || opened_paths.HasKey(parent_key)
+            || !InStr(FileExist(parent_path), "D"))
+        {
+            continue
+        }
+
+        Run, % "explorer.exe " . quotePath(parent_path),, UseErrorLevel
+
+        if (!ErrorLevel)
+        {
+            opened_paths[parent_key] := true
+            opened_count++
+        }
+    }
+
+    if (opened_count < 1)
+    {
+        showTrayTip("Open parent folder", "No current or selected parent folder is available.", 2)
+        return false
+    }
+
+    showTrayTip("Parent folders opened", opened_count . (opened_count = 1 ? " folder" : " folders"), 1)
+    return true
+}
 /*
 Return true while either IrfanView or VLC is the active process.
 */

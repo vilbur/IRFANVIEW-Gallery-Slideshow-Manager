@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta charset="utf-8" />
-<title>Gallery Slideshow Manager 1.03</title>
+<title>Gallery Slideshow Manager 1.05</title>
 <hta:application
     id="galleryApp"
     applicationname="Gallery Slideshow Manager"
@@ -1130,7 +1130,7 @@ var fso = new ActiveXObject("Scripting.FileSystemObject");
 var shell = new ActiveXObject("WScript.Shell");
 var shellApp = new ActiveXObject("Shell.Application");
 
-var APP_VERSION = "1.03";
+var APP_VERSION = "1.05";
 var APP_NAME = "Gallery-Slideshow-Manager";
 var appDir = getApplicationDirectory();
 var tempDir = shell.ExpandEnvironmentStrings("%TEMP%");
@@ -1150,6 +1150,7 @@ var filteredNavigationPath =
     sharedDataDir + "\\" + APP_NAME + "-filtered-navigation.ini";
 
 var managerInstanceToken = "";
+var publishedManagerSelectedParentPaths = null;
 
 var state = {
     root: "",
@@ -6405,7 +6406,49 @@ function parentMatches(parent) {
         : matchedIncludeFilterCount > 0;
 }
 
+function publishManagerSelectedParentPaths() {
+    var selectedPaths = [];
+    var selectedKeys = {};
+    var i;
+
+    for (i = 0; i < state.parents.length; i++) {
+        if (isParentSelected(state.parents[i])) {
+            var selectedPath = normalizePath(state.parents[i].path);
+            var selectedKey = lower(selectedPath);
+
+            if (selectedPath && !selectedKeys[selectedKey]) {
+                selectedKeys[selectedKey] = true;
+                selectedPaths.push(selectedPath);
+            }
+        }
+    }
+
+    if (
+        !selectedPaths.length
+        && state.selectedParent
+        && state.selectedParent.path
+    ) {
+        selectedPaths.push(normalizePath(state.selectedParent.path));
+    }
+
+    var publishedText = selectedPaths.join("|");
+
+    if (publishedText === publishedManagerSelectedParentPaths) {
+        return true;
+    }
+
+    setIniValue(
+        sessionPath,
+        "Session",
+        "ManagerSelectedParents",
+        publishedText
+    );
+    publishedManagerSelectedParentPaths = publishedText;
+    return true;
+}
 function renderParents() {
+    publishManagerSelectedParentPaths();
+
     var grid = document.getElementById("parentGrid");
     grid.innerHTML = "";
 
@@ -9214,11 +9257,14 @@ function keyboardShortcutHelpText() {
         "F1 — Show or close this shortcut reference",
         "Ctrl+0…9 — Rate every selected parent gallery",
         "Ctrl+click — Add or remove a parent from the selection",
+        "Win+O — Open folders for all selected parent galleries",
         "Esc — Close parent details; from the main view, request Exit",
         "",
         "SLIDESHOW NAVIGATION",
         "F1 — Show this combined shortcut reference",
+        "Win+O — Open the running parent folder",
         "Tab — Next gallery inside the current parent",
+        "Shift+Tab — Go back to the previously visited gallery",
         "Ctrl+Tab — Next gallery from another parent",
         "Ctrl+0…9 — Rate the current parent gallery",
         "X — Toggle the current parent’s Keywords window",
@@ -9236,6 +9282,7 @@ function keyboardShortcutHelpText() {
         "Q / E — Zoom in / out",
         "Arrow or numpad navigation — Native pan/zoom; mark view as cropped",
         "L / R / H — Rotate left / rotate right / horizontal flip",
+        "Ctrl+C — Copy the current image immediately to the clipboard",
         "Ctrl+F — Copy the current image as the parent folder.jpg",
         "",
         "REMOTE",
@@ -9693,7 +9740,7 @@ function initialize() {
         <div id="emptyState">No parent galleries match the current filters.</div>
     </div>
 
-    <div id="statusBar">v1.03 | Ready.</div>
+    <div id="statusBar">v1.05 | Ready.</div>
 </div>
 
 <div id="shortcutHelpOverlay" onclick="if (window.event.srcElement === this) closeKeyboardShortcutHelp();">

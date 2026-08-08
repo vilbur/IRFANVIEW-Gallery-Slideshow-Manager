@@ -53,7 +53,7 @@ if (!instance_mutex_handle || instance_mutex_error = 183)
 }
 
 ; slideshow-assistant.ahk
-; Version: 0.33
+; Version: 0.34
 ; One assistant instance binds to the exact requested viewer and exits when it closes.
 ; A per-viewer mutex silently rejects duplicate launches without AutoHotkey single-instance warnings.
 ; Automatic navigation waits at least one second after physical input and between image changes.
@@ -2558,6 +2558,47 @@ testStandaloneModifierDetection()
 */
 
 
+/*  COPY THE CURRENT IRFANVIEW IMAGE TO THE CLIPBOARD IMMEDIATELY
+    Verify a clipboard sequence change before reporting success.
+ */
+copyCurrentImageToClipboardImmediately()
+{
+    main_window_id := getActiveMainIrfanViewWindow()
+
+    if (!main_window_id)
+    {
+        TrayTip, Image copy, No active IrfanView image is available., 4, 2
+        return false
+    }
+
+    image_path := getPathFromTitle(true)
+    clipboard_sequence_before := DllCall("GetClipboardSequenceNumber", "UInt")
+
+    if !sendKeysToMainIrfanView("^c", main_window_id)
+    {
+        TrayTip, Image copy, IrfanView did not accept the copy command., 4, 3
+        return false
+    }
+
+    copy_deadline := A_TickCount + 1200
+
+    while (A_TickCount < copy_deadline)
+    {
+        if (DllCall("GetClipboardSequenceNumber", "UInt") != clipboard_sequence_before)
+        {
+            SplitPath, image_path, image_name
+            copy_message := image_name != "" ? image_name : "Current image"
+            TrayTip, Image copied, %copy_message%, 4, 1
+            return true
+        }
+
+        Sleep, 40
+    }
+
+    TrayTip, Image copy, The clipboard did not confirm the image copy., 4, 2
+    return false
+}
+
 /*  COPY CURRENT IMAGE AS PARENT FOLDER.JPG
     A direct exact-process window group intercepts every Ctrl+Shift+F variant
     before IrfanView can invoke Set as wallpaper. This does not depend on the
@@ -2575,6 +2616,17 @@ return
 
 
 #If isMainIrfanViewWindowActive()
+
+
+/*  COPY CURRENT IMAGE TO THE CLIPBOARD
+ */
+$^c::
+    Critical, On
+    copyCurrentImageToClipboardImmediately()
+    Critical, Off
+    resetSlideTimer()
+    KeyWait, c
+return
 
 
 /*  ALT+TAB IS NOT REGISTERED BY THIS SCRIPT

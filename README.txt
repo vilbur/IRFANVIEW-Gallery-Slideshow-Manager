@@ -1,4 +1,4 @@
-Gallery Slideshow Manager — HTML version 1.03
+Gallery Slideshow Manager — HTML version 1.05
 
 ================================================
 
@@ -133,6 +133,12 @@ Native controls
 
 - F1 in the manager or while managed IrfanView/VLC is active: show the combined
   Manager, slideshow navigation, Slideshow Assistant and Remote shortcut list.
+- Win+O in the manager opens the folders of all selected parent galleries.
+- Win+O while managed IrfanView or VLC is active opens the running parent folder.
+- Ctrl+C while IrfanView is active immediately copies the current image to the
+  clipboard and shows a success or failure tray notification.
+- Shift+Tab while IrfanView or VLC is active opens the previously visited
+  gallery in normal or random mode. It does not perform previous-parent navigation.
 - Tab while IrfanView or VLC is active: immediately open the next gallery
   inside the current parent. Random mode randomizes only among that parent's
   matching galleries.
@@ -1211,3 +1217,26 @@ Version 1.03
   rating metadata is removed, and the library is rescanned.
 - Managed IrfanView/VLC switching now uses Ctrl+left Windows or Ctrl+right
   Windows. Plain Windows-key taps retain their normal behavior.
+
+Version 1.04
+------------
+
+- Added a thumbnail preview across the top of the slideshow Keywords window.
+- The current gallery's first direct image is preferred, with the parent
+  folder.jpg used as fallback.
+- The overlay reuses the manager's generated JPEG thumbnail cache for formats
+  that the HTA cannot display directly.
+- Thumbnail height is included in cursor placement and constrained scrolling,
+  preserving the content-fitted window height.
+
+Version 1.05
+------------
+
+- Win+O opens the running parent folder from managed IrfanView/VLC, or all
+  selected parent-gallery folders from the manager.
+- Ctrl+C immediately copies the current IrfanView image to the clipboard and
+  shows a tray notification confirming success or failure.
+- Shift+Tab opens the previously visited gallery in normal and random modes.
+  It no longer means previous-parent navigation.
+- The slideshow Keywords window shows only the current parent's folder.jpg at
+  its top. If folder.jpg is absent, no preview area is displayed.

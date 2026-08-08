@@ -44,6 +44,17 @@ html, body {
     background: #1c2128;
     box-shadow: 0 12px 28px rgba(0,0,0,0.52);
 }
+#thumbnailPreview {
+    display: none;
+    width: 100%;
+    height: 132px;
+    overflow: hidden;
+    border-bottom: 1px solid #313844;
+    background-color: #15191f;
+    background-position: center top;
+    background-repeat: no-repeat;
+    background-size: cover;
+}
 #windowHeader {
     position: relative;
     min-height: 47px;
@@ -189,6 +200,7 @@ var state = {
     root: "",
     parentPath: "",
     parentName: "",
+    previewPath: "",
     screenX: 0,
     screenY: 0,
     workLeft: 0,
@@ -219,6 +231,35 @@ function normalizePath(path) {
     }
 
     return result.replace(/[\\\/]+$/, "");
+}
+
+function fileUrl(path) {
+    var url = normalizePath(path).replace(/\\/g, "/");
+    var encoded = encodeURI("file:///" + url);
+
+    return encoded.replace(/#/g, "%23").replace(/\?/g, "%3F");
+}
+
+function resolvePreviewPath() {
+    var parentCover = state.parentPath + "\\folder.jpg";
+    return fso.FileExists(parentCover) ? parentCover : "";
+}
+
+function renderThumbnailPreview() {
+    var preview = document.getElementById("thumbnailPreview");
+    state.previewPath = resolvePreviewPath();
+
+    if (!state.previewPath) {
+        preview.style.display = "none";
+        preview.style.backgroundImage = "none";
+        return false;
+    }
+
+    preview.style.backgroundImage = 'url("'
+        + fileUrl(state.previewPath).replace(/"/g, "%22")
+        + '")';
+    preview.style.display = "block";
+    return true;
 }
 
 function lower(text) {
@@ -828,6 +869,7 @@ function fitAndPlaceWindow() {
 
     if (naturalHeight > maximumClientHeight) {
         var fixedHeight = document.getElementById("windowHeader").offsetHeight
+            + document.getElementById("thumbnailPreview").offsetHeight
             + document.getElementById("ratingRow").offsetHeight
             + document.getElementById("saveStatus").offsetHeight
             + 2;
@@ -928,6 +970,7 @@ function initialize() {
         document.getElementById("parentName").innerText = state.parentName;
         document.getElementById("ratingStars").innerText = new Array(state.rating + 1).join("★");
         document.getElementById("ratingCount").innerText = String(state.rating);
+        renderThumbnailPreview();
         renderKeywords();
     }
 
@@ -975,6 +1018,7 @@ function initialize() {
 </head>
 <body onload="initialize();">
 <div id="windowSurface">
+    <div id="thumbnailPreview" role="img" aria-label="Current gallery thumbnail"></div>
     <div id="windowHeader">
         <div id="headerLabel">KEYWORDS</div>
         <div id="parentName"></div>
